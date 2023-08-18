@@ -1,0 +1,185 @@
+#
+# Copyright SecureKey Technologies Inc. All Rights Reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+run:
+  concurrency: 4
+  deadline: 3m
+  issues-exit-code: 1
+  tests: true
+  build-tags: [""]
+  skip-dirs:
+    - pkg/crypto/primitive/bbs12381g2pub/internal/kilic/bls12-381
+
+output:
+  format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true
+
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+    ignore: fmt:.*,io/ioutil:^Read.*
+  govet:
+    check-shadowing: true
+    settings:
+      printf:
+        funcs:
+          - (github.com/hyperledger/aries-framework-go/pkg/common/log.Log).Debugf
+          - (github.com/hyperledger/aries-framework-go/pkg/common/log.Log).Infof
+          - (github.com/hyperledger/aries-framework-go/pkg/common/log.Log).Warnf
+          - (github.com/hyperledger/aries-framework-go/pkg/common/log.Log).Errorf
+          - (github.com/hyperledger/aries-framework-go/pkg/common/log.Log).Fatalf
+          - (github.com/hyperledger/aries-framework-go/pkg/common/log.Log).Panicf
+  golint:
+    min-confidence: 0.6
+  gofmt:
+    simplify: true
+  goimports:
+    local-prefixes: github.com/hyperledger/aries-framework-go
+  gocyclo:
+    min-complexity: 10
+  maligned:
+    suggest-new: true
+  dupl:
+    threshold: 500
+  goconst:
+    min-len: 3
+    min-occurrences: 3
+  misspell:
+    # default locale is a neutral variety of English.
+    locale:
+    ignore-words: []
+  lll:
+    line-length: 120
+    tab-width: 1
+  unused:
+    check-exported: false
+  unparam:
+    check-exported: false
+  nakedret:
+    max-func-lines: 0
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - performance
+      - style
+      - opinionated
+    disabled-checks:
+      - unnamedResult
+      - whyNoLint # TODO enable.
+  funlen:
+    lines: 60
+    statements: 40
+  wsl:
+    strict-append: true
+    allow-assign-and-call: true
+    allow-multiline-assign: true
+    allow-case-traling-whitespace: true
+    allow-cuddle-declarations: false
+  godot:
+    check-all: false
+  gomoddirectives:
+    replace-local: true
+
+linters:
+  enable-all: true
+  disable:
+    - nolintlint
+    - varnamelen
+    - tenv
+    - tagliatelle
+    - testpackage
+    - maligned
+    - prealloc
+    - exhaustive #TODO enable
+    - goerr113 # TODO enable
+    - nlreturn # TODO enable
+    - noctx # TODO enable
+    - interfacer # deprecated by the author https://github.com/mvdan/interfacer#interfacer
+    - scopelint # deprecated by the author https://github.com/kyoh86/scopelint#obsoleted
+    - exhaustivestruct
+    - paralleltest
+    - tparallel
+    - cyclop # TODO consider replacing gocyclo with cyclop
+    - ifshort # TODO enable
+    - makezero # TODO enable
+    - wrapcheck # TODO enable
+    - thelper # TODO enable
+    - usestdlibvars
+    - testableexamples
+    - stylecheck
+    - nosnakecase
+    - gci
+    - staticcheck
+    - nonamedreturns
+    - nilnil
+    - ireturn
+    - gomnd
+    - gosimple
+    - errchkjson
+    - errname
+    - dupword
+    - interfacebloat
+    - forcetypeassert
+    - exhaustruct
+    - contextcheck
+    - containedctx
+    - bodyclose
+    - revive
+    - gosec
+    - gofumpt
+    - gofmt
+    - gocritic
+    - goimports
+    - gocognit
+    - forbidigo
+    - nosprintfhostport
+    - typecheck
+    - maintidx
+    - depguard
+    - musttag
+    - mirror
+    - errorlint
+    - nakedret
+
+issues:
+  exclude-use-default: false
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - dupl
+        - funlen
+        - gomnd
+        - maintidx
+        - gomnd
+        - usestdlibvars
+        - testableexamples
+        - stylecheck
+        - typecheck
+        - maintidx
+        - mirror
+    - path: example_[^\/]*_test\.go
+      linters:
+        - dupl
+        - funlen
+        - gomnd
+        - goconst
+        - lll
+    - source: "swagger:route"
+      linters:
+        - lll
+
+  exclude:
+    # Allow package logger variables (for now)
+    - logger is a global variable
+    # Add comments for package
+    - at least one file in a package should have a package comment
+    - Line contains TODO/BUG/FIXME
+    # Allow magic number 1
+    - Magic number[:] 1[^\d]
+    # Temporarily allow old protobuf reference
+    - package github.com/golang/protobuf/proto is deprecated
