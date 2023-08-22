@@ -19,6 +19,7 @@ import (
 
 	"github.com/trustbloc/kms-crypto-go/doc/jose/jwk"
 	"github.com/trustbloc/kms-crypto-go/doc/jose/jwk/jwksupport"
+
 	afjwt "github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/sdjwt/common"
 	"github.com/trustbloc/vc-go/sdjwt/issuer"
@@ -122,7 +123,7 @@ func ExampleCreatePresentation() {
 
 	// Holder will disclose only sub-set of claims to verifier and create holder binding for the verifier.
 	combinedFormatForPresentation, err := CreatePresentation(combinedFormatForIssuance, selectedDisclosures,
-		WithHolderBinding(&BindingInfo{
+		WithHolderVerification(&BindingInfo{
 			Payload: BindingPayload{
 				Nonce:    "nonce",
 				Audience: "https://test.com/verifier",
@@ -136,7 +137,7 @@ func ExampleCreatePresentation() {
 
 	cfp := common.ParseCombinedFormatForPresentation(combinedFormatForPresentation)
 
-	fmt.Println(cfp.HolderBinding != "")
+	fmt.Println(cfp.HolderVerification != "")
 
 	// Output: true
 }

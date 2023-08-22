@@ -73,9 +73,9 @@ func Test_DataIntegrity_SignVerify(t *testing.T) {
 		return makeMockDIDResolution(signingDID, vm, did.AssertionMethod), nil
 	})
 
-	signerSuite := ecdsa2019.NewSigner(&ecdsa2019.Options{
+	signerSuite := ecdsa2019.NewSignerInitializer(&ecdsa2019.SignerInitializerOptions{
 		KMS:              kms,
-		Crypto:           cr,
+		Signer:           cr,
 		LDDocumentLoader: docLoader,
 	})
 
@@ -93,9 +93,9 @@ func Test_DataIntegrity_SignVerify(t *testing.T) {
 		Challenge:    "mock-challenge",
 	}
 
-	verifySuite := ecdsa2019.NewVerifier(&ecdsa2019.Options{
+	verifySuite := ecdsa2019.NewVerifierInitializer(&ecdsa2019.VerifierInitializerOptions{
 		KMS:              kms,
-		Crypto:           cr,
+		Verifier:         cr,
 		LDDocumentLoader: docLoader,
 	})
 

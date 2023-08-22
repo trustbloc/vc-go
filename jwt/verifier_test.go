@@ -187,8 +187,8 @@ func TestGetVerifier(t *testing.T) {
 		{
 			name: "NewECDSASecp256k1SignatureVerifier_Verify_OK",
 			fields: fields{
-				credentialsPath: "../../../test/bdd/pkg/verifiable/testdata/interop_credential_4_secp256k1.jwt",
-				publicKeyPath:   "../../../test/bdd/pkg/verifiable/testdata/interop_key_secp256k1.jwk",
+				credentialsPath: "testdata/interop_credential_4_secp256k1.jwt",
+				publicKeyPath:   "testdata/interop_key_secp256k1.jwk",
 			},
 			args: args{
 				joseHeaders: jose.Headers{
@@ -202,8 +202,8 @@ func TestGetVerifier(t *testing.T) {
 		{
 			name: "NewECDSASecp256k1SignatureVerifier_Verify_Error_invalid_key",
 			fields: fields{
-				credentialsPath: "../../../test/bdd/pkg/verifiable/testdata/interop_credential_4_secp256k1.jwt",
-				publicKeyPath:   "../../../test/bdd/pkg/verifiable/testdata/interop_key_ed25519.jwk",
+				credentialsPath: "testdata/interop_credential_4_secp256k1.jwt",
+				publicKeyPath:   "testdata/interop_key_ed25519.jwk",
 			},
 			args: args{
 				joseHeaders: jose.Headers{
@@ -217,8 +217,8 @@ func TestGetVerifier(t *testing.T) {
 		{
 			name: "NewECDSAES256SignatureVerifier_Verify_OK",
 			fields: fields{
-				credentialsPath: "../../../test/bdd/pkg/verifiable/testdata/interop_credential_7_secp256r1.jwt",
-				publicKeyPath:   "../../../test/bdd/pkg/verifiable/testdata/interop_key_secp256r1.jwk",
+				credentialsPath: "testdata/interop_credential_7_secp256r1.jwt",
+				publicKeyPath:   "testdata/interop_key_secp256r1.jwk",
 			},
 			args: args{
 				joseHeaders: jose.Headers{
@@ -232,8 +232,8 @@ func TestGetVerifier(t *testing.T) {
 		{
 			name: "NewECDSAES256SignatureVerifier_Verify_OK",
 			fields: fields{
-				credentialsPath: "../../../test/bdd/pkg/verifiable/testdata/interop_credential_10_secp384r1.jwt",
-				publicKeyPath:   "../../../test/bdd/pkg/verifiable/testdata/interop_key_secp384r1.jwk",
+				credentialsPath: "testdata/interop_credential_10_secp384r1.jwt",
+				publicKeyPath:   "testdata/interop_key_secp384r1.jwk",
 			},
 			args: args{
 				joseHeaders: jose.Headers{
@@ -247,8 +247,8 @@ func TestGetVerifier(t *testing.T) {
 		{
 			name: "NewECDSAES256SignatureVerifier_Verify_Error_alg_is_missing",
 			fields: fields{
-				credentialsPath: "../../../test/bdd/pkg/verifiable/testdata/interop_credential_10_secp384r1.jwt",
-				publicKeyPath:   "../../../test/bdd/pkg/verifiable/testdata/interop_key_secp384r1.jwk",
+				credentialsPath: "testdata/interop_credential_10_secp384r1.jwt",
+				publicKeyPath:   "testdata/interop_key_secp384r1.jwk",
 			},
 			args: args{
 				joseHeaders: jose.Headers{
@@ -261,8 +261,8 @@ func TestGetVerifier(t *testing.T) {
 		{
 			name: "NewECDSAES256SignatureVerifier_Verify_Error_Invalid_alg_in_header",
 			fields: fields{
-				credentialsPath: "../../../test/bdd/pkg/verifiable/testdata/interop_credential_10_secp384r1.jwt",
-				publicKeyPath:   "../../../test/bdd/pkg/verifiable/testdata/interop_key_secp384r1.jwk",
+				credentialsPath: "testdata/interop_credential_10_secp384r1.jwt",
+				publicKeyPath:   "testdata/interop_key_secp384r1.jwk",
 			},
 			args: args{
 				joseHeaders: jose.Headers{
