@@ -17,6 +17,7 @@ import (
 
 	"github.com/trustbloc/kms-crypto-go/doc/jose/jwk"
 	"github.com/trustbloc/kms-crypto-go/doc/jose/jwk/jwksupport"
+
 	afjwt "github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/sdjwt/holder"
 	"github.com/trustbloc/vc-go/sdjwt/issuer"
@@ -134,7 +135,7 @@ func ExampleComplexClaimsWithHolderBinding() { //nolint:govet
 
 	// Holder will disclose only sub-set of claims to verifier.
 	combinedFormatForPresentation, err := holder.CreatePresentation(combinedFormatForIssuance, selectedDisclosures,
-		holder.WithHolderBinding(&holder.BindingInfo{
+		holder.WithHolderVerification(&holder.BindingInfo{
 			Payload: holder.BindingPayload{
 				Nonce:    "nonce",
 				Audience: "https://test.com/verifier",

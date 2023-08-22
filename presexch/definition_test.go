@@ -2309,7 +2309,11 @@ func getTestVC() *verifiable.Credential {
 	return getTestVCWithContext(nil)
 }
 
-func newSdJwtVC(t *testing.T, vc *verifiable.Credential, signer sigutil.Signer) *verifiable.Credential {
+func newSdJwtVC(
+	t *testing.T,
+	vc *verifiable.Credential,
+	signer sigutil.Signer,
+) *verifiable.Credential {
 	t.Helper()
 
 	pubKey := signer.PublicKeyBytes()
@@ -2324,7 +2328,8 @@ func newSdJwtVC(t *testing.T, vc *verifiable.Credential, signer sigutil.Signer) 
 	algName, err := jwsAlgo.Name()
 	require.NoError(t, err)
 
-	combinedFormatForIssuance, err := vc.MakeSDJWT(verifiable.GetJWTSigner(signer, algName), verMethod)
+	combinedFormatForIssuance, err := vc.MakeSDJWT(
+		verifiable.GetJWTSigner(signer, algName), verMethod)
 	require.NoError(t, err)
 
 	parsed, err := verifiable.ParseCredential([]byte(combinedFormatForIssuance),
