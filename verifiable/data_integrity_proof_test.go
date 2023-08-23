@@ -28,7 +28,8 @@ func Test_DataIntegrity_SignVerify(t *testing.T) {
 {
   "@context": [
     "https://www.w3.org/2018/credentials/v1",
-    "https://www.w3.org/2018/credentials/examples/v1"
+    "https://www.w3.org/2018/credentials/examples/v1",
+	"https://w3id.org/security/data-integrity/v1"
   ],
   "id": "https://example.com/credentials/1872",
   "type": [
@@ -66,7 +67,7 @@ func Test_DataIntegrity_SignVerify(t *testing.T) {
 
 	const vmID = "#key-1"
 
-	vm, err := did.NewVerificationMethodFromJWK(vmID, "JsonWebKey2020", signingDID, key)
+	vm, err := did.NewVerificationMethodFromJWK(signingDID+vmID, "JsonWebKey2020", signingDID, key)
 	require.NoError(t, err)
 
 	resolver := resolveFunc(func(id string) (*did.DocResolution, error) {
@@ -94,7 +95,6 @@ func Test_DataIntegrity_SignVerify(t *testing.T) {
 	}
 
 	verifySuite := ecdsa2019.NewVerifierInitializer(&ecdsa2019.VerifierInitializerOptions{
-		KMS:              kms,
 		Verifier:         cr,
 		LDDocumentLoader: docLoader,
 	})
@@ -105,7 +105,7 @@ func Test_DataIntegrity_SignVerify(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("credential", func(t *testing.T) {
-		vc, e := parseTestCredential(t, []byte(vcJSON), WithDisabledProofCheck())
+		vc, e := parseTestCredential(t, []byte(vcJSON), WithDisabledProofCheck(), WithStrictValidation())
 		require.NoError(t, e)
 
 		e = vc.AddDataIntegrityProof(signContext, signer)
@@ -114,7 +114,7 @@ func Test_DataIntegrity_SignVerify(t *testing.T) {
 		vcBytes, e := vc.MarshalJSON()
 		require.NoError(t, e)
 
-		_, e = parseTestCredential(t, vcBytes, WithDataIntegrityVerifier(verifier))
+		_, e = parseTestCredential(t, vcBytes, WithDataIntegrityVerifier(verifier), WithStrictValidation())
 		require.NoError(t, e)
 
 		t.Run("fail if not provided verifier", func(t *testing.T) {

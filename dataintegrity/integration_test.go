@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"github.com/tidwall/sjson"
 
 	"github.com/trustbloc/kms-crypto-go/crypto/tinkcrypto"
 	"github.com/trustbloc/kms-crypto-go/doc/util/jwkkid"
@@ -44,25 +45,32 @@ const (
 func TestIntegration(t *testing.T) {
 	suiteOpts := suiteOptions(t)
 
+	storeProv := mockstorage.NewMockStoreProvider()
+
+	kmsProv, err := mockkms.NewProviderForKMS(storeProv, &noop.NoLock{})
+	require.NoError(t, err)
+
+	kms, err := localkms.New("local-lock://custom/master/key/", kmsProv)
+	require.NoError(t, err)
+
 	signerInit := ecdsa2019.NewSignerInitializer(&ecdsa2019.SignerInitializerOptions{
 		LDDocumentLoader: suiteOpts.LDDocumentLoader,
 		Signer:           suiteOpts.Signer,
-		KMS:              suiteOpts.KMS,
+		KMS:              kms,
 	})
 
 	verifierInit := ecdsa2019.NewVerifierInitializer(&ecdsa2019.VerifierInitializerOptions{
 		LDDocumentLoader: suiteOpts.LDDocumentLoader,
 		Verifier:         suiteOpts.Verifier,
-		KMS:              suiteOpts.KMS,
 	})
 
-	_, p256Bytes, err := suiteOpts.KMS.CreateAndExportPubKeyBytes(kmsapi.ECDSAP256IEEEP1363)
+	_, p256Bytes, err := kms.CreateAndExportPubKeyBytes(kmsapi.ECDSAP256IEEEP1363)
 	require.NoError(t, err)
 
 	p256JWK, err := jwkkid.BuildJWK(p256Bytes, kmsapi.ECDSAP256IEEEP1363)
 	require.NoError(t, err)
 
-	_, p384Bytes, err := suiteOpts.KMS.CreateAndExportPubKeyBytes(kmsapi.ECDSAP384IEEEP1363)
+	_, p384Bytes, err := kms.CreateAndExportPubKeyBytes(kmsapi.ECDSAP384IEEEP1363)
 	require.NoError(t, err)
 
 	p384JWK, err := jwkkid.BuildJWK(p384Bytes, kmsapi.ECDSAP384IEEEP1363)
@@ -180,6 +188,38 @@ func TestIntegration(t *testing.T) {
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "failed to verify ecdsa-2019 DI proof")
 		})
+		t.Run("malformed proof created", func(t *testing.T) {
+			signOpts := &models.ProofOptions{
+				VerificationMethod:       p256VM,
+				VerificationMethodID:     p256VM.ID,
+				SuiteType:                ecdsa2019.SuiteType,
+				Purpose:                  "assertionMethod",
+				VerificationRelationship: "assertionMethod",
+				ProofType:                models.DataIntegrityProof,
+				Created:                  time.Now(),
+			}
+
+			verifyOpts := &models.ProofOptions{
+				VerificationMethod:       p384VM,
+				VerificationMethodID:     p384VM.ID,
+				SuiteType:                ecdsa2019.SuiteType,
+				Purpose:                  "assertionMethod",
+				VerificationRelationship: "assertionMethod",
+				ProofType:                models.DataIntegrityProof,
+				MaxAge:                   100,
+				Created:                  time.Time{},
+			}
+
+			signedCred, err := signer.AddProof(validCredential, signOpts)
+			require.NoError(t, err)
+
+			signedCredStr, err := sjson.Set(string(signedCred), "proof.created", "malformed")
+			require.NoError(t, err)
+
+			err = verifier.VerifyProof([]byte(signedCredStr), verifyOpts)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "malformed data integrity proof")
+		})
 	})
 }
 
@@ -189,14 +229,6 @@ func suiteOptions(t *testing.T) *ecdsa2019.Options {
 	docLoader, err := documentloader.NewDocumentLoader(createMockProvider())
 	require.NoError(t, err)
 
-	storeProv := mockstorage.NewMockStoreProvider()
-
-	kmsProv, err := mockkms.NewProviderForKMS(storeProv, &noop.NoLock{})
-	require.NoError(t, err)
-
-	kms, err := localkms.New("local-lock://custom/master/key/", kmsProv)
-	require.NoError(t, err)
-
 	cr, err := tinkcrypto.New()
 	require.NoError(t, err)
 
@@ -204,7 +236,6 @@ func suiteOptions(t *testing.T) *ecdsa2019.Options {
 		LDDocumentLoader: docLoader,
 		Signer:           cr,
 		Verifier:         cr,
-		KMS:              kms,
 	}
 }
 
