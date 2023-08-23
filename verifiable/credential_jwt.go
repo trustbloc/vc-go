@@ -13,7 +13,7 @@ import (
 
 	josejwt "github.com/go-jose/go-jose/v3/jwt"
 
-	"github.com/trustbloc/kms-crypto-go/doc/jose"
+	"github.com/trustbloc/kms-go/doc/jose"
 
 	"github.com/trustbloc/vc-go/jwt"
 	jsonutil "github.com/trustbloc/vc-go/util/json"

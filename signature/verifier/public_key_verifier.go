@@ -22,8 +22,8 @@ import (
 	"github.com/btcsuite/btcd/btcec"
 	gojose "github.com/go-jose/go-jose/v3"
 
-	"github.com/trustbloc/kms-crypto-go/crypto/primitive/bbs12381g2pub"
-	"github.com/trustbloc/kms-crypto-go/doc/jose/jwk"
+	"github.com/trustbloc/kms-go/crypto/primitive/bbs12381g2pub"
+	"github.com/trustbloc/kms-go/doc/jose/jwk"
 )
 
 // PublicKeyVerifier makes signature verification using the public key

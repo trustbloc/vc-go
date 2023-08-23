@@ -9,7 +9,7 @@ package vmparse
 import (
 	"fmt"
 
-	"github.com/trustbloc/kms-crypto-go/spi/kms"
+	"github.com/trustbloc/kms-go/spi/kms"
 
 	"github.com/trustbloc/vc-go/did"
 )

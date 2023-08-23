@@ -18,7 +18,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/trustbloc/kms-crypto-go/doc/jose"
+	"github.com/trustbloc/kms-go/doc/jose"
 
 	afjwt "github.com/trustbloc/vc-go/jwt"
 	utils "github.com/trustbloc/vc-go/util/maphelpers"

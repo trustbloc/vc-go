@@ -25,7 +25,7 @@ import (
 
 	"github.com/trustbloc/vc-go/jwt/didsignjwt"
 
-	kmsapi "github.com/trustbloc/kms-crypto-go/spi/kms"
+	kmsapi "github.com/trustbloc/kms-go/spi/kms"
 
 	vdrapi "github.com/trustbloc/vc-go/spi/vdr"
 

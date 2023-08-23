@@ -12,9 +12,9 @@ import (
 	"crypto/rsa"
 	"errors"
 
-	"github.com/trustbloc/kms-crypto-go/doc/jose/jwk"
-	cryptoapi "github.com/trustbloc/kms-crypto-go/spi/crypto"
-	kmsapi "github.com/trustbloc/kms-crypto-go/spi/kms"
+	"github.com/trustbloc/kms-go/doc/jose/jwk"
+	cryptoapi "github.com/trustbloc/kms-go/spi/crypto"
+	kmsapi "github.com/trustbloc/kms-go/spi/kms"
 
 	"github.com/trustbloc/vc-go/signature/util/internal/signer"
 )

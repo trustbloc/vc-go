@@ -19,12 +19,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	"github.com/trustbloc/kms-crypto-go/crypto/primitive/bbs12381g2pub"
-	"github.com/trustbloc/kms-crypto-go/crypto/tinkcrypto"
-	"github.com/trustbloc/kms-crypto-go/doc/jose/jwk"
-	"github.com/trustbloc/kms-crypto-go/doc/jose/jwk/jwksupport"
-	"github.com/trustbloc/kms-crypto-go/kms/localkms"
-	"github.com/trustbloc/kms-crypto-go/spi/kms"
+	"github.com/trustbloc/kms-go/crypto/primitive/bbs12381g2pub"
+	"github.com/trustbloc/kms-go/crypto/tinkcrypto"
+	"github.com/trustbloc/kms-go/doc/jose/jwk"
+	"github.com/trustbloc/kms-go/doc/jose/jwk/jwksupport"
+	"github.com/trustbloc/kms-go/kms/localkms"
+	"github.com/trustbloc/kms-go/spi/kms"
 
 	ldcontext "github.com/trustbloc/vc-go/ld/context"
 	jsonldsig "github.com/trustbloc/vc-go/ld/processor"

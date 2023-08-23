@@ -12,9 +12,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/trustbloc/kms-crypto-go/crypto/tinkcrypto"
-	"github.com/trustbloc/kms-crypto-go/doc/util/jwkkid"
-	kmsapi "github.com/trustbloc/kms-crypto-go/spi/kms"
+	"github.com/trustbloc/kms-go/crypto/tinkcrypto"
+	"github.com/trustbloc/kms-go/doc/util/jwkkid"
+	kmsapi "github.com/trustbloc/kms-go/spi/kms"
 
 	vdrspi "github.com/trustbloc/vc-go/spi/vdr"
 

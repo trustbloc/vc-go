@@ -16,8 +16,8 @@ import (
 
 	"github.com/btcsuite/btcd/btcec"
 
-	cryptoapi "github.com/trustbloc/kms-crypto-go/spi/crypto"
-	kmsapi "github.com/trustbloc/kms-crypto-go/spi/kms"
+	cryptoapi "github.com/trustbloc/kms-go/spi/crypto"
+	kmsapi "github.com/trustbloc/kms-go/spi/kms"
 )
 
 // CryptoSigner defines signer based on crypto.

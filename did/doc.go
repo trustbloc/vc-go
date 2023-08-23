@@ -22,7 +22,7 @@ import (
 	"github.com/xeipuuv/gojsonschema"
 
 	"github.com/hyperledger/aries-framework-go/component/log"
-	"github.com/trustbloc/kms-crypto-go/doc/jose/jwk"
+	"github.com/trustbloc/kms-go/doc/jose/jwk"
 	"github.com/trustbloc/vc-go/did/endpoint"
 	"github.com/trustbloc/vc-go/ld/processor"
 	sigproof "github.com/trustbloc/vc-go/ld/proof"

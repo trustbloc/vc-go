@@ -15,9 +15,9 @@ import (
 	gojose "github.com/go-jose/go-jose/v3"
 	"github.com/stretchr/testify/require"
 
-	"github.com/trustbloc/kms-crypto-go/crypto/tinkcrypto"
-	"github.com/trustbloc/kms-crypto-go/doc/jose/jwk"
-	kmsapi "github.com/trustbloc/kms-crypto-go/spi/kms"
+	"github.com/trustbloc/kms-go/crypto/tinkcrypto"
+	"github.com/trustbloc/kms-go/doc/jose/jwk"
+	kmsapi "github.com/trustbloc/kms-go/spi/kms"
 
 	signature "github.com/trustbloc/vc-go/signature/util"
 	sigverifier "github.com/trustbloc/vc-go/signature/verifier"

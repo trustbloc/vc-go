@@ -17,8 +17,8 @@ import (
 	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
 
-	"github.com/trustbloc/kms-crypto-go/crypto/primitive/bbs12381g2pub"
-	"github.com/trustbloc/kms-crypto-go/spi/kms"
+	"github.com/trustbloc/kms-go/crypto/primitive/bbs12381g2pub"
+	"github.com/trustbloc/kms-go/spi/kms"
 
 	ldprocessor "github.com/trustbloc/vc-go/ld/processor"
 	ldtestutil "github.com/trustbloc/vc-go/ld/testutil"

@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package suite
 
 import (
-	"github.com/trustbloc/kms-crypto-go/spi/crypto"
+	"github.com/trustbloc/kms-go/spi/crypto"
 
 	"github.com/trustbloc/vc-go/signature/api"
 )

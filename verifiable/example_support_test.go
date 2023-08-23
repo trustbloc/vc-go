@@ -11,7 +11,7 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/trustbloc/kms-crypto-go/crypto/primitive/bbs12381g2pub"
+	"github.com/trustbloc/kms-go/crypto/primitive/bbs12381g2pub"
 
 	lddocloader "github.com/trustbloc/vc-go/ld/documentloader"
 	ldtestutil "github.com/trustbloc/vc-go/ld/testutil"

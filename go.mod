@@ -26,7 +26,7 @@ require (
 	github.com/tidwall/gjson v1.14.3
 	github.com/tidwall/sjson v1.1.4
 	github.com/trustbloc/did-go v0.0.0-20230822092335-dddc0073f25a
-	github.com/trustbloc/kms-crypto-go v0.0.0-20230823134047-123497e03a99
+	github.com/trustbloc/kms-go v0.0.0-20230823163616-c9310a484f40
 	github.com/xeipuuv/gojsonschema v1.2.0
 	golang.org/x/crypto v0.1.0
 	golang.org/x/exp v0.0.0-20230817173708-d852ddb80c63

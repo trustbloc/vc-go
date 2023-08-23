@@ -19,7 +19,7 @@ import (
 	"github.com/go-jose/go-jose/v3/jwt"
 	"github.com/mitchellh/mapstructure"
 
-	"github.com/trustbloc/kms-crypto-go/doc/jose"
+	"github.com/trustbloc/kms-go/doc/jose"
 
 	afgjwt "github.com/trustbloc/vc-go/jwt"
 	utils "github.com/trustbloc/vc-go/util/maphelpers"
@@ -352,7 +352,7 @@ func getDisclosureClaim(disclosure string, hash crypto.Hash) (*DisclosureClaim, 
 	}
 
 	switch len(disclosureArr) {
-	case disclosureElementsAmountForArrayDigest: //array element
+	case disclosureElementsAmountForArrayDigest: // array element
 		enrichWithArrayElement(claim, disclosureArr)
 	case disclosureElementsAmountForSDDigest:
 		if err = enrichWithSDElement(claim, disclosureArr); err != nil {

@@ -16,7 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	spi "github.com/trustbloc/kms-crypto-go/spi/storage"
+	spi "github.com/trustbloc/kms-go/spi/storage"
 )
 
 // TestOption is an option for test behaviour.
