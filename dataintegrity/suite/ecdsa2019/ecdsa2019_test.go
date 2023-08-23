@@ -66,7 +66,6 @@ func TestNew(t *testing.T) {
 		verInit := NewVerifierInitializer(&VerifierInitializerOptions{
 			LDDocumentLoader: docLoader,
 			Verifier:         cryp,
-			KMS:              kms,
 		})
 
 		verifier, err := verInit.Verifier()
@@ -168,7 +167,6 @@ func testVerify(t *testing.T, tc *testCase) {
 	verInit := NewVerifierInitializer(&VerifierInitializerOptions{
 		LDDocumentLoader: tc.docLoader,
 		Verifier:         tc.crypto,
-		KMS:              tc.kms,
 	})
 
 	verifier, err := verInit.Verifier()
@@ -282,17 +280,6 @@ func TestSuite_VerifyProof(t *testing.T) {
 
 			tc.proofOpts.VerificationMethod = vm
 			tc.errStr = "getting verification key bytes"
-
-			testVerify(t, tc)
-		})
-
-		t.Run("get kms key handle", func(t *testing.T) {
-			tc := successCase(t)
-
-			errExpected := errors.New("expected error")
-
-			tc.kms.PubKeyBytesToHandleErr = errExpected
-			tc.errIs = errExpected
 
 			testVerify(t, tc)
 		})
