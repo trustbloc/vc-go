@@ -25,7 +25,7 @@ import (
 	"github.com/trustbloc/vc-go/presexch/internal/requirementlogic"
 
 	"github.com/hyperledger/aries-framework-go/component/log"
-	"github.com/trustbloc/kms-crypto-go/doc/jose"
+	"github.com/trustbloc/kms-go/doc/jose"
 	"github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/sdjwt/common"
 	"github.com/trustbloc/vc-go/verifiable"

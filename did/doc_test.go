@@ -23,7 +23,7 @@ import (
 	gojose "github.com/go-jose/go-jose/v3"
 	"github.com/stretchr/testify/require"
 
-	"github.com/trustbloc/kms-crypto-go/doc/jose/jwk"
+	"github.com/trustbloc/kms-go/doc/jose/jwk"
 	"github.com/trustbloc/vc-go/did/endpoint"
 	"github.com/trustbloc/vc-go/ld/testutil"
 	"github.com/trustbloc/vc-go/signature/signer"

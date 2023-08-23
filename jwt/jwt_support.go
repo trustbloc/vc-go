@@ -14,7 +14,7 @@ import (
 	"crypto/rsa"
 	"errors"
 
-	"github.com/trustbloc/kms-crypto-go/doc/jose"
+	"github.com/trustbloc/kms-go/doc/jose"
 )
 
 // JoseED25519Signer is a Jose compliant signer.

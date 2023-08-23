@@ -12,7 +12,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/trustbloc/kms-crypto-go/spi/kms"
+	"github.com/trustbloc/kms-go/spi/kms"
 
 	jsonld "github.com/trustbloc/vc-go/ld/processor"
 	"github.com/trustbloc/vc-go/signature/suite"

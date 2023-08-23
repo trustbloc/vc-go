@@ -30,7 +30,7 @@ import (
 	jsonld "github.com/piprate/json-gold/ld"
 
 	"github.com/hyperledger/aries-framework-go/component/log"
-	"github.com/trustbloc/kms-crypto-go/spi/kms"
+	"github.com/trustbloc/kms-go/spi/kms"
 
 	"github.com/trustbloc/vc-go/legacy/mem"
 

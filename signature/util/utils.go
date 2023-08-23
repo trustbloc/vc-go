@@ -12,7 +12,7 @@ import (
 
 	"github.com/btcsuite/btcd/btcec"
 
-	kmsapi "github.com/trustbloc/kms-crypto-go/spi/kms"
+	kmsapi "github.com/trustbloc/kms-go/spi/kms"
 )
 
 // MapECCurveToKeyType makes a mapping of Elliptic Curve to KeyType of kms.

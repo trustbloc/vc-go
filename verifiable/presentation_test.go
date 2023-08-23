@@ -13,7 +13,7 @@ import (
 	jsonld "github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
 
-	"github.com/trustbloc/kms-crypto-go/spi/kms"
+	"github.com/trustbloc/kms-go/spi/kms"
 
 	ldcontext "github.com/trustbloc/vc-go/ld/context"
 	ldprocessor "github.com/trustbloc/vc-go/ld/processor"

@@ -9,7 +9,7 @@ package mock
 import (
 	"github.com/google/uuid"
 
-	"github.com/trustbloc/kms-crypto-go/spi/storage"
+	"github.com/trustbloc/kms-go/spi/storage"
 
 	"github.com/trustbloc/vc-go/ld/store"
 	mockstorage "github.com/trustbloc/vc-go/legacy/mock/storage"

@@ -18,8 +18,8 @@ import (
 
 	"github.com/multiformats/go-multibase"
 	"github.com/piprate/json-gold/ld"
-	"github.com/trustbloc/kms-crypto-go/doc/jose/jwk"
-	"github.com/trustbloc/kms-crypto-go/kms/localkms"
+	"github.com/trustbloc/kms-go/doc/jose/jwk"
+	"github.com/trustbloc/kms-go/kms/localkms"
 
 	"github.com/trustbloc/vc-go/dataintegrity/models"
 	"github.com/trustbloc/vc-go/dataintegrity/suite"

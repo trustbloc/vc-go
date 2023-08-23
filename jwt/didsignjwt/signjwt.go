@@ -11,9 +11,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/trustbloc/kms-crypto-go/doc/jose"
-	"github.com/trustbloc/kms-crypto-go/doc/util/jwkkid"
-	"github.com/trustbloc/kms-crypto-go/doc/util/kmssigner"
+	"github.com/trustbloc/kms-go/doc/jose"
+	"github.com/trustbloc/kms-go/doc/util/jwkkid"
+	"github.com/trustbloc/kms-go/doc/util/kmssigner"
 
 	"github.com/trustbloc/vc-go/did"
 	"github.com/trustbloc/vc-go/did/util/vmparse"

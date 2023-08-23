@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package mock
 
 import (
-	spi "github.com/trustbloc/kms-crypto-go/spi/storage"
+	spi "github.com/trustbloc/kms-go/spi/storage"
 )
 
 // Provider is a mocked implementation of spi.Provider.

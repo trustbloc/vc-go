@@ -11,7 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/trustbloc/kms-crypto-go/doc/jose"
+	"github.com/trustbloc/kms-go/doc/jose"
 
 	"github.com/trustbloc/vc-go/sdjwt/common"
 	"github.com/trustbloc/vc-go/sdjwt/holder"

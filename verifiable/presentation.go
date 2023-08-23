@@ -15,7 +15,7 @@ import (
 
 	"github.com/trustbloc/vc-go/dataintegrity"
 
-	"github.com/trustbloc/kms-crypto-go/doc/jose"
+	"github.com/trustbloc/kms-go/doc/jose"
 	"github.com/trustbloc/vc-go/jwt"
 	docjsonld "github.com/trustbloc/vc-go/ld/validator"
 	"github.com/trustbloc/vc-go/signature/verifier"

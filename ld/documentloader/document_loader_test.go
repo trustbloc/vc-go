@@ -15,7 +15,7 @@ import (
 	jsonld "github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
 
-	"github.com/trustbloc/kms-crypto-go/spi/storage"
+	"github.com/trustbloc/kms-go/spi/storage"
 
 	ldcontext "github.com/trustbloc/vc-go/ld/context"
 	"github.com/trustbloc/vc-go/ld/context/embed"

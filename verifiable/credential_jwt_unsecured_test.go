@@ -12,7 +12,7 @@ import (
 	"github.com/go-jose/go-jose/v3/jwt"
 	"github.com/stretchr/testify/require"
 
-	"github.com/trustbloc/kms-crypto-go/doc/jose"
+	"github.com/trustbloc/kms-go/doc/jose"
 )
 
 func TestCredentialJWTClaimsMarshallingToUnsecuredJWT(t *testing.T) {

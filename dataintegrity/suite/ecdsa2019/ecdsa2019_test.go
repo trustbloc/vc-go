@@ -18,10 +18,10 @@ import (
 	"github.com/multiformats/go-multibase"
 	"github.com/stretchr/testify/require"
 
-	"github.com/trustbloc/kms-crypto-go/doc/jose/jwk"
-	"github.com/trustbloc/kms-crypto-go/doc/jose/jwk/jwksupport"
-	mockcrypto "github.com/trustbloc/kms-crypto-go/mock/crypto"
-	mockkms "github.com/trustbloc/kms-crypto-go/mock/kms"
+	"github.com/trustbloc/kms-go/doc/jose/jwk"
+	"github.com/trustbloc/kms-go/doc/jose/jwk/jwksupport"
+	mockcrypto "github.com/trustbloc/kms-go/mock/crypto"
+	mockkms "github.com/trustbloc/kms-go/mock/kms"
 
 	"github.com/trustbloc/vc-go/dataintegrity/models"
 	"github.com/trustbloc/vc-go/dataintegrity/suite"

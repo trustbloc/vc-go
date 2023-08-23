@@ -17,7 +17,7 @@ import (
 	"github.com/go-jose/go-jose/v3/jwt"
 	"github.com/stretchr/testify/require"
 
-	afjose "github.com/trustbloc/kms-crypto-go/doc/jose"
+	afjose "github.com/trustbloc/kms-go/doc/jose"
 
 	afjwt "github.com/trustbloc/vc-go/jwt"
 )

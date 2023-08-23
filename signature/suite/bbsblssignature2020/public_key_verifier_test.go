@@ -12,7 +12,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/trustbloc/kms-crypto-go/doc/jose/jwk"
+	"github.com/trustbloc/kms-go/doc/jose/jwk"
 	sigverifier "github.com/trustbloc/vc-go/signature/verifier"
 )
 
