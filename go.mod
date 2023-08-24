@@ -4,7 +4,7 @@
 
 module github.com/trustbloc/vc-go
 
-go 1.20
+go 1.21
 
 require (
 	github.com/PaesslerAG/gval v1.1.0
@@ -16,7 +16,7 @@ require (
 	github.com/go-jose/go-jose/v3 v3.0.1-0.20221117193127-916db76e8214
 	github.com/google/tink/go v1.7.0
 	github.com/google/uuid v1.3.0
-	github.com/hyperledger/aries-framework-go/component/log v0.0.0-20230427134832-0c9969493bd3
+	github.com/hyperledger/aries-framework-go/component/log v0.0.0-20230615141038-5d444d6c36de
 	github.com/kawamuray/jsonpath v0.0.0-20201211160320-7483bafabd7e
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/multiformats/go-multibase v0.1.1
@@ -25,8 +25,8 @@ require (
 	github.com/stretchr/testify v1.8.1
 	github.com/tidwall/gjson v1.14.3
 	github.com/tidwall/sjson v1.1.4
-	github.com/trustbloc/did-go v0.0.0-20230822092335-dddc0073f25a
-	github.com/trustbloc/kms-go v0.0.0-20230823163616-c9310a484f40
+	github.com/trustbloc/did-go v0.0.0-20230824183959-e9f47dff3948
+	github.com/trustbloc/kms-go v0.0.0-20230824183646-318214f7c333
 	github.com/xeipuuv/gojsonschema v1.2.0
 	golang.org/x/crypto v0.1.0
 	golang.org/x/exp v0.0.0-20230817173708-d852ddb80c63
