@@ -91,6 +91,12 @@ func TestInstance_GetSubmissionRequirements(t *testing.T) {
 		require.Len(t, requirements, 1)
 
 		require.Len(t, requirements[0].Descriptors, 3)
+		require.NotNil(t, requirements[0].Descriptors[0].Constraints)
+		require.NotNil(t, requirements[0].Descriptors[1].Constraints)
+		require.NotNil(t, requirements[0].Descriptors[2].Constraints)
+		require.Nil(t, requirements[0].Descriptors[0].Schemas)
+		require.Nil(t, requirements[0].Descriptors[1].Schemas)
+		require.Nil(t, requirements[0].Descriptors[2].Schemas)
 
 		for _, desc := range requirements[0].Descriptors {
 			if desc.ID == driversLicenseVCType {
@@ -235,6 +241,9 @@ func TestInstance_GetSubmissionRequirements(t *testing.T) {
 		require.Len(t, matched, 1)
 		require.Equal(t, 1, len(matched[0].Descriptors))
 		require.Equal(t, 1, len(matched[0].Descriptors[0].MatchedVCs))
+		require.Equal(t, "https://www.w3.org/2018/credentials#VerifiableCredential",
+			matched[0].Descriptors[0].Schemas[0].URI)
+		require.False(t, matched[0].Descriptors[0].Schemas[0].Required)
 
 		matchedVC := matched[0].Descriptors[0].MatchedVCs[0]
 
