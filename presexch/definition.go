@@ -214,10 +214,12 @@ type MatchedSubmissionRequirement struct {
 
 // MatchedInputDescriptor contains information about VCs that matched an input descriptor of presentation definition.
 type MatchedInputDescriptor struct {
-	ID         string
-	Name       string
-	Purpose    string
-	MatchedVCs []*verifiable.Credential
+	ID          string
+	Name        string
+	Purpose     string
+	Constraints *Constraints
+	Schemas     []*Schema
+	MatchedVCs  []*verifiable.Credential
 }
 
 // matchRequirementsOpts holds options for the MatchSubmissionRequirement.
@@ -644,10 +646,12 @@ func (pd *PresentationDefinition) matchRequirement(req *requirement, creds []*ve
 		}
 
 		matchedReq.Descriptors = append(matchedReq.Descriptors, &MatchedInputDescriptor{
-			ID:         descriptor.ID,
-			Name:       descriptor.Name,
-			Purpose:    descriptor.Purpose,
-			MatchedVCs: matchedVCs,
+			ID:          descriptor.ID,
+			Name:        descriptor.Name,
+			Purpose:     descriptor.Purpose,
+			Constraints: descriptor.Constraints,
+			Schemas:     descriptor.Schema,
+			MatchedVCs:  matchedVCs,
 		})
 	}
 
