@@ -29,6 +29,7 @@ import (
 	"github.com/trustbloc/vc-go/ld/documentloader"
 	mockldstore "github.com/trustbloc/vc-go/ld/mock"
 	"github.com/trustbloc/vc-go/ld/store"
+	signatureverifier "github.com/trustbloc/vc-go/signature/verifier"
 )
 
 var (
@@ -48,12 +49,12 @@ func TestNew(t *testing.T) {
 
 	cryp := &mockcrypto.Crypto{}
 	kms := &mockkms.KeyManager{}
+	signerGetter := WithLocalKMSSigner(kms, cryp)
 
 	t.Run("signer success", func(t *testing.T) {
 		sigInit := NewSignerInitializer(&SignerInitializerOptions{
 			LDDocumentLoader: docLoader,
-			Signer:           cryp,
-			KMS:              kms,
+			SignerGetter:     signerGetter,
 		})
 
 		signer, err := sigInit.Signer()
@@ -65,7 +66,6 @@ func TestNew(t *testing.T) {
 	t.Run("verifier success", func(t *testing.T) {
 		verInit := NewVerifierInitializer(&VerifierInitializerOptions{
 			LDDocumentLoader: docLoader,
-			Verifier:         cryp,
 		})
 
 		verifier, err := verInit.Verifier()
@@ -76,14 +76,16 @@ func TestNew(t *testing.T) {
 }
 
 type testCase struct {
-	crypto    *mockcrypto.Crypto
-	kms       *mockkms.KeyManager
-	docLoader *documentloader.DocumentLoader
-	proofOpts *models.ProofOptions
-	proof     *models.Proof
-	document  []byte
-	errIs     error
-	errStr    string
+	crypto       *mockcrypto.Crypto
+	kms          *mockkms.KeyManager
+	docLoader    *documentloader.DocumentLoader
+	proofOpts    *models.ProofOptions
+	proof        *models.Proof
+	p256Verifier Verifier
+	p384Verifier Verifier
+	document     []byte
+	errIs        error
+	errStr       string
 }
 
 func successCase(t *testing.T) *testCase {
@@ -137,8 +139,7 @@ func successCase(t *testing.T) *testCase {
 func testSign(t *testing.T, tc *testCase) {
 	sigInit := NewSignerInitializer(&SignerInitializerOptions{
 		LDDocumentLoader: tc.docLoader,
-		Signer:           tc.crypto,
-		KMS:              tc.kms,
+		SignerGetter:     WithLocalKMSSigner(tc.kms, tc.crypto),
 	})
 
 	signer, err := sigInit.Signer()
@@ -163,10 +164,19 @@ func testSign(t *testing.T, tc *testCase) {
 	}
 }
 
+type mockVerifier struct {
+	err error
+}
+
+func (mv *mockVerifier) Verify(_ *signatureverifier.PublicKey, _, _ []byte) error {
+	return mv.err
+}
+
 func testVerify(t *testing.T, tc *testCase) {
 	verInit := NewVerifierInitializer(&VerifierInitializerOptions{
 		LDDocumentLoader: tc.docLoader,
-		Verifier:         tc.crypto,
+		P256Verifier:     tc.p256Verifier,
+		P384Verifier:     tc.p384Verifier,
 	})
 
 	verifier, err := verInit.Verifier()
@@ -248,6 +258,8 @@ func TestSuite_VerifyProof(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		t.Run("P-256 key", func(t *testing.T) {
 			tc := successCase(t)
+			tc.p256Verifier = &mockVerifier{}
+			tc.p384Verifier = &mockVerifier{err: errors.New("some error")}
 
 			testVerify(t, tc)
 		})
@@ -255,6 +267,8 @@ func TestSuite_VerifyProof(t *testing.T) {
 		t.Run("P-384 key", func(t *testing.T) {
 			tc := successCase(t)
 
+			tc.p256Verifier = &mockVerifier{err: errors.New("some error")}
+			tc.p384Verifier = &mockVerifier{}
 			tc.proofOpts.VerificationMethod = getP384VM(t)
 
 			testVerify(t, tc)
@@ -271,25 +285,12 @@ func TestSuite_VerifyProof(t *testing.T) {
 			testVerify(t, tc)
 		})
 
-		t.Run("get verification key bytes", func(t *testing.T) {
-			tc := successCase(t)
-
-			badKey, vm := getVMWithJWK(t)
-
-			badKey.Key = fooBar
-
-			tc.proofOpts.VerificationMethod = vm
-			tc.errStr = "getting verification key bytes"
-
-			testVerify(t, tc)
-		})
-
 		t.Run("crypto verify", func(t *testing.T) {
 			tc := successCase(t)
 
 			errExpected := errors.New("expected error")
 
-			tc.crypto.VerifyErr = errExpected
+			tc.p256Verifier = &mockVerifier{err: errExpected}
 			tc.errIs = errExpected
 
 			testVerify(t, tc)

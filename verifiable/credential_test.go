@@ -747,7 +747,25 @@ func TestCredential_MarshalJSON(t *testing.T) {
 		require.NotEmpty(t, cred2)
 
 		// verify verifiable credentials created by ParseCredential and JSON function matches
-		require.Equal(t, vc.stringJSON(t), cred2.stringJSON(t))
+		expect := strings.Split(vc.stringJSON(t), "~")
+		actual := strings.Split(cred2.stringJSON(t), "~")
+
+		require.Len(t, actual, len(expect))
+
+		// jwt is same
+		require.Equal(t, expect[0], actual[0])
+		// holder signature is same (empty)
+		require.Equal(t, expect[len(expect)-1], actual[len(actual)-1])
+
+		expectedDisclosures := map[string]struct{}{}
+
+		for i := 1; i < len(expect)-1; i++ {
+			expectedDisclosures[expect[i]] = struct{}{}
+		}
+
+		for i := 1; i < len(actual)-1; i++ {
+			require.Contains(t, expectedDisclosures, actual[i])
+		}
 	})
 
 	t.Run("round trip conversion of credential with composite issuer", func(t *testing.T) {

@@ -42,8 +42,7 @@ func TestIntegration(t *testing.T) {
 
 	signerInit := NewSignerInitializer(&SignerInitializerOptions{
 		LDDocumentLoader: docLoader,
-		Signer:           cr,
-		KMS:              kms,
+		SignerGetter:     WithLocalKMSSigner(kms, cr),
 	})
 
 	signer, err := signerInit.Signer()
@@ -51,7 +50,6 @@ func TestIntegration(t *testing.T) {
 
 	verifierInit := NewVerifierInitializer(&VerifierInitializerOptions{
 		LDDocumentLoader: docLoader,
-		Verifier:         cr,
 	})
 
 	verifier, err := verifierInit.Verifier()
