@@ -43,7 +43,8 @@ const (
 )
 
 func TestIntegration(t *testing.T) {
-	suiteOpts := suiteOptions(t)
+	docLoader, err := documentloader.NewDocumentLoader(createMockProvider())
+	require.NoError(t, err)
 
 	storeProv := mockstorage.NewMockStoreProvider()
 
@@ -52,16 +53,16 @@ func TestIntegration(t *testing.T) {
 
 	kms, err := localkms.New("local-lock://custom/master/key/", kmsProv)
 	require.NoError(t, err)
+	cr, err := tinkcrypto.New()
+	require.NoError(t, err)
 
 	signerInit := ecdsa2019.NewSignerInitializer(&ecdsa2019.SignerInitializerOptions{
-		LDDocumentLoader: suiteOpts.LDDocumentLoader,
-		Signer:           suiteOpts.Signer,
-		KMS:              kms,
+		LDDocumentLoader: docLoader,
+		SignerGetter:     ecdsa2019.WithLocalKMSSigner(kms, cr),
 	})
 
 	verifierInit := ecdsa2019.NewVerifierInitializer(&ecdsa2019.VerifierInitializerOptions{
-		LDDocumentLoader: suiteOpts.LDDocumentLoader,
-		Verifier:         suiteOpts.Verifier,
+		LDDocumentLoader: docLoader,
 	})
 
 	_, p256Bytes, err := kms.CreateAndExportPubKeyBytes(kmsapi.ECDSAP256IEEEP1363)
@@ -221,22 +222,6 @@ func TestIntegration(t *testing.T) {
 			require.Contains(t, err.Error(), "malformed data integrity proof")
 		})
 	})
-}
-
-func suiteOptions(t *testing.T) *ecdsa2019.Options {
-	t.Helper()
-
-	docLoader, err := documentloader.NewDocumentLoader(createMockProvider())
-	require.NoError(t, err)
-
-	cr, err := tinkcrypto.New()
-	require.NoError(t, err)
-
-	return &ecdsa2019.Options{
-		LDDocumentLoader: docLoader,
-		Signer:           cr,
-		Verifier:         cr,
-	}
 }
 
 type provider struct {

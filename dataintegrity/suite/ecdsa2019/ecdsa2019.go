@@ -19,11 +19,10 @@ import (
 	"github.com/multiformats/go-multibase"
 	"github.com/piprate/json-gold/ld"
 	"github.com/trustbloc/kms-go/doc/jose/jwk"
-	"github.com/trustbloc/kms-go/kms/localkms"
-
 	"github.com/trustbloc/vc-go/dataintegrity/models"
 	"github.com/trustbloc/vc-go/dataintegrity/suite"
 	"github.com/trustbloc/vc-go/ld/processor"
+	signatureverifier "github.com/trustbloc/vc-go/signature/verifier"
 )
 
 const (
@@ -33,13 +32,56 @@ const (
 	SuiteType = "ecdsa-2019"
 )
 
-// A Signer is able to sign messages.
-type Signer interface {
+// SignerGetter returns a Signer, which must sign with the private key matching
+// the public key provided in models.ProofOptions.VerificationMethod.
+type SignerGetter func(pub *jwk.JWK) (Signer, error)
+
+// WithStaticSigner sets the Suite to use a fixed Signer, with externally-chosen signing key.
+//
+// Use when a signing Suite is initialized for a single signature, then thrown away.
+func WithStaticSigner(signer Signer) SignerGetter {
+	return func(*jwk.JWK) (Signer, error) {
+		return signer, nil
+	}
+}
+
+// WithLocalKMSSigner returns a SignerGetter that will sign using the given localkms, using the private key matching
+// the given public key.
+func WithLocalKMSSigner(kms models.KeyManager, kmsSigner KMSSigner) SignerGetter {
+	return func(pub *jwk.JWK) (Signer, error) {
+		kid, err := kmsKID(pub)
+		if err != nil {
+			return nil, err
+		}
+
+		kh, err := kms.Get(kid)
+		if err != nil {
+			return nil, err
+		}
+
+		return &wrapSigner{
+			kmsSigner: kmsSigner,
+			kh:        kh,
+		}, nil
+	}
+}
+
+// A KMSSigner is able to sign messages.
+type KMSSigner interface {
 	// Sign will sign msg using a matching signature primitive in kh key handle of a private key
 	// returns:
 	// 		signature in []byte
 	//		error in case of errors
 	Sign(msg []byte, kh interface{}) ([]byte, error)
+}
+
+// A Signer is able to sign messages.
+type Signer interface {
+	// Sign will sign msg using a private key internal to the Signer.
+	// returns:
+	// 		signature in []byte
+	//		error in case of errors
+	Sign(msg []byte) ([]byte, error)
 }
 
 // A Verifier is able to verify messages.
@@ -48,23 +90,23 @@ type Verifier interface {
 	// a public key
 	// returns:
 	// 		error in case of errors or nil if signature verification was successful
-	Verify(signature, msg []byte, kh interface{}) error
+	Verify(pubKey *signatureverifier.PublicKey, msg, signature []byte) error
 }
 
 // Suite implements the ecdsa-2019 data integrity cryptographic suite.
 type Suite struct {
-	ldLoader ld.DocumentLoader
-	signer   Signer
-	verifier Verifier
-	kms      models.KeyManager
+	ldLoader     ld.DocumentLoader
+	p256Verifier Verifier
+	p384Verifier Verifier
+	signerGetter SignerGetter
 }
 
 // Options provides initialization options for Suite.
 type Options struct {
 	LDDocumentLoader ld.DocumentLoader
-	Signer           Signer
-	Verifier         Verifier
-	KMS              models.KeyManager
+	P256Verifier     Verifier
+	P384Verifier     Verifier
+	SignerGetter     SignerGetter
 }
 
 // SuiteInitializer is the initializer for Suite.
@@ -74,10 +116,10 @@ type SuiteInitializer func() (suite.Suite, error)
 func New(options *Options) SuiteInitializer {
 	return func() (suite.Suite, error) {
 		return &Suite{
-			ldLoader: options.LDDocumentLoader,
-			signer:   options.Signer,
-			verifier: options.Verifier,
-			kms:      options.KMS,
+			ldLoader:     options.LDDocumentLoader,
+			p256Verifier: options.P256Verifier,
+			p384Verifier: options.P384Verifier,
+			signerGetter: options.SignerGetter,
 		}, nil
 	}
 }
@@ -103,8 +145,7 @@ func (i initializer) Type() string {
 // SignerInitializerOptions provides options for a SignerInitializer.
 type SignerInitializerOptions struct {
 	LDDocumentLoader ld.DocumentLoader
-	Signer           Signer
-	KMS              models.KeyManager
+	SignerGetter     SignerGetter
 }
 
 // NewSignerInitializer returns a suite.SignerInitializer that initializes an ecdsa-2019
@@ -112,23 +153,34 @@ type SignerInitializerOptions struct {
 func NewSignerInitializer(options *SignerInitializerOptions) suite.SignerInitializer {
 	return initializer(New(&Options{
 		LDDocumentLoader: options.LDDocumentLoader,
-		Signer:           options.Signer,
-		KMS:              options.KMS,
+		SignerGetter:     options.SignerGetter,
 	}))
 }
 
 // VerifierInitializerOptions provides options for a VerifierInitializer.
 type VerifierInitializerOptions struct {
-	LDDocumentLoader ld.DocumentLoader
-	Verifier         Verifier
+	LDDocumentLoader ld.DocumentLoader // required
+	P256Verifier     Verifier          // optional
+	P384Verifier     Verifier          // optional
 }
 
 // NewVerifierInitializer returns a suite.VerifierInitializer that initializes an
 // ecdsa-2019 verification Suite with the given VerifierInitializerOptions.
 func NewVerifierInitializer(options *VerifierInitializerOptions) suite.VerifierInitializer {
+	p256Verifier, p384Verifier := options.P256Verifier, options.P384Verifier
+
+	if p256Verifier == nil {
+		p256Verifier = signatureverifier.NewECDSAES256SignatureVerifier()
+	}
+
+	if p384Verifier == nil {
+		p384Verifier = signatureverifier.NewECDSAES384SignatureVerifier()
+	}
+
 	return initializer(New(&Options{
 		LDDocumentLoader: options.LDDocumentLoader,
-		Verifier:         options.Verifier,
+		P256Verifier:     p256Verifier,
+		P384Verifier:     p384Verifier,
 	}))
 }
 
@@ -139,12 +191,12 @@ const (
 // CreateProof implements the ecdsa-2019 cryptographic suite for Add Proof:
 // https://www.w3.org/TR/vc-di-ecdsa/#add-proof-ecdsa-2019
 func (s *Suite) CreateProof(doc []byte, opts *models.ProofOptions) (*models.Proof, error) {
-	docHash, vmKey, err := s.transformAndHash(doc, opts)
+	docHash, vmKey, _, err := s.transformAndHash(doc, opts)
 	if err != nil {
 		return nil, err
 	}
 
-	sig, err := sign(docHash, vmKey, s.signer, s.kms)
+	sig, err := sign(docHash, vmKey, s.signerGetter)
 	if err != nil {
 		return nil, err
 	}
@@ -168,68 +220,73 @@ func (s *Suite) CreateProof(doc []byte, opts *models.ProofOptions) (*models.Proo
 	return p, nil
 }
 
-func (s *Suite) transformAndHash(doc []byte, opts *models.ProofOptions) ([]byte, *jwk.JWK, error) {
+func (s *Suite) transformAndHash(doc []byte, opts *models.ProofOptions) ([]byte, *jwk.JWK, Verifier, error) {
 	docData := make(map[string]interface{})
 
 	err := json.Unmarshal(doc, &docData)
 	if err != nil {
-		return nil, nil, fmt.Errorf("ecdsa-2019 suite expects JSON-LD payload: %w", err)
+		return nil, nil, nil, fmt.Errorf("ecdsa-2019 suite expects JSON-LD payload: %w", err)
 	}
 
 	vmKey := opts.VerificationMethod.JSONWebKey()
 	if vmKey == nil {
-		return nil, nil, errors.New("verification method needs JWK")
+		return nil, nil, nil, errors.New("verification method needs JWK")
 	}
 
-	var h hash.Hash
+	var (
+		h        hash.Hash
+		verifier Verifier
+	)
 
 	switch vmKey.Crv {
 	case "P-256":
 		h = sha256.New()
+		verifier = s.p256Verifier
 	case "P-384":
 		h = sha512.New384()
+		verifier = s.p384Verifier
 	default:
-		return nil, nil, errors.New("unsupported ECDSA curve")
+		return nil, nil, nil, errors.New("unsupported ECDSA curve")
 	}
 
 	confData, err := proofConfig(docData[ldCtxKey], opts)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	if opts.ProofType != "DataIntegrityProof" || opts.SuiteType != SuiteType {
-		return nil, nil, suite.ErrProofTransformation
+		return nil, nil, nil, suite.ErrProofTransformation
 	}
 
 	canonDoc, err := canonicalize(docData, s.ldLoader)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	canonConf, err := canonicalize(confData, s.ldLoader)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	docHash := hashData(canonDoc, canonConf, h)
 
-	return docHash, vmKey, nil
+	return docHash, vmKey, verifier, nil
 }
 
 // VerifyProof implements the ecdsa-2019 cryptographic suite for Verify Proof:
 // https://www.w3.org/TR/vc-di-ecdsa/#verify-proof-ecdsa-2019
 func (s *Suite) VerifyProof(doc []byte, proof *models.Proof, opts *models.ProofOptions) error {
-	sigBase, vmKey, err := s.transformAndHash(doc, opts)
+	message, vmKey, verifier, err := s.transformAndHash(doc, opts)
 	if err != nil {
 		return err
 	}
 
-	_, sig, err := multibase.Decode(proof.ProofValue)
+	_, signature, err := multibase.Decode(proof.ProofValue)
 	if err != nil {
 		return fmt.Errorf("decoding proofValue: %w", err)
 	}
 
-	err = verify(sigBase, sig, vmKey, s.verifier)
+	err = verifier.Verify(&signatureverifier.PublicKey{JWK: vmKey}, message, signature)
 	if err != nil {
 		return fmt.Errorf("failed to verify ecdsa-2019 DI proof: %w", err)
 	}
@@ -292,45 +349,26 @@ func kmsKID(key *jwk.JWK) (string, error) {
 	return base64.RawURLEncoding.EncodeToString(tp), nil
 }
 
-func sign(sigBase []byte, key *jwk.JWK, signer Signer, kms models.KeyManager) ([]byte, error) {
-	kid, err := kmsKID(key)
+type wrapSigner struct {
+	kmsSigner KMSSigner
+	kh        interface{}
+}
+
+// Sign signs using wrapped kms and key handle.
+func (s *wrapSigner) Sign(msg []byte) ([]byte, error) {
+	return s.kmsSigner.Sign(msg, s.kh)
+}
+
+func sign(sigBase []byte, key *jwk.JWK, signerGetter SignerGetter) ([]byte, error) {
+	signer, err := signerGetter(key)
 	if err != nil {
 		return nil, err
 	}
 
-	kh, err := kms.Get(kid)
-	if err != nil {
-		return nil, err
-	}
-
-	sig, err := signer.Sign(sigBase, kh)
+	sig, err := signer.Sign(sigBase)
 	if err != nil {
 		return nil, err
 	}
 
 	return sig, nil
-}
-
-func verify(sigBase, sig []byte, key *jwk.JWK, verifier Verifier) error {
-	pkBytes, err := key.PublicKeyBytes()
-	if err != nil {
-		return fmt.Errorf("getting verification key bytes: %w", err)
-	}
-
-	kt, err := key.KeyType()
-	if err != nil {
-		return fmt.Errorf("getting key type of verification key: %w", err)
-	}
-
-	kh, err := localkms.PublicKeyBytesToHandle(pkBytes, kt)
-	if err != nil {
-		return err
-	}
-
-	err = verifier.Verify(sig, sigBase, kh)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }

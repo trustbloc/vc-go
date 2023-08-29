@@ -75,8 +75,7 @@ func Test_DataIntegrity_SignVerify(t *testing.T) {
 	})
 
 	signerSuite := ecdsa2019.NewSignerInitializer(&ecdsa2019.SignerInitializerOptions{
-		KMS:              kms,
-		Signer:           cr,
+		SignerGetter:     ecdsa2019.WithLocalKMSSigner(kms, cr),
 		LDDocumentLoader: docLoader,
 	})
 
@@ -95,7 +94,6 @@ func Test_DataIntegrity_SignVerify(t *testing.T) {
 	}
 
 	verifySuite := ecdsa2019.NewVerifierInitializer(&ecdsa2019.VerifierInitializerOptions{
-		Verifier:         cr,
 		LDDocumentLoader: docLoader,
 	})
 
