@@ -25,21 +25,10 @@ linters-settings:
     ignore: fmt:.*,io/ioutil:^Read.*
   govet:
     check-shadowing: true
-    settings:
-      printf:
-        funcs:
-          - (github.com/hyperledger/aries-framework-go/pkg/common/log.Log).Debugf
-          - (github.com/hyperledger/aries-framework-go/pkg/common/log.Log).Infof
-          - (github.com/hyperledger/aries-framework-go/pkg/common/log.Log).Warnf
-          - (github.com/hyperledger/aries-framework-go/pkg/common/log.Log).Errorf
-          - (github.com/hyperledger/aries-framework-go/pkg/common/log.Log).Fatalf
-          - (github.com/hyperledger/aries-framework-go/pkg/common/log.Log).Panicf
   golint:
     min-confidence: 0.6
   gofmt:
     simplify: true
-  goimports:
-    local-prefixes: github.com/hyperledger/aries-framework-go
   gocyclo:
     min-complexity: 10
   maligned:

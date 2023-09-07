@@ -23,13 +23,13 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 
 	"github.com/go-jose/go-jose/v3"
 	jsonld "github.com/piprate/json-gold/ld"
 
-	"github.com/hyperledger/aries-framework-go/component/log"
 	"github.com/trustbloc/kms-go/spi/kms"
 
 	"github.com/trustbloc/vc-go/legacy/mem"
@@ -40,7 +40,7 @@ import (
 	"github.com/trustbloc/vc-go/verifiable"
 )
 
-var logger = log.New("aries-framework/doc/verifiable/test-suite")
+var errLogger = log.New(os.Stderr, " [vc-go/verifiable/test-suite] ", log.Ldate|log.Ltime|log.LUTC)
 var loader jsonld.DocumentLoader //nolint:gochecknoglobals
 
 // nolint:gochecknoglobals //required for go:embed
@@ -325,7 +325,7 @@ func (s *rsaSigner) Alg() string {
 }
 
 func abort(msg string, args ...interface{}) {
-	logger.Errorf(msg, args...)
+	errLogger.Errorf(msg, args...)
 	os.Exit(1)
 }
 

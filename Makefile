@@ -6,7 +6,6 @@
 # Tool commands (overridable)
 DOCKER_CMD ?= docker
 
-PROJECT_ROOT = github.com/hyperledger/aries-framework-go
 GOBIN_PATH=$(abspath .)/build/bin
 MOCKGEN=$(GOBIN_PATH)/mockgen
 GOMOCKS=pkg/internal/gomocks

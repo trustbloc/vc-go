@@ -86,7 +86,7 @@ func (s *RemoteProviderStoreImpl) GetAll() ([]RemoteProviderRecord, error) {
 	defer func() {
 		er := iter.Close()
 		if er != nil {
-			logger.Errorf("Failed to close iterator: %s", er.Error())
+			errLogger.Printf("Failed to close iterator: %s", er.Error())
 		}
 	}()
 
@@ -168,7 +168,7 @@ func (s RemoteProviderStoreImpl) findEndpoint(endpoint string) (*RemoteProviderR
 		defer func() {
 			er := iter.Close()
 			if er != nil {
-				logger.Errorf("Failed to close iterator: %s", er.Error())
+				errLogger.Printf("Failed to close iterator: %s", er.Error())
 			}
 		}()
 

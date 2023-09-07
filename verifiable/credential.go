@@ -13,7 +13,9 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
+	"os"
 	"reflect"
 	"strings"
 	"time"
@@ -22,8 +24,6 @@ import (
 	"github.com/xeipuuv/gojsonschema"
 
 	"github.com/trustbloc/vc-go/dataintegrity"
-
-	"github.com/hyperledger/aries-framework-go/component/log"
 
 	"github.com/trustbloc/kms-go/doc/jose"
 
@@ -35,7 +35,7 @@ import (
 	util "github.com/trustbloc/vc-go/util/time"
 )
 
-var logger = log.New("aries-framework/doc/verifiable")
+var errLogger = log.New(os.Stderr, " [vc-go/verifiable] ", log.Ldate|log.Ltime|log.LUTC)
 
 const (
 	schemaPropertyType              = "type"
@@ -1430,7 +1430,8 @@ func getSchemaLoader(schemas []TypedID, opts *credentialOpts) (gojsonschema.JSON
 
 			return gojsonschema.NewBytesLoader(customSchemaData), nil
 		default:
-			logger.Warnf("unsupported credential schema: %s. Using default schema for validation", schema.Type)
+			// TODO: should unsupported schema be ignored or should this cause an error?
+			errLogger.Printf("unsupported credential schema: %s. Using default schema for validation", schema.Type)
 		}
 	}
 
@@ -1531,7 +1532,7 @@ func loadJSONSchema(url string, client *http.Client) ([]byte, error) {
 	defer func() {
 		e := resp.Body.Close()
 		if e != nil {
-			logger.Errorf("closing response body failed [%v]", e)
+			errLogger.Printf("closing response body failed [%v]", e)
 		}
 	}()
 
