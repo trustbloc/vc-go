@@ -102,14 +102,13 @@ func successCase(t *testing.T) *testCase {
 	proofCreated := time.Now()
 
 	proofOpts := &models.ProofOptions{
-		VerificationMethod:       mockVM,
-		VerificationMethodID:     mockVM.ID,
-		SuiteType:                SuiteType,
-		Purpose:                  "assertionMethod",
-		VerificationRelationship: "assertionMethod",
-		ProofType:                models.DataIntegrityProof,
-		Created:                  proofCreated,
-		MaxAge:                   100,
+		VerificationMethod:   mockVM,
+		VerificationMethodID: mockVM.ID,
+		SuiteType:            SuiteType,
+		Purpose:              "assertionMethod",
+		ProofType:            models.DataIntegrityProof,
+		Created:              proofCreated,
+		MaxAge:               100,
 	}
 
 	mockSig, err := multibase.Encode(multibase.Base58BTC, []byte("mock signature"))
@@ -331,15 +330,6 @@ func TestSharedFailures(t *testing.T) {
 		tc.errStr = "unsupported ECDSA curve"
 
 		testVerify(t, tc)
-	})
-
-	t.Run("wrong purpose", func(t *testing.T) {
-		tc := successCase(t)
-
-		tc.proofOpts.Purpose = fooBar
-		tc.errStr = "verification method is not suitable for purpose"
-
-		testSign(t, tc)
 	})
 
 	t.Run("invalid proof/suite type", func(t *testing.T) {
