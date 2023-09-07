@@ -10,16 +10,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
+	"os"
 	"time"
 
-	"github.com/hyperledger/aries-framework-go/component/log"
 	ldcontext "github.com/trustbloc/vc-go/ld/context"
 )
 
 const defaultTimeout = time.Minute
 
-var logger = log.New("aries-framework/ldcontext/remote")
+var errLogger = log.New(os.Stderr, " [vc-go/ldcontext/remote] ", log.Ldate|log.Ltime|log.LUTC)
 
 // Provider is a remote JSON-LD context provider.
 type Provider struct {
@@ -66,7 +67,7 @@ func (p *Provider) Contexts() ([]ldcontext.Document, error) {
 	defer func() {
 		e := resp.Body.Close()
 		if e != nil {
-			logger.Errorf("Failed to close response body: %s", e.Error())
+			errLogger.Printf("Failed to close response body: %s", e.Error())
 		}
 	}()
 

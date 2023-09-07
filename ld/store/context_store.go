@@ -11,10 +11,11 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"log"
+	"os"
 
 	jsonld "github.com/piprate/json-gold/ld"
 
-	"github.com/hyperledger/aries-framework-go/component/log"
 	"github.com/trustbloc/kms-go/spi/storage"
 
 	ldcontext "github.com/trustbloc/vc-go/ld/context"
@@ -28,7 +29,7 @@ const (
 	ContextRecordTag = "record"
 )
 
-var logger = log.New("aries-framework/store/ld")
+var errLogger = log.New(os.Stderr, " [vc-go/ld/store] ", log.Ldate|log.Ltime|log.LUTC)
 
 // ContextStore represents a repository for JSON-LD context operations.
 type ContextStore interface {
@@ -154,7 +155,7 @@ func computeContextHashes(store storage.Store) (map[string]string, error) {
 	defer func() {
 		er := iter.Close()
 		if er != nil {
-			logger.Errorf("Failed to close iterator: %s", er.Error())
+			errLogger.Printf("Failed to close iterator: %s", er.Error())
 		}
 	}()
 

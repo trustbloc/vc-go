@@ -9,12 +9,13 @@ package processor
 import (
 	"errors"
 	"fmt"
+	"io"
+	"log"
 	"strings"
 
 	"github.com/google/uuid"
 	"github.com/piprate/json-gold/ld"
 
-	"github.com/hyperledger/aries-framework-go/component/log"
 	"github.com/trustbloc/vc-go/util/maphelpers"
 )
 
@@ -24,7 +25,12 @@ const (
 	handleNormalizeErr = "error while parsing N-Quads; invalid quad. line:"
 )
 
-var logger = log.New("aries-framework/json-ld-processor")
+var debugLogger = log.New(io.Discard, " [vc-go/json-ld-processor] ", log.Ldate|log.Ltime|log.LUTC)
+
+// SetDebugOutput used to set output of debug logs.
+func SetDebugOutput(out io.Writer) {
+	debugLogger.SetOutput(out)
+}
 
 // ErrInvalidRDFFound is returned when normalized view contains invalid RDF.
 var ErrInvalidRDFFound = errors.New("invalid JSON-LD context")
@@ -370,7 +376,7 @@ func (p *Processor) removeMatchingInvalidRDFs(view string, opts *processorOpts) 
 
 	filteredView := strings.Join(filteredViews, "\n")
 
-	logger.Debugf("Found invalid RDF dataset, Canonicalizing JSON-LD again after removing invalid data ")
+	debugLogger.Printf("Found invalid RDF dataset, Canonicalizing JSON-LD again after removing invalid data ")
 
 	// all invalid RDF dataset from view are removed, re-generate
 	return p.normalizeFilteredDataset(filteredView)

@@ -90,7 +90,8 @@ func Test_mDLNestedCtx(t *testing.T) {
 
 		require.NoError(t, err)
 
-		matched := filterSchema(schemas, creds, docLoader)
+		matched, err := filterSchema(schemas, creds, docLoader)
+		require.NoError(t, err)
 		require.Len(t, matched, 1)
 	})
 
@@ -101,7 +102,8 @@ func Test_mDLNestedCtx(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		matched := filterSchema(schemas, creds, docLoader)
+		matched, err := filterSchema(schemas, creds, docLoader)
+		require.NoError(t, err)
 		require.Len(t, matched, 0)
 	})
 }

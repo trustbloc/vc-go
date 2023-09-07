@@ -219,7 +219,13 @@ func getMatchedCreds( //nolint:gocyclo,funlen
 
 			inputDescriptor := pd.inputDescriptor(mapping.ID)
 
-			passed := filterSchema(inputDescriptor.Schema, []*verifiable.Credential{vc}, contextLoader)
+			var fltErr error
+
+			passed, fltErr := filterSchema(inputDescriptor.Schema, []*verifiable.Credential{vc}, contextLoader)
+			if fltErr != nil {
+				return nil, err
+			}
+
 			if len(passed) == 0 && !opts.DisableSchemaValidation {
 				return nil, fmt.Errorf(
 					"input descriptor id [%s] requires schemas %+v which do not match vc with @context [%+v] and types [%+v] selected by path [%s]", // nolint:lll

@@ -12,7 +12,9 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"log"
 	"net/url"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -21,8 +23,8 @@ import (
 	"github.com/multiformats/go-multibase"
 	"github.com/xeipuuv/gojsonschema"
 
-	"github.com/hyperledger/aries-framework-go/component/log"
 	"github.com/trustbloc/kms-go/doc/jose/jwk"
+
 	"github.com/trustbloc/vc-go/did/endpoint"
 	"github.com/trustbloc/vc-go/ld/processor"
 	sigproof "github.com/trustbloc/vc-go/ld/proof"
@@ -69,8 +71,9 @@ var (
 	schemaLoaderV1     = gojsonschema.NewStringLoader(schemaV1)     //nolint:gochecknoglobals
 	schemaLoaderV011   = gojsonschema.NewStringLoader(schemaV011)   //nolint:gochecknoglobals
 	schemaLoaderV12019 = gojsonschema.NewStringLoader(schemaV12019) //nolint:gochecknoglobals
-	logger             = log.New("aries-framework/doc/did")         //nolint:gochecknoglobals
 )
+
+var logger = log.New(os.Stderr, " [did-go/did/doc] ", log.Ldate|log.Ltime|log.LUTC)
 
 // ErrDIDDocumentNotExist error did doc not exist.
 var ErrDIDDocumentNotExist = errors.New("did document not exists")
@@ -1352,12 +1355,12 @@ func populateRawServices(services []Service, didID, baseURI string) []map[string
 
 		sepAccept, err := services[i].ServiceEndpoint.Accept()
 		if err != nil {
-			logger.Debugf("accept field of DIDComm V2 endpoint missing or invalid, it will be ignored: %w", err)
+			logger.Printf("accept field of DIDComm V2 endpoint missing or invalid, it will be ignored: %v", err)
 		}
 
 		sepURI, err := services[i].ServiceEndpoint.URI()
 		if err != nil {
-			logger.Debugf("URI field of DIDComm V2 endpoint missing or invalid, it will be ignored: %w", err)
+			logger.Printf("URI field of DIDComm V2 endpoint missing or invalid, it will be ignored: %v", err)
 		}
 
 		if services[i].ServiceEndpoint.Type() == endpoint.DIDCommV2 {
@@ -1400,7 +1403,7 @@ func populateRawServices(services []Service, didID, baseURI string) []map[string
 		} else {
 			bytes, err := services[i].ServiceEndpoint.MarshalJSON()
 			if err != nil {
-				logger.Warnf(err.Error())
+				logger.Print(err.Error())
 			}
 
 			rawService[jsonldServicePoint] = json.RawMessage(bytes)

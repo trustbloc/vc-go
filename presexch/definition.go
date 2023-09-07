@@ -24,8 +24,8 @@ import (
 
 	"github.com/trustbloc/vc-go/presexch/internal/requirementlogic"
 
-	"github.com/hyperledger/aries-framework-go/component/log"
 	"github.com/trustbloc/kms-go/doc/jose"
+
 	"github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/sdjwt/common"
 	"github.com/trustbloc/vc-go/verifiable"
@@ -62,8 +62,6 @@ const (
 )
 
 var errPathNotApplicable = errors.New("path not applicable")
-
-var logger = log.New("doc/presexch")
 
 type (
 	// Selection can be "all" or "pick".
@@ -783,13 +781,20 @@ func (pd *PresentationDefinition) filterCredentialsThatMatchDescriptor(creds []*
 	vpFormat := ""
 	filtered := creds
 
+	var err error
 	if format.notNil() {
-		vpFormat, filtered = filterFormat(format, filtered)
+		vpFormat, filtered, err = filterFormat(format, filtered)
+		if err != nil {
+			return "", nil, err
+		}
 	}
 
 	// Validate schema only for v1
 	if descriptor.Schema != nil {
-		filtered = filterSchema(descriptor.Schema, filtered, documentLoader)
+		filtered, err = filterSchema(descriptor.Schema, filtered, documentLoader)
+		if err != nil {
+			return "", nil, err
+		}
 	}
 
 	filteredByConstraints, err := filterConstraints(descriptor.Constraints, filtered)
@@ -1480,7 +1485,7 @@ func (a byID) Less(i, j int) bool { return a[i].ID < a[j].ID }
 func (a byID) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 
 //nolint:funlen,gocyclo
-func filterFormat(format *Format, credentials []*verifiable.Credential) (string, []*verifiable.Credential) {
+func filterFormat(format *Format, credentials []*verifiable.Credential) (string, []*verifiable.Credential, error) {
 	var ldpCreds, ldpvcCreds, ldpvpCreds, jwtCreds, jwtvcCreds, jwtvpCreds []*verifiable.Credential
 
 	for _, credential := range credentials {
@@ -1504,9 +1509,7 @@ func filterFormat(format *Format, credentials []*verifiable.Credential) (string,
 		if credential.JWT != "" {
 			pJWT, _, err := jwt.Parse(credential.JWT, jwt.WithSignatureVerifier(&noVerifier{}))
 			if err != nil {
-				logger.Warnf("unmarshal credential error: %w", err)
-
-				continue
+				return "", nil, fmt.Errorf("unmarshal credential error: %w", err)
 			}
 
 			alg, hasAlg = pJWT.Headers.Algorithm()
@@ -1526,30 +1529,30 @@ func filterFormat(format *Format, credentials []*verifiable.Credential) (string,
 	}
 
 	if len(ldpCreds) > 0 {
-		return FormatLDP, ldpCreds
+		return FormatLDP, ldpCreds, nil
 	}
 
 	if len(ldpvcCreds) > 0 {
-		return FormatLDPVC, ldpvcCreds
+		return FormatLDPVC, ldpvcCreds, nil
 	}
 
 	if len(ldpvpCreds) > 0 {
-		return FormatLDPVP, ldpvpCreds
+		return FormatLDPVP, ldpvpCreds, nil
 	}
 
 	if len(jwtCreds) > 0 {
-		return FormatJWT, jwtCreds
+		return FormatJWT, jwtCreds, nil
 	}
 
 	if len(jwtvcCreds) > 0 {
-		return FormatJWTVC, jwtvcCreds
+		return FormatJWTVC, jwtvcCreds, nil
 	}
 
 	if len(jwtvpCreds) > 0 {
-		return FormatJWTVP, jwtvpCreds
+		return FormatJWTVP, jwtvpCreds, nil
 	}
 
-	return "", nil
+	return "", nil, nil
 }
 
 // noVerifier is used when no JWT signature verification is needed.
@@ -1590,7 +1593,7 @@ func credByProof(c *verifiable.Credential, ldp *LdpType) bool {
 
 // nolint: gocyclo
 func filterSchema(schemas []*Schema, credentials []*verifiable.Credential,
-	documentLoader ld.DocumentLoader) []*verifiable.Credential {
+	documentLoader ld.DocumentLoader) ([]*verifiable.Credential, error) {
 	var result []*verifiable.Credential
 
 	contexts := map[string]*ld.Context{}
@@ -1603,8 +1606,7 @@ func filterSchema(schemas []*Schema, credentials []*verifiable.Credential,
 			if !ok {
 				context, err := getContext(ctx, documentLoader)
 				if err != nil {
-					logger.Errorf("failed to load context '%s': %s", ctx, err.Error())
-					return nil
+					return nil, fmt.Errorf("failed to load context '%s': %w", ctx, err)
 				}
 
 				contexts[ctx] = context
@@ -1640,7 +1642,7 @@ func filterSchema(schemas []*Schema, credentials []*verifiable.Credential,
 		}
 	}
 
-	return result
+	return result, nil
 }
 
 func typeFoundInContext(typ string, ctxObj *ld.Context) ([]string, error) {
