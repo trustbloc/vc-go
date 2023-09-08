@@ -10,10 +10,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-
+	ldprocessor "github.com/trustbloc/did-go/doc/ld/processor"
 	"github.com/trustbloc/kms-go/spi/kms"
 
-	ldprocessor "github.com/trustbloc/vc-go/ld/processor"
 	"github.com/trustbloc/vc-go/signature/suite"
 	"github.com/trustbloc/vc-go/signature/suite/ed25519signature2018"
 	jsonutil "github.com/trustbloc/vc-go/util/json"

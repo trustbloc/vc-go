@@ -13,10 +13,10 @@ import (
 	"strings"
 
 	"github.com/tidwall/sjson"
+	"github.com/trustbloc/did-go/doc/did"
 
 	"github.com/trustbloc/vc-go/dataintegrity/models"
 	"github.com/trustbloc/vc-go/dataintegrity/suite"
-	"github.com/trustbloc/vc-go/did"
 )
 
 const (

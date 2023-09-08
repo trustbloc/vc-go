@@ -29,14 +29,12 @@ import (
 
 	"github.com/go-jose/go-jose/v3"
 	jsonld "github.com/piprate/json-gold/ld"
-
+	ldcontext "github.com/trustbloc/did-go/doc/ld/context"
+	ld "github.com/trustbloc/did-go/doc/ld/documentloader"
+	ldstore "github.com/trustbloc/did-go/doc/ld/store"
 	"github.com/trustbloc/kms-go/spi/kms"
 
 	"github.com/trustbloc/vc-go/legacy/mem"
-
-	ldcontext "github.com/trustbloc/vc-go/ld/context"
-	ld "github.com/trustbloc/vc-go/ld/documentloader"
-	ldstore "github.com/trustbloc/vc-go/ld/store"
 	"github.com/trustbloc/vc-go/verifiable"
 )
 

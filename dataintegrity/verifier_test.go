@@ -13,8 +13,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/sjson"
-
-	"github.com/trustbloc/vc-go/did"
+	"github.com/trustbloc/did-go/doc/did"
 
 	"github.com/trustbloc/vc-go/dataintegrity/models"
 )

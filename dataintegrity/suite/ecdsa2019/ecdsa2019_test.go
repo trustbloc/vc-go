@@ -17,7 +17,10 @@ import (
 
 	"github.com/multiformats/go-multibase"
 	"github.com/stretchr/testify/require"
-
+	"github.com/trustbloc/did-go/doc/did"
+	"github.com/trustbloc/did-go/doc/ld/documentloader"
+	mockldstore "github.com/trustbloc/did-go/doc/ld/mock"
+	"github.com/trustbloc/did-go/doc/ld/store"
 	"github.com/trustbloc/kms-go/doc/jose/jwk"
 	"github.com/trustbloc/kms-go/doc/jose/jwk/jwksupport"
 	mockcrypto "github.com/trustbloc/kms-go/mock/crypto"
@@ -25,10 +28,6 @@ import (
 
 	"github.com/trustbloc/vc-go/dataintegrity/models"
 	"github.com/trustbloc/vc-go/dataintegrity/suite"
-	"github.com/trustbloc/vc-go/did"
-	"github.com/trustbloc/vc-go/ld/documentloader"
-	mockldstore "github.com/trustbloc/vc-go/ld/mock"
-	"github.com/trustbloc/vc-go/ld/store"
 	signatureverifier "github.com/trustbloc/vc-go/signature/verifier"
 )
 

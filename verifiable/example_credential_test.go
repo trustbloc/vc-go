@@ -14,18 +14,17 @@ import (
 	"fmt"
 	"time"
 
+	jsonld "github.com/trustbloc/did-go/doc/ld/processor"
 	"github.com/trustbloc/kms-go/doc/jose/jwk/jwksupport"
 	"github.com/trustbloc/kms-go/spi/kms"
 
-	jsonld "github.com/trustbloc/vc-go/ld/processor"
+	utiltime "github.com/trustbloc/did-go/doc/util/time"
 	"github.com/trustbloc/vc-go/signature/suite"
 	"github.com/trustbloc/vc-go/signature/suite/bbsblssignature2020"
 	"github.com/trustbloc/vc-go/signature/suite/ed25519signature2018"
 	"github.com/trustbloc/vc-go/signature/suite/jsonwebsignature2020"
 	sigutil "github.com/trustbloc/vc-go/signature/util"
 	sigverifier "github.com/trustbloc/vc-go/signature/verifier"
-	utiltime "github.com/trustbloc/vc-go/util/time"
-
 	"github.com/trustbloc/vc-go/verifiable"
 )
 

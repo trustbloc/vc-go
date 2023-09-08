@@ -13,16 +13,16 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	ldcontext "github.com/trustbloc/did-go/doc/ld/context"
+	lddocloader "github.com/trustbloc/did-go/doc/ld/documentloader"
+	jsonldsig "github.com/trustbloc/did-go/doc/ld/processor"
+	ldtestutil "github.com/trustbloc/did-go/doc/ld/testutil"
 	"github.com/trustbloc/kms-go/crypto/tinkcrypto"
 	"github.com/trustbloc/kms-go/kms/localkms"
 	mockkms "github.com/trustbloc/kms-go/mock/kms"
 	"github.com/trustbloc/kms-go/secretlock/noop"
 	kmsapi "github.com/trustbloc/kms-go/spi/kms"
 
-	ldcontext "github.com/trustbloc/vc-go/ld/context"
-	lddocloader "github.com/trustbloc/vc-go/ld/documentloader"
-	jsonldsig "github.com/trustbloc/vc-go/ld/processor"
-	ldtestutil "github.com/trustbloc/vc-go/ld/testutil"
 	"github.com/trustbloc/vc-go/legacy/mock/storage"
 	"github.com/trustbloc/vc-go/signature/suite"
 	"github.com/trustbloc/vc-go/signature/suite/ed25519signature2018"

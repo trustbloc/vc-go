@@ -22,7 +22,8 @@ package jsonwebsignature2020
 import (
 	"crypto/sha256"
 
-	"github.com/trustbloc/vc-go/ld/processor"
+	"github.com/trustbloc/did-go/doc/ld/processor"
+
 	"github.com/trustbloc/vc-go/signature/suite"
 )
 

@@ -21,18 +21,16 @@ import (
 	"time"
 
 	jsonld "github.com/piprate/json-gold/ld"
+	docjsonld "github.com/trustbloc/did-go/doc/ld/validator"
+	"github.com/trustbloc/kms-go/doc/jose"
 	"github.com/xeipuuv/gojsonschema"
 
+	util "github.com/trustbloc/did-go/doc/util/time"
 	"github.com/trustbloc/vc-go/dataintegrity"
-
-	"github.com/trustbloc/kms-go/doc/jose"
-
 	"github.com/trustbloc/vc-go/jwt"
-	docjsonld "github.com/trustbloc/vc-go/ld/validator"
 	"github.com/trustbloc/vc-go/sdjwt/common"
 	"github.com/trustbloc/vc-go/signature/verifier"
 	jsonutil "github.com/trustbloc/vc-go/util/json"
-	util "github.com/trustbloc/vc-go/util/time"
 )
 
 var errLogger = log.New(os.Stderr, " [vc-go/verifiable] ", log.Ldate|log.Ltime|log.LUTC)

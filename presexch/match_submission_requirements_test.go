@@ -16,13 +16,13 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
-
+	ldprocessor "github.com/trustbloc/did-go/doc/ld/processor"
 	"github.com/trustbloc/kms-go/crypto/primitive/bbs12381g2pub"
-	ldprocessor "github.com/trustbloc/vc-go/ld/processor"
+
+	utiltime "github.com/trustbloc/did-go/doc/util/time"
 	"github.com/trustbloc/vc-go/presexch"
 	"github.com/trustbloc/vc-go/signature/suite"
 	"github.com/trustbloc/vc-go/signature/suite/bbsblssignature2020"
-	utiltime "github.com/trustbloc/vc-go/util/time"
 	"github.com/trustbloc/vc-go/verifiable"
 )
 

@@ -14,11 +14,10 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-
+	"github.com/trustbloc/did-go/doc/ld/processor"
+	"github.com/trustbloc/did-go/doc/ld/proof"
 	"github.com/trustbloc/kms-go/spi/kms"
 
-	"github.com/trustbloc/vc-go/ld/processor"
-	"github.com/trustbloc/vc-go/ld/proof"
 	"github.com/trustbloc/vc-go/signature/api"
 )
 

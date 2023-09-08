@@ -9,7 +9,7 @@ package models
 import (
 	"time"
 
-	"github.com/trustbloc/vc-go/did"
+	"github.com/trustbloc/did-go/doc/did"
 )
 
 const (

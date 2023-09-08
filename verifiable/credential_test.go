@@ -17,13 +17,12 @@ import (
 
 	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
+	jsonld "github.com/trustbloc/did-go/doc/ld/processor"
+	"github.com/trustbloc/kms-go/doc/jose"
+	"github.com/trustbloc/kms-go/spi/kms"
 	"github.com/xeipuuv/gojsonschema"
 	"golang.org/x/exp/slices"
 
-	"github.com/trustbloc/kms-go/doc/jose"
-	"github.com/trustbloc/kms-go/spi/kms"
-
-	jsonld "github.com/trustbloc/vc-go/ld/processor"
 	"github.com/trustbloc/vc-go/signature/suite"
 	"github.com/trustbloc/vc-go/signature/suite/ed25519signature2018"
 	"github.com/trustbloc/vc-go/signature/verifier"

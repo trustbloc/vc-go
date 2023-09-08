@@ -11,16 +11,14 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-
+	"github.com/trustbloc/did-go/doc/did"
+	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	"github.com/trustbloc/kms-go/crypto/tinkcrypto"
 	"github.com/trustbloc/kms-go/doc/util/jwkkid"
 	kmsapi "github.com/trustbloc/kms-go/spi/kms"
 
-	vdrspi "github.com/trustbloc/vc-go/spi/vdr"
-
 	"github.com/trustbloc/vc-go/dataintegrity"
 	"github.com/trustbloc/vc-go/dataintegrity/suite/ecdsa2019"
-	"github.com/trustbloc/vc-go/did"
 )
 
 func Test_DataIntegrity_SignVerify(t *testing.T) {
@@ -188,7 +186,7 @@ func Test_DataIntegrity_SignVerify(t *testing.T) {
 
 type resolveFunc func(id string) (*did.DocResolution, error)
 
-func (f resolveFunc) Resolve(id string, opts ...vdrspi.DIDMethodOption) (*did.DocResolution, error) {
+func (f resolveFunc) Resolve(id string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 	return f(id)
 }
 

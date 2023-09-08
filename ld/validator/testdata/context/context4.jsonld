@@ -1,6 +1,0 @@
-{
-  "@context": {
-    "referenceNumber": "https://example.com/vocab#referenceNumber",
-    "CustomExt12": "https://example.com/vocab#CustomExt12"
-  }
-}

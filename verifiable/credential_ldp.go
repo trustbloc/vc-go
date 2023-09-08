@@ -8,7 +8,7 @@ package verifiable
 import (
 	"fmt"
 
-	"github.com/trustbloc/vc-go/ld/processor"
+	"github.com/trustbloc/did-go/doc/ld/processor"
 )
 
 // AddLinkedDataProof appends proof to the Verifiable Credential.

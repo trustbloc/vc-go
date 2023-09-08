@@ -11,14 +11,14 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/trustbloc/did-go/doc/did"
+	"github.com/trustbloc/did-go/doc/did/util/vmparse"
+	"github.com/trustbloc/did-go/vdr/api"
 	"github.com/trustbloc/kms-go/doc/jose"
 	"github.com/trustbloc/kms-go/doc/util/jwkkid"
 	"github.com/trustbloc/kms-go/doc/util/kmssigner"
 
-	"github.com/trustbloc/vc-go/did"
-	"github.com/trustbloc/vc-go/did/util/vmparse"
 	"github.com/trustbloc/vc-go/jwt"
-	"github.com/trustbloc/vc-go/spi/vdr"
 )
 
 const (
@@ -35,7 +35,7 @@ type keyReader interface {
 }
 
 type didResolver interface {
-	Resolve(did string, opts ...vdr.DIDMethodOption) (*did.DocResolution, error)
+	Resolve(did string, opts ...api.DIDMethodOption) (*did.DocResolution, error)
 }
 
 type cryptoSigner interface {

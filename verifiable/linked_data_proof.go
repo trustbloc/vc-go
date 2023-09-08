@@ -11,8 +11,9 @@ import (
 	"strings"
 	"time"
 
-	ldprocessor "github.com/trustbloc/vc-go/ld/processor"
-	"github.com/trustbloc/vc-go/ld/proof"
+	ldprocessor "github.com/trustbloc/did-go/doc/ld/processor"
+	"github.com/trustbloc/did-go/doc/ld/proof"
+
 	"github.com/trustbloc/vc-go/signature/signer"
 	"github.com/trustbloc/vc-go/signature/verifier"
 )

@@ -7,8 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package api
 
 import (
+	"github.com/trustbloc/did-go/doc/ld/processor"
 	"github.com/trustbloc/kms-go/doc/jose/jwk"
-	"github.com/trustbloc/vc-go/ld/processor"
 )
 
 // SignatureSuite encapsulates signature suite methods required for signature verification.

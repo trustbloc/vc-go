@@ -23,13 +23,11 @@ import (
 	"github.com/piprate/json-gold/ld"
 	"github.com/xeipuuv/gojsonschema"
 
-	"github.com/trustbloc/vc-go/jwt/didsignjwt"
-
+	"github.com/trustbloc/did-go/doc/did"
+	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	kmsapi "github.com/trustbloc/kms-go/spi/kms"
 
-	vdrapi "github.com/trustbloc/vc-go/spi/vdr"
-
-	"github.com/trustbloc/vc-go/did"
+	"github.com/trustbloc/vc-go/jwt/didsignjwt"
 	"github.com/trustbloc/vc-go/signature/verifier"
 	jsonutil "github.com/trustbloc/vc-go/util/json"
 )

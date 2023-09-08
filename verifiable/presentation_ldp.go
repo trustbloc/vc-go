@@ -8,7 +8,7 @@ package verifiable
 import (
 	"fmt"
 
-	ldprocessor "github.com/trustbloc/vc-go/ld/processor"
+	ldprocessor "github.com/trustbloc/did-go/doc/ld/processor"
 )
 
 // AddLinkedDataProof appends proof to the Verifiable Presentation.

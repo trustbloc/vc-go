@@ -17,8 +17,8 @@ import (
 
 	"github.com/trustbloc/kms-go/spi/kms"
 
+	utiltime "github.com/trustbloc/did-go/doc/util/time"
 	"github.com/trustbloc/vc-go/signature/verifier"
-	utiltime "github.com/trustbloc/vc-go/util/time"
 )
 
 func TestParsePresentationFromJWS(t *testing.T) {

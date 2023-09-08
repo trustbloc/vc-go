@@ -13,11 +13,10 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-
+	ldprocessor "github.com/trustbloc/did-go/doc/ld/processor"
 	"github.com/trustbloc/kms-go/doc/jose/jwk/jwksupport"
 	"github.com/trustbloc/kms-go/spi/kms"
 
-	ldprocessor "github.com/trustbloc/vc-go/ld/processor"
 	"github.com/trustbloc/vc-go/signature/suite"
 	"github.com/trustbloc/vc-go/signature/suite/ecdsasecp256k1signature2019"
 	"github.com/trustbloc/vc-go/signature/suite/ed25519signature2018"
