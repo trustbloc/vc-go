@@ -13,9 +13,9 @@ import (
 
 	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
+	ldcontext "github.com/trustbloc/did-go/doc/ld/context"
+	ldtestutil "github.com/trustbloc/did-go/doc/ld/testutil"
 
-	ldcontext "github.com/trustbloc/vc-go/ld/context"
-	ldtestutil "github.com/trustbloc/vc-go/ld/testutil"
 	"github.com/trustbloc/vc-go/verifiable"
 )
 

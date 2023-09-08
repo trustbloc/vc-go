@@ -18,10 +18,11 @@ import (
 
 	"github.com/multiformats/go-multibase"
 	"github.com/piprate/json-gold/ld"
+	"github.com/trustbloc/did-go/doc/ld/processor"
 	"github.com/trustbloc/kms-go/doc/jose/jwk"
+
 	"github.com/trustbloc/vc-go/dataintegrity/models"
 	"github.com/trustbloc/vc-go/dataintegrity/suite"
-	"github.com/trustbloc/vc-go/ld/processor"
 	signatureverifier "github.com/trustbloc/vc-go/signature/verifier"
 )
 

@@ -17,10 +17,10 @@ import (
 	"time"
 
 	jsonld "github.com/piprate/json-gold/ld"
-	"github.com/trustbloc/did-go/didconfig/verifier"
+	"github.com/trustbloc/did-go/doc/did"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 
-	"github.com/trustbloc/vc-go/did"
+	"github.com/trustbloc/vc-go/didconfig/verifier"
 )
 
 var errLogger = log.New(os.Stderr, " [did-go/did-config/client] ", log.Ldate|log.Ltime|log.LUTC)

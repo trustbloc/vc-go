@@ -12,8 +12,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/trustbloc/did-go/doc/ld/testutil"
 
-	"github.com/trustbloc/vc-go/ld/testutil"
 	"github.com/trustbloc/vc-go/signature/suite"
 	"github.com/trustbloc/vc-go/signature/verifier"
 )

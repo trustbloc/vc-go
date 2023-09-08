@@ -11,8 +11,9 @@ import (
 	"errors"
 	"fmt"
 
+	jsonld "github.com/trustbloc/did-go/doc/ld/processor"
+
 	"github.com/trustbloc/vc-go/dataintegrity/models"
-	jsonld "github.com/trustbloc/vc-go/ld/processor"
 	"github.com/trustbloc/vc-go/signature/suite"
 	"github.com/trustbloc/vc-go/signature/suite/bbsblssignature2020"
 	"github.com/trustbloc/vc-go/signature/suite/bbsblssignatureproof2020"

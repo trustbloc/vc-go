@@ -11,10 +11,9 @@ import (
 	"encoding/json"
 	"strings"
 
+	lddocloader "github.com/trustbloc/did-go/doc/ld/documentloader"
+	ldtestutil "github.com/trustbloc/did-go/doc/ld/testutil"
 	"github.com/trustbloc/kms-go/crypto/primitive/bbs12381g2pub"
-
-	lddocloader "github.com/trustbloc/vc-go/ld/documentloader"
-	ldtestutil "github.com/trustbloc/vc-go/ld/testutil"
 
 	"github.com/trustbloc/vc-go/verifiable"
 )

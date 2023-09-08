@@ -13,8 +13,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-
-	ldcontext "github.com/trustbloc/vc-go/ld/context"
+	ldcontext "github.com/trustbloc/did-go/doc/ld/context"
 )
 
 const (

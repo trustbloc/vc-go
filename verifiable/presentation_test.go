@@ -12,12 +12,11 @@ import (
 
 	jsonld "github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
-
+	ldcontext "github.com/trustbloc/did-go/doc/ld/context"
+	ldprocessor "github.com/trustbloc/did-go/doc/ld/processor"
+	ldtestutil "github.com/trustbloc/did-go/doc/ld/testutil"
 	"github.com/trustbloc/kms-go/spi/kms"
 
-	ldcontext "github.com/trustbloc/vc-go/ld/context"
-	ldprocessor "github.com/trustbloc/vc-go/ld/processor"
-	ldtestutil "github.com/trustbloc/vc-go/ld/testutil"
 	"github.com/trustbloc/vc-go/signature/suite"
 	"github.com/trustbloc/vc-go/signature/suite/ed25519signature2018"
 	"github.com/trustbloc/vc-go/signature/verifier"

@@ -16,12 +16,12 @@ import (
 	"os"
 
 	jsonld "github.com/piprate/json-gold/ld"
+	diddoc "github.com/trustbloc/did-go/doc/did"
+	"github.com/trustbloc/did-go/method/key"
 	"github.com/trustbloc/did-go/vdr"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
-	"github.com/trustbloc/did-go/vdr/key"
 	"github.com/trustbloc/kms-go/doc/jose"
 
-	diddoc "github.com/trustbloc/vc-go/did"
 	"github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/verifiable"
 )

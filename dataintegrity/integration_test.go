@@ -14,7 +14,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/sjson"
-
+	"github.com/trustbloc/did-go/doc/did"
+	"github.com/trustbloc/did-go/doc/ld/documentloader"
+	mockldstore "github.com/trustbloc/did-go/doc/ld/mock"
+	"github.com/trustbloc/did-go/doc/ld/store"
 	"github.com/trustbloc/kms-go/crypto/tinkcrypto"
 	"github.com/trustbloc/kms-go/doc/util/jwkkid"
 	"github.com/trustbloc/kms-go/kms/localkms"
@@ -24,10 +27,6 @@ import (
 
 	"github.com/trustbloc/vc-go/dataintegrity/models"
 	"github.com/trustbloc/vc-go/dataintegrity/suite/ecdsa2019"
-	"github.com/trustbloc/vc-go/did"
-	"github.com/trustbloc/vc-go/ld/documentloader"
-	mockldstore "github.com/trustbloc/vc-go/ld/mock"
-	"github.com/trustbloc/vc-go/ld/store"
 	mockstorage "github.com/trustbloc/vc-go/legacy/mock/storage"
 )
 

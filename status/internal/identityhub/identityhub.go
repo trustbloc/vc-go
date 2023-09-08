@@ -16,8 +16,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/trustbloc/vc-go/did"
-	model "github.com/trustbloc/vc-go/did/endpoint"
+	"github.com/trustbloc/did-go/doc/did"
+	model "github.com/trustbloc/did-go/doc/did/endpoint"
 )
 
 // Request contains an identity hub query.

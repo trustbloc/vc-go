@@ -16,18 +16,17 @@ import (
 
 	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
-
+	ldprocessor "github.com/trustbloc/did-go/doc/ld/processor"
+	ldtestutil "github.com/trustbloc/did-go/doc/ld/testutil"
 	"github.com/trustbloc/kms-go/crypto/primitive/bbs12381g2pub"
 	"github.com/trustbloc/kms-go/spi/kms"
 
-	ldprocessor "github.com/trustbloc/vc-go/ld/processor"
-	ldtestutil "github.com/trustbloc/vc-go/ld/testutil"
+	utiltime "github.com/trustbloc/did-go/doc/util/time"
 	. "github.com/trustbloc/vc-go/presexch"
 	"github.com/trustbloc/vc-go/sdjwt/common"
 	"github.com/trustbloc/vc-go/signature/suite"
 	"github.com/trustbloc/vc-go/signature/suite/bbsblssignature2020"
 	jsonutil "github.com/trustbloc/vc-go/util/json"
-	utiltime "github.com/trustbloc/vc-go/util/time"
 	"github.com/trustbloc/vc-go/verifiable"
 )
 

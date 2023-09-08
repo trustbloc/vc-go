@@ -12,7 +12,7 @@ package signer
 import (
 	"time"
 
-	afgotime "github.com/trustbloc/vc-go/util/time"
+	afgotime "github.com/trustbloc/did-go/doc/util/time"
 )
 
 func wrapTime(t time.Time) *afgotime.TimeWrapper {

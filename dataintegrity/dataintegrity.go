@@ -9,8 +9,8 @@ package dataintegrity
 import (
 	"errors"
 
-	"github.com/trustbloc/vc-go/did"
-	spivdr "github.com/trustbloc/vc-go/spi/vdr"
+	"github.com/trustbloc/did-go/doc/did"
+	vdrapi "github.com/trustbloc/did-go/vdr/api"
 )
 
 var (
@@ -27,7 +27,7 @@ var (
 )
 
 type didResolver interface {
-	Resolve(did string, opts ...spivdr.DIDMethodOption) (*did.DocResolution, error)
+	Resolve(did string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error)
 }
 
 // Options contains initialization parameters for Data Integrity Signer and Verifier.

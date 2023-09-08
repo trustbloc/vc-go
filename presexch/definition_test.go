@@ -23,6 +23,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	lddocloader "github.com/trustbloc/did-go/doc/ld/documentloader"
+	ldprocessor "github.com/trustbloc/did-go/doc/ld/processor"
+	ldtestutil "github.com/trustbloc/did-go/doc/ld/testutil"
 	"github.com/trustbloc/kms-go/crypto/primitive/bbs12381g2pub"
 	"github.com/trustbloc/kms-go/crypto/tinkcrypto"
 	"github.com/trustbloc/kms-go/doc/util/fingerprint"
@@ -31,16 +34,13 @@ import (
 	"github.com/trustbloc/kms-go/secretlock/noop"
 	"github.com/trustbloc/kms-go/spi/kms"
 
-	lddocloader "github.com/trustbloc/vc-go/ld/documentloader"
-	ldprocessor "github.com/trustbloc/vc-go/ld/processor"
-	ldtestutil "github.com/trustbloc/vc-go/ld/testutil"
+	utiltime "github.com/trustbloc/did-go/doc/util/time"
 	"github.com/trustbloc/vc-go/legacy/mock/storage"
 	. "github.com/trustbloc/vc-go/presexch"
 	"github.com/trustbloc/vc-go/signature/suite"
 	"github.com/trustbloc/vc-go/signature/suite/bbsblssignature2020"
 	sigutil "github.com/trustbloc/vc-go/signature/util"
 	"github.com/trustbloc/vc-go/signature/verifier"
-	utiltime "github.com/trustbloc/vc-go/util/time"
 	"github.com/trustbloc/vc-go/verifiable"
 )
 

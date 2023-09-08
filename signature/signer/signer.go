@@ -12,8 +12,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/trustbloc/vc-go/ld/processor"
-	"github.com/trustbloc/vc-go/ld/proof"
+	"github.com/trustbloc/did-go/doc/ld/processor"
+	"github.com/trustbloc/did-go/doc/ld/proof"
 )
 
 const defaultProofPurpose = "assertionMethod"

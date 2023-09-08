@@ -13,13 +13,11 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-
+	"github.com/trustbloc/did-go/doc/did"
+	"github.com/trustbloc/did-go/doc/did/endpoint"
+	"github.com/trustbloc/did-go/vdr/api"
 	"github.com/trustbloc/kms-go/spi/kms"
 
-	"github.com/trustbloc/vc-go/spi/vdr"
-
-	"github.com/trustbloc/vc-go/did"
-	"github.com/trustbloc/vc-go/did/endpoint"
 	"github.com/trustbloc/vc-go/signature/verifier"
 )
 
@@ -316,7 +314,7 @@ type mockResolver struct {
 	didDoc *did.Doc
 }
 
-func (m *mockResolver) Resolve(string, ...vdr.DIDMethodOption) (*did.DocResolution, error) {
+func (m *mockResolver) Resolve(string, ...api.DIDMethodOption) (*did.DocResolution, error) {
 	return &did.DocResolution{
 		DIDDocument: m.didDoc,
 	}, nil

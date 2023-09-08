@@ -16,13 +16,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/trustbloc/did-go/doc/did"
+	ldcontext "github.com/trustbloc/did-go/doc/ld/context"
+	ldtestutil "github.com/trustbloc/did-go/doc/ld/testutil"
+	"github.com/trustbloc/did-go/method/httpbinding"
+	"github.com/trustbloc/did-go/method/key"
 	"github.com/trustbloc/did-go/vdr"
-	"github.com/trustbloc/did-go/vdr/httpbinding"
-	"github.com/trustbloc/did-go/vdr/key"
-
-	"github.com/trustbloc/vc-go/did"
-	ldcontext "github.com/trustbloc/vc-go/ld/context"
-	ldtestutil "github.com/trustbloc/vc-go/ld/testutil"
 )
 
 const (

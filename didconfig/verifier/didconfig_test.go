@@ -15,9 +15,11 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	ldcontext "github.com/trustbloc/did-go/doc/ld/context"
+	ldtestutil "github.com/trustbloc/did-go/doc/ld/testutil"
 	"github.com/trustbloc/did-go/legacy/mock/storage"
+	"github.com/trustbloc/did-go/method/key"
 	"github.com/trustbloc/did-go/vdr"
-	"github.com/trustbloc/did-go/vdr/key"
 	"github.com/trustbloc/kms-go/crypto/tinkcrypto"
 	"github.com/trustbloc/kms-go/doc/jose"
 	"github.com/trustbloc/kms-go/kms/localkms"
@@ -25,11 +27,9 @@ import (
 	"github.com/trustbloc/kms-go/secretlock/noop"
 	"github.com/trustbloc/kms-go/spi/kms"
 
+	afgotime "github.com/trustbloc/did-go/doc/util/time"
 	afgjwt "github.com/trustbloc/vc-go/jwt"
-	ldcontext "github.com/trustbloc/vc-go/ld/context"
-	ldtestutil "github.com/trustbloc/vc-go/ld/testutil"
 	sigutil "github.com/trustbloc/vc-go/signature/util"
-	afgotime "github.com/trustbloc/vc-go/util/time"
 	"github.com/trustbloc/vc-go/verifiable"
 )
 

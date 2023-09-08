@@ -12,6 +12,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/trustbloc/did-go/doc/did"
+	"github.com/trustbloc/did-go/doc/ld/documentloader"
 	"github.com/trustbloc/kms-go/crypto/tinkcrypto"
 	"github.com/trustbloc/kms-go/doc/util/jwkkid"
 	"github.com/trustbloc/kms-go/kms/localkms"
@@ -20,8 +22,6 @@ import (
 	kmsapi "github.com/trustbloc/kms-go/spi/kms"
 
 	"github.com/trustbloc/vc-go/dataintegrity/models"
-	"github.com/trustbloc/vc-go/did"
-	"github.com/trustbloc/vc-go/ld/documentloader"
 	mockstorage "github.com/trustbloc/vc-go/legacy/mock/storage"
 )
 

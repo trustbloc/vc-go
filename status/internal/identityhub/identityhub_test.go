@@ -12,9 +12,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-
-	"github.com/trustbloc/vc-go/did"
-	model "github.com/trustbloc/vc-go/did/endpoint"
+	"github.com/trustbloc/did-go/doc/did"
+	model "github.com/trustbloc/did-go/doc/did/endpoint"
 
 	. "github.com/trustbloc/vc-go/status/internal/identityhub"
 )

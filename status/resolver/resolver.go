@@ -21,9 +21,8 @@ import (
 
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 
-	"github.com/trustbloc/vc-go/verifiable"
-
 	"github.com/trustbloc/vc-go/status/internal/identityhub"
+	"github.com/trustbloc/vc-go/verifiable"
 )
 
 // Resolver resolves credential status list VCs.

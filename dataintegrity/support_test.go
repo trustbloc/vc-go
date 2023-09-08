@@ -10,12 +10,11 @@ import (
 	"errors"
 
 	"github.com/tidwall/gjson"
-
-	vdrspi "github.com/trustbloc/vc-go/spi/vdr"
+	"github.com/trustbloc/did-go/doc/did"
+	vdrapi "github.com/trustbloc/did-go/vdr/api"
 
 	"github.com/trustbloc/vc-go/dataintegrity/models"
 	"github.com/trustbloc/vc-go/dataintegrity/suite"
-	"github.com/trustbloc/vc-go/did"
 )
 
 var errExpected = errors.New("expected error")
@@ -141,7 +140,7 @@ func (m *mockSuiteInitializer) Type() string {
 
 type resolveFunc func(id string) (*did.DocResolution, error)
 
-func (f resolveFunc) Resolve(id string, opts ...vdrspi.DIDMethodOption) (*did.DocResolution, error) {
+func (f resolveFunc) Resolve(id string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 	return f(id)
 }
 
@@ -153,7 +152,7 @@ type mockResolver struct {
 
 var _ didResolver = mockResolver{}
 
-func (m mockResolver) Resolve(id string, opts ...vdrspi.DIDMethodOption) (*did.DocResolution, error) {
+func (m mockResolver) Resolve(id string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 	if m.err != nil {
 		return nil, m.err
 	}

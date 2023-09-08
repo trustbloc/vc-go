@@ -12,11 +12,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	ldcontext "github.com/trustbloc/did-go/doc/ld/context"
+	ldtestutil "github.com/trustbloc/did-go/doc/ld/testutil"
 
-	ldcontext "github.com/trustbloc/vc-go/ld/context"
-	ldtestutil "github.com/trustbloc/vc-go/ld/testutil"
+	utiltime "github.com/trustbloc/did-go/doc/util/time"
 	. "github.com/trustbloc/vc-go/presexch"
-	utiltime "github.com/trustbloc/vc-go/util/time"
 	"github.com/trustbloc/vc-go/verifiable"
 )
 

@@ -16,15 +16,13 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"github.com/trustbloc/did-go/doc/did"
+	model "github.com/trustbloc/did-go/doc/did/endpoint"
 	mockvdr "github.com/trustbloc/did-go/vdr/mock"
 
-	"github.com/trustbloc/vc-go/did"
-	model "github.com/trustbloc/vc-go/did/endpoint"
-	"github.com/trustbloc/vc-go/verifiable"
-
 	"github.com/trustbloc/vc-go/status/internal/identityhub"
-
 	. "github.com/trustbloc/vc-go/status/resolver"
+	"github.com/trustbloc/vc-go/verifiable"
 )
 
 const (

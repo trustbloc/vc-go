@@ -12,9 +12,10 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/trustbloc/did-go/doc/ld/processor"
+	"github.com/trustbloc/did-go/doc/ld/proof"
 	"github.com/trustbloc/kms-go/crypto/primitive/bbs12381g2pub"
-	"github.com/trustbloc/vc-go/ld/processor"
-	"github.com/trustbloc/vc-go/ld/proof"
+
 	sigverifier "github.com/trustbloc/vc-go/signature/verifier"
 )
 

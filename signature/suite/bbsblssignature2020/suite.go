@@ -15,7 +15,8 @@ package bbsblssignature2020
 // It uses BLS12-381 pairing-friendly curve (https://tools.ietf.org/html/draft-irtf-cfrg-pairing-friendly-curves-03).
 
 import (
-	"github.com/trustbloc/vc-go/ld/processor"
+	"github.com/trustbloc/did-go/doc/ld/processor"
+
 	"github.com/trustbloc/vc-go/signature/suite"
 )
 
