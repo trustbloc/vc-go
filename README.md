@@ -20,8 +20,8 @@ The library has the following implementations.
     - JsonWebSignature2020
     - [Data Integrity](https://www.w3.org/TR/vc-data-integrity/)
   - JWT Signature Suites
-    - JWT
-    - SD-JWT
+    - [JWT](https://www.w3.org/TR/vc-data-model/#json-web-token)
+    - [SD-JWT](https://www.ietf.org/archive/id/draft-ietf-oauth-selective-disclosure-jwt-05.html)
 - [DIF Presentation Exchange](https://identity.foundation/presentation-exchange/)
 - Verifiable Credential(VC) Status
   - [StatusList2021Entry](https://www.w3.org/TR/vc-status-list/)
