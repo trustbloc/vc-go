@@ -23,8 +23,8 @@ require (
 	github.com/stretchr/testify v1.8.2
 	github.com/tidwall/gjson v1.14.3
 	github.com/tidwall/sjson v1.1.4
-	github.com/trustbloc/did-go v0.0.0-20230912072609-b99774e957a9
-	github.com/trustbloc/kms-go v0.0.0-20230906134914-b9afaf3b793d
+	github.com/trustbloc/did-go v1.0.0
+	github.com/trustbloc/kms-go v1.0.0
 	github.com/xeipuuv/gojsonschema v1.2.0
 	golang.org/x/crypto v0.1.0
 	golang.org/x/exp v0.0.0-20230817173708-d852ddb80c63
