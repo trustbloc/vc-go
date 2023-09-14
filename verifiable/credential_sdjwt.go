@@ -410,7 +410,7 @@ func makeSDJWT( //nolint:funlen,gocyclo
 		)
 	}
 
-	opts.nonSDClaims = append(opts.nonSDClaims, "id")
+	opts.nonSDClaims = append(opts.nonSDClaims, "id", "type", "@type")
 	issuerOptions = append(issuerOptions,
 		issuer.WithNonSelectivelyDisclosableClaims(opts.nonSDClaims),
 	)
