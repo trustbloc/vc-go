@@ -14,9 +14,11 @@ import (
 
 	jsonld "github.com/trustbloc/did-go/doc/ld/processor"
 	"github.com/trustbloc/kms-go/spi/kms"
+
 	sigutil "github.com/trustbloc/vc-go/internal/testutil/signatureutil"
 
 	utiltime "github.com/trustbloc/did-go/doc/util/time"
+
 	"github.com/trustbloc/vc-go/signature/suite"
 	"github.com/trustbloc/vc-go/signature/suite/ed25519signature2018"
 	"github.com/trustbloc/vc-go/signature/verifier"
@@ -49,8 +51,7 @@ func ExamplePresentation_JWTClaims() {
       "@context": [
         "https://www.w3.org/2018/credentials/v1",
         "https://www.w3.org/2018/credentials/examples/v1"
-      ],
-      "credentialSchema": [],
+      ],      
       "credentialSubject": {
         "degree": {
           "type": "BachelorDegree",
@@ -101,7 +102,7 @@ func ExamplePresentation_JWTClaims() {
 
 	fmt.Println(jws)
 
-	// Output: eyJhbGciOiJFZERTQSIsImtpZCI6IiJ9.eyJhdWQiOiJkaWQ6ZXhhbXBsZTo0YTU3NTQ2OTczNDM2ZjZmNmM0YTRhNTc1NzMiLCJpc3MiOiJkaWQ6ZXhhbXBsZTplYmZlYjFmNzEyZWJjNmYxYzI3NmUxMmVjMjEiLCJqdGkiOiJ1cm46dXVpZDozOTc4MzQ0Zi04NTk2LTRjM2EtYTk3OC04ZmNhYmEzOTAzYzUiLCJ2cCI6eyJAY29udGV4dCI6WyJodHRwczovL3d3dy53My5vcmcvMjAxOC9jcmVkZW50aWFscy92MSIsImh0dHBzOi8vd3d3LnczLm9yZy8yMDE4L2NyZWRlbnRpYWxzL2V4YW1wbGVzL3YxIl0sInR5cGUiOlsiVmVyaWZpYWJsZVByZXNlbnRhdGlvbiIsIlVuaXZlcnNpdHlEZWdyZWVDcmVkZW50aWFsIl0sInZlcmlmaWFibGVDcmVkZW50aWFsIjpbeyJAY29udGV4dCI6WyJodHRwczovL3d3dy53My5vcmcvMjAxOC9jcmVkZW50aWFscy92MSIsImh0dHBzOi8vd3d3LnczLm9yZy8yMDE4L2NyZWRlbnRpYWxzL2V4YW1wbGVzL3YxIl0sImNyZWRlbnRpYWxTY2hlbWEiOltdLCJjcmVkZW50aWFsU3ViamVjdCI6eyJkZWdyZWUiOnsidHlwZSI6IkJhY2hlbG9yRGVncmVlIiwidW5pdmVyc2l0eSI6Ik1JVCJ9LCJpZCI6ImRpZDpleGFtcGxlOmViZmViMWY3MTJlYmM2ZjFjMjc2ZTEyZWMyMSIsIm5hbWUiOiJKYXlkZW4gRG9lIiwic3BvdXNlIjoiZGlkOmV4YW1wbGU6YzI3NmUxMmVjMjFlYmZlYjFmNzEyZWJjNmYxIn0sImV4cGlyYXRpb25EYXRlIjoiMjAyMC0wMS0wMVQxOToyMzoyNFoiLCJpZCI6Imh0dHA6Ly9leGFtcGxlLmVkdS9jcmVkZW50aWFscy8xODcyIiwiaXNzdWFuY2VEYXRlIjoiMjAxMC0wMS0wMVQxOToyMzoyNFoiLCJpc3N1ZXIiOnsiaWQiOiJkaWQ6ZXhhbXBsZTo3NmUxMmVjNzEyZWJjNmYxYzIyMWViZmViMWYiLCJuYW1lIjoiRXhhbXBsZSBVbml2ZXJzaXR5In0sInJlZmVyZW5jZU51bWJlciI6ODMyOTQ4NDcsInR5cGUiOlsiVmVyaWZpYWJsZUNyZWRlbnRpYWwiLCJVbml2ZXJzaXR5RGVncmVlQ3JlZGVudGlhbCJdfV19fQ.TFDBa7VYD4dgduu7LlMWZzk20oU-cc3X7S3AKAJJsX6_Jok3lE6v-24tdCNJsc4eMVlBs6a43J3aq5MDIyiIDg
+	// Output: eyJhbGciOiJFZERTQSIsImtpZCI6IiJ9.eyJhdWQiOiJkaWQ6ZXhhbXBsZTo0YTU3NTQ2OTczNDM2ZjZmNmM0YTRhNTc1NzMiLCJpc3MiOiJkaWQ6ZXhhbXBsZTplYmZlYjFmNzEyZWJjNmYxYzI3NmUxMmVjMjEiLCJqdGkiOiJ1cm46dXVpZDozOTc4MzQ0Zi04NTk2LTRjM2EtYTk3OC04ZmNhYmEzOTAzYzUiLCJ2cCI6eyJAY29udGV4dCI6WyJodHRwczovL3d3dy53My5vcmcvMjAxOC9jcmVkZW50aWFscy92MSIsImh0dHBzOi8vd3d3LnczLm9yZy8yMDE4L2NyZWRlbnRpYWxzL2V4YW1wbGVzL3YxIl0sInR5cGUiOlsiVmVyaWZpYWJsZVByZXNlbnRhdGlvbiIsIlVuaXZlcnNpdHlEZWdyZWVDcmVkZW50aWFsIl0sInZlcmlmaWFibGVDcmVkZW50aWFsIjpbeyJAY29udGV4dCI6WyJodHRwczovL3d3dy53My5vcmcvMjAxOC9jcmVkZW50aWFscy92MSIsImh0dHBzOi8vd3d3LnczLm9yZy8yMDE4L2NyZWRlbnRpYWxzL2V4YW1wbGVzL3YxIl0sImNyZWRlbnRpYWxTdWJqZWN0Ijp7ImRlZ3JlZSI6eyJ0eXBlIjoiQmFjaGVsb3JEZWdyZWUiLCJ1bml2ZXJzaXR5IjoiTUlUIn0sImlkIjoiZGlkOmV4YW1wbGU6ZWJmZWIxZjcxMmViYzZmMWMyNzZlMTJlYzIxIiwibmFtZSI6IkpheWRlbiBEb2UiLCJzcG91c2UiOiJkaWQ6ZXhhbXBsZTpjMjc2ZTEyZWMyMWViZmViMWY3MTJlYmM2ZjEifSwiZXhwaXJhdGlvbkRhdGUiOiIyMDIwLTAxLTAxVDE5OjIzOjI0WiIsImlkIjoiaHR0cDovL2V4YW1wbGUuZWR1L2NyZWRlbnRpYWxzLzE4NzIiLCJpc3N1YW5jZURhdGUiOiIyMDEwLTAxLTAxVDE5OjIzOjI0WiIsImlzc3VlciI6eyJpZCI6ImRpZDpleGFtcGxlOjc2ZTEyZWM3MTJlYmM2ZjFjMjIxZWJmZWIxZiIsIm5hbWUiOiJFeGFtcGxlIFVuaXZlcnNpdHkifSwicmVmZXJlbmNlTnVtYmVyIjo4LjMyOTQ4NDdlKzA3LCJ0eXBlIjpbIlZlcmlmaWFibGVDcmVkZW50aWFsIiwiVW5pdmVyc2l0eURlZ3JlZUNyZWRlbnRpYWwiXX1dfX0.DHppUzixT3CGt44qHkZ9Fj7JPce3oFgiLLi4JH3_PDMluSL1UAIJmFgElQzhMke_obappoaOgUn8QipLXm-ZAQ
 }
 
 func ExamplePresentation() {
@@ -167,13 +168,13 @@ func ExamplePresentation() {
 
 	fmt.Println(jws)
 
-	// Output: eyJhbGciOiJFZERTQSIsImtpZCI6IiJ9.eyJhdWQiOiJkaWQ6ZXhhbXBsZTo0YTU3NTQ2OTczNDM2ZjZmNmM0YTRhNTc1NzMiLCJpc3MiOiJkaWQ6ZXhhbXBsZTplYmZlYjFmNzEyZWJjNmYxYzI3NmUxMmVjMjEiLCJqdGkiOiJ1cm46dXVpZDozOTc4MzQ0Zi04NTk2LTRjM2EtYTk3OC04ZmNhYmEzOTAzYzUiLCJ2cCI6eyJAY29udGV4dCI6WyJodHRwczovL3d3dy53My5vcmcvMjAxOC9jcmVkZW50aWFscy92MSJdLCJ0eXBlIjoiVmVyaWZpYWJsZVByZXNlbnRhdGlvbiIsInZlcmlmaWFibGVDcmVkZW50aWFsIjpbeyJAY29udGV4dCI6WyJodHRwczovL3d3dy53My5vcmcvMjAxOC9jcmVkZW50aWFscy92MSIsImh0dHBzOi8vd3d3LnczLm9yZy8yMDE4L2NyZWRlbnRpYWxzL2V4YW1wbGVzL3YxIl0sImNyZWRlbnRpYWxTdWJqZWN0Ijp7ImRlZ3JlZSI6eyJ0eXBlIjoiQmFjaGVsb3JEZWdyZWUiLCJ1bml2ZXJzaXR5IjoiTUlUIn0sImlkIjoiZGlkOmV4YW1wbGU6ZWJmZWIxZjcxMmViYzZmMWMyNzZlMTJlYzIxIiwibmFtZSI6IkpheWRlbiBEb2UiLCJzcG91c2UiOiJkaWQ6ZXhhbXBsZTpjMjc2ZTEyZWMyMWViZmViMWY3MTJlYmM2ZjEifSwiZXhwaXJhdGlvbkRhdGUiOiIyMDIwLTAxLTAxVDE5OjIzOjI0WiIsImlkIjoiaHR0cDovL2V4YW1wbGUuZWR1L2NyZWRlbnRpYWxzLzE4NzIiLCJpc3N1YW5jZURhdGUiOiIyMDEwLTAxLTAxVDE5OjIzOjI0WiIsImlzc3VlciI6eyJpZCI6ImRpZDpleGFtcGxlOjc2ZTEyZWM3MTJlYmM2ZjFjMjIxZWJmZWIxZiIsIm5hbWUiOiJFeGFtcGxlIFVuaXZlcnNpdHkifSwicmVmZXJlbmNlTnVtYmVyIjo4MzI5NDg0NywidHlwZSI6WyJWZXJpZmlhYmxlQ3JlZGVudGlhbCIsIlVuaXZlcnNpdHlEZWdyZWVDcmVkZW50aWFsIl19XX19.DnhBKUNbFjNE2ROS8z3CYKr1D5YiL4zEcEaaVF62ASHaueU-pImf36ayReWTWMzhde1PJ_z3K8uzPt3QZUudAQ
+	// Output: eyJhbGciOiJFZERTQSIsImtpZCI6IiJ9.eyJhdWQiOiJkaWQ6ZXhhbXBsZTo0YTU3NTQ2OTczNDM2ZjZmNmM0YTRhNTc1NzMiLCJpc3MiOiJkaWQ6ZXhhbXBsZTplYmZlYjFmNzEyZWJjNmYxYzI3NmUxMmVjMjEiLCJqdGkiOiJ1cm46dXVpZDozOTc4MzQ0Zi04NTk2LTRjM2EtYTk3OC04ZmNhYmEzOTAzYzUiLCJ2cCI6eyJAY29udGV4dCI6WyJodHRwczovL3d3dy53My5vcmcvMjAxOC9jcmVkZW50aWFscy92MSJdLCJ0eXBlIjoiVmVyaWZpYWJsZVByZXNlbnRhdGlvbiIsInZlcmlmaWFibGVDcmVkZW50aWFsIjpbeyJAY29udGV4dCI6WyJodHRwczovL3d3dy53My5vcmcvMjAxOC9jcmVkZW50aWFscy92MSIsImh0dHBzOi8vd3d3LnczLm9yZy8yMDE4L2NyZWRlbnRpYWxzL2V4YW1wbGVzL3YxIl0sImNyZWRlbnRpYWxTdWJqZWN0Ijp7ImRlZ3JlZSI6eyJ0eXBlIjoiQmFjaGVsb3JEZWdyZWUiLCJ1bml2ZXJzaXR5IjoiTUlUIn0sImlkIjoiZGlkOmV4YW1wbGU6ZWJmZWIxZjcxMmViYzZmMWMyNzZlMTJlYzIxIiwibmFtZSI6IkpheWRlbiBEb2UiLCJzcG91c2UiOiJkaWQ6ZXhhbXBsZTpjMjc2ZTEyZWMyMWViZmViMWY3MTJlYmM2ZjEifSwiZXhwaXJhdGlvbkRhdGUiOiIyMDIwLTAxLTAxVDE5OjIzOjI0WiIsImlkIjoiaHR0cDovL2V4YW1wbGUuZWR1L2NyZWRlbnRpYWxzLzE4NzIiLCJpc3N1YW5jZURhdGUiOiIyMDEwLTAxLTAxVDE5OjIzOjI0WiIsImlzc3VlciI6eyJpZCI6ImRpZDpleGFtcGxlOjc2ZTEyZWM3MTJlYmM2ZjFjMjIxZWJmZWIxZiIsIm5hbWUiOiJFeGFtcGxlIFVuaXZlcnNpdHkifSwicmVmZXJlbmNlTnVtYmVyIjo4LjMyOTQ4NDdlKzA3LCJ0eXBlIjpbIlZlcmlmaWFibGVDcmVkZW50aWFsIiwiVW5pdmVyc2l0eURlZ3JlZUNyZWRlbnRpYWwiXX1dfX0.9LTnCAm6xF3FohreA8Zl7LYIbIP1L21rd2xwbKz0JirHxxN-S6gdm078e4D_Kk3wqBFXl2g2EFzqa9ggY3BSCA
 }
 
 func ExamplePresentation_two() {
 	// Holder wants to send 2 credentials to Verifier.
 	// The first VC is created on fly (or just decoded using ParseCredential).
-	vc := &verifiable.Credential{
+	vc := createExampleCredCF(verifiable.CredentialContents{
 		Context: []string{
 			"https://www.w3.org/2018/credentials/v1",
 			"https://www.w3.org/2018/credentials/examples/v1",
@@ -183,7 +184,7 @@ func ExamplePresentation_two() {
 			"VerifiableCredential",
 			"UniversityDegreeCredential",
 		},
-		Subject: UniversityDegreeSubject{
+		Subject: serializeSingleSubject(UniversityDegreeSubject{
 			ID:     "did:example:ebfeb1f712ebc6f1c276e12ec21",
 			Name:   "Jayden Doe",
 			Spouse: "did:example:c276e12ec21ebfeb1f712ebc6f1",
@@ -191,18 +192,17 @@ func ExamplePresentation_two() {
 				Type:       "BachelorDegree",
 				University: "MIT",
 			},
-		},
-		Issuer: verifiable.Issuer{
+		}),
+		Issuer: &verifiable.Issuer{
 			ID:           "did:example:76e12ec712ebc6f1c221ebfeb1f",
 			CustomFields: verifiable.CustomFields{"name": "Example University"},
 		},
 		Issued:  utiltime.NewTime(issued),
 		Expired: utiltime.NewTime(expired),
 		Schemas: []verifiable.TypedID{},
-		CustomFields: map[string]interface{}{
-			"referenceNumber": 83294847,
-		},
-	}
+	}, map[string]interface{}{
+		"referenceNumber": 83294847,
+	})
 
 	vcStr := `
 {
@@ -234,8 +234,15 @@ func ExamplePresentation_two() {
 		panic(fmt.Errorf("failed to decode VC JSON: %w", err))
 	}
 
+	jwtVC, err := verifiable.ParseCredential([]byte(vcJWS),
+		verifiable.WithJSONLDDocumentLoader(getJSONLDDocumentLoader()),
+		verifiable.WithDisabledProofCheck())
+	if err != nil {
+		panic(fmt.Errorf("failed to decode VC JWT: %w", err))
+	}
+
 	vp, err := verifiable.NewPresentation(verifiable.WithCredentials(vc),
-		verifiable.WithJWTCredentials(vcJWS), verifiable.WithCredentials(vc2))
+		verifiable.WithCredentials(jwtVC), verifiable.WithCredentials(vc2))
 	if err != nil {
 		panic(fmt.Errorf("failed to set credentials of VP: %w", err))
 	}
@@ -312,7 +319,7 @@ func ExamplePresentation_two() {
 }
 
 func ExamplePresentation_MarshalJSON() {
-	vc := &verifiable.Credential{
+	vc := createExampleCredCF(verifiable.CredentialContents{
 		Context: []string{
 			"https://www.w3.org/2018/credentials/v1",
 			"https://www.w3.org/2018/credentials/examples/v1",
@@ -322,7 +329,7 @@ func ExamplePresentation_MarshalJSON() {
 			"VerifiableCredential",
 			"UniversityDegreeCredential",
 		},
-		Subject: UniversityDegreeSubject{
+		Subject: serializeSingleSubject(UniversityDegreeSubject{
 			ID:     "did:example:ebfeb1f712ebc6f1c276e12ec21",
 			Name:   "Jayden Doe",
 			Spouse: "did:example:c276e12ec21ebfeb1f712ebc6f1",
@@ -330,18 +337,17 @@ func ExamplePresentation_MarshalJSON() {
 				Type:       "BachelorDegree",
 				University: "MIT",
 			},
-		},
-		Issuer: verifiable.Issuer{
+		}),
+		Issuer: &verifiable.Issuer{
 			ID:           "did:example:76e12ec712ebc6f1c221ebfeb1f",
 			CustomFields: verifiable.CustomFields{"name": "Example University"},
 		},
 		Issued:  utiltime.NewTime(issued),
 		Expired: utiltime.NewTime(expired),
 		Schemas: []verifiable.TypedID{},
-		CustomFields: map[string]interface{}{
-			"referenceNumber": 83294847,
-		},
-	}
+	}, map[string]interface{}{
+		"referenceNumber": 83294847,
+	})
 
 	vp, err := verifiable.NewPresentation(verifiable.WithCredentials(vc))
 	if err != nil {
@@ -401,7 +407,7 @@ func ExamplePresentation_MarshalJSON() {
 
 //nolint:gocyclo
 func ExamplePresentation_MarshalledCredentials() {
-	vc := verifiable.Credential{
+	vc := createExampleCred(verifiable.CredentialContents{
 		Context: []string{
 			"https://www.w3.org/2018/credentials/v1",
 			"https://www.w3.org/2018/credentials/examples/v1",
@@ -411,7 +417,7 @@ func ExamplePresentation_MarshalledCredentials() {
 			"VerifiableCredential",
 			"UniversityDegreeCredential",
 		},
-		Subject: UniversityDegreeSubject{
+		Subject: serializeSingleSubject(UniversityDegreeSubject{
 			ID:     "did:example:ebfeb1f712ebc6f1c276e12ec21",
 			Name:   "Jayden Doe",
 			Spouse: "did:example:c276e12ec21ebfeb1f712ebc6f1",
@@ -419,30 +425,25 @@ func ExamplePresentation_MarshalledCredentials() {
 				Type:       "BachelorDegree",
 				University: "MIT",
 			},
-		},
-		Issuer: verifiable.Issuer{
+		}),
+		Issuer: &verifiable.Issuer{
 			ID:           "did:example:76e12ec712ebc6f1c221ebfeb1f",
 			CustomFields: verifiable.CustomFields{"name": "Example University"},
 		},
 		Issued:  utiltime.NewTime(issued),
 		Expired: utiltime.NewTime(expired),
 		Schemas: []verifiable.TypedID{},
-	}
+	})
+
+	issuerSigner := sigutil.GetEd25519Signer(issuerPrivKey, issuerPubKey)
 
 	// Put JWS form of VC into VP.
-	vcJWTClaims, err := vc.JWTClaims(true)
+	jwtVC, err := vc.CreateSignedJWTVC(true, verifiable.EdDSA, issuerSigner, "did:123#i-kid")
 	if err != nil {
 		panic(fmt.Errorf("failed to set credentials of VP: %w", err))
 	}
 
-	issuerSigner := sigutil.GetEd25519Signer(issuerPrivKey, issuerPubKey)
-
-	vcJWS, err := vcJWTClaims.MarshalJWS(verifiable.EdDSA, issuerSigner, "did:123#i-kid")
-	if err != nil {
-		panic(fmt.Errorf("failed to sign VC JWT: %w", err))
-	}
-
-	vp, err := verifiable.NewPresentation(verifiable.WithJWTCredentials(vcJWS))
+	vp, err := verifiable.NewPresentation(verifiable.WithCredentials(jwtVC))
 	if err != nil {
 		panic(fmt.Errorf("failed to set credentials of VP: %w", err))
 	}

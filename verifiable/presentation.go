@@ -14,13 +14,12 @@ import (
 	"github.com/xeipuuv/gojsonschema"
 
 	"github.com/trustbloc/vc-go/dataintegrity"
+	jsonutil "github.com/trustbloc/vc-go/util/json"
 
 	docjsonld "github.com/trustbloc/did-go/doc/ld/validator"
-	"github.com/trustbloc/kms-go/doc/jose"
 
 	"github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/signature/verifier"
-	jsonutil "github.com/trustbloc/vc-go/util/json"
 )
 
 const basePresentationSchema = `
@@ -174,7 +173,7 @@ type Presentation struct {
 	CustomContext []interface{}
 	ID            string
 	Type          []string
-	credentials   []interface{}
+	credentials   []*Credential
 	Holder        string
 	Proofs        []Proof
 	JWT           string
@@ -186,7 +185,7 @@ func NewPresentation(opts ...CreatePresentationOpt) (*Presentation, error) {
 	p := Presentation{
 		Context:     []string{baseContext},
 		Type:        []string{vpType},
-		credentials: []interface{}{},
+		credentials: []*Credential{},
 	}
 
 	for _, o := range opts {
@@ -203,21 +202,6 @@ func NewPresentation(opts ...CreatePresentationOpt) (*Presentation, error) {
 func WithCredentials(cs ...*Credential) CreatePresentationOpt {
 	return func(p *Presentation) error {
 		for _, c := range cs {
-			p.credentials = append(p.credentials, c)
-		}
-
-		return nil
-	}
-}
-
-// WithJWTCredentials sets the provided base64url encoded JWT credentials into the presentation.
-func WithJWTCredentials(cs ...string) CreatePresentationOpt {
-	return func(p *Presentation) error {
-		for _, c := range cs {
-			if !jose.IsCompactJWS(c) {
-				return errors.New("credential is not base64url encoded JWT")
-			}
-
 			p.credentials = append(p.credentials, c)
 		}
 
@@ -253,7 +237,7 @@ func (vp *Presentation) JWTClaims(audience []string, minimizeVP bool) (*JWTPresC
 }
 
 // Credentials returns current credentials of presentation.
-func (vp *Presentation) Credentials() []interface{} {
+func (vp *Presentation) Credentials() []*Credential {
 	return vp.credentials
 }
 
@@ -271,85 +255,74 @@ func (vp *Presentation) MarshalledCredentials() ([]MarshalledCredential, error) 
 
 	for i := range vp.credentials {
 		cred := vp.credentials[i]
-		switch c := cred.(type) {
-		case string:
-			mCreds[i] = MarshalledCredential(c)
-		case []byte:
-			mCreds[i] = c
-		default:
-			credBytes, err := json.Marshal(cred)
-			if err != nil {
-				return nil, fmt.Errorf("marshal credentials from presentation: %w", err)
-			}
 
-			mCreds[i] = credBytes
+		credBytes, err := json.Marshal(cred)
+		if err != nil {
+			return nil, fmt.Errorf("marshal credentials from presentation: %w", err)
 		}
+
+		mCreds[i] = credBytes
 	}
 
 	return mCreds, nil
 }
 
-func (vp *Presentation) raw() (*rawPresentation, error) {
-	proof, err := proofsToRaw(vp.Proofs)
-	if err != nil {
-		return nil, err
+func (vp *Presentation) raw() (rawPresentation, error) {
+	rp := rawPresentation{}
+
+	// TODO single value contexts should be compacted as part of Issue [#1730]
+	// Not compacting now to support interoperability
+	if len(vp.Context) > 0 {
+		rp[vpFldContext] = contextToRaw(vp.Context, nil)
 	}
 
-	rp := &rawPresentation{
-		// TODO single value contexts should be compacted as part of Issue [#1730]
-		// Not compacting now to support interoperability
-		Context:      vp.Context,
-		ID:           vp.ID,
-		Type:         typesToRaw(vp.Type),
-		Holder:       vp.Holder,
-		Proof:        proof,
-		CustomFields: vp.CustomFields,
-		JWT:          vp.JWT,
+	if vp.ID != "" {
+		rp[vpFldID] = vp.ID
+	}
+
+	if len(vp.Type) > 0 {
+		rp[vpFldType] = serializeTypes(vp.Type)
+	}
+
+	if len(vp.Holder) > 0 {
+		rp[vpFldHolder] = vp.Holder
+	}
+
+	if len(vp.Proofs) > 0 {
+		rp[vpFldProof] = proofsToRaw(vp.Proofs)
 	}
 
 	if len(vp.credentials) > 0 {
-		rp.Credential = vp.credentials
+		var err error
+
+		rp[vpFldCredential], err = mapSlice2(vp.credentials, func(c *Credential) (interface{}, error) {
+			return c.ToUniversalForm()
+		})
+		if err != nil {
+			return nil, fmt.Errorf("serialize credentials to raw presentation: %w", err)
+		}
+	}
+
+	for cfKey, cfValue := range vp.CustomFields {
+		if _, exists := rp[cfKey]; !exists {
+			rp[cfKey] = cfValue
+		}
 	}
 
 	return rp, nil
 }
 
+const (
+	vpFldContext    = "@context"
+	vpFldID         = "id"
+	vpFldType       = "type"
+	vpFldCredential = "verifiableCredential"
+	vpFldHolder     = "holder"
+	vpFldProof      = "proof"
+)
+
 // rawPresentation is a basic verifiable credential.
-type rawPresentation struct {
-	Context    interface{}     `json:"@context,omitempty"`
-	ID         string          `json:"id,omitempty"`
-	Type       interface{}     `json:"type,omitempty"`
-	Credential interface{}     `json:"verifiableCredential,omitempty"`
-	Holder     string          `json:"holder,omitempty"`
-	Proof      json.RawMessage `json:"proof,omitempty"`
-	JWT        string          `json:"jwt,omitempty"`
-	// All unmapped fields are put here.
-	CustomFields `json:"-"`
-}
-
-// MarshalJSON defines custom marshalling of rawPresentation to JSON.
-func (rp *rawPresentation) MarshalJSON() ([]byte, error) {
-	type Alias rawPresentation
-
-	alias := (*Alias)(rp)
-
-	return jsonutil.MarshalWithCustomFields(alias, rp.CustomFields)
-}
-
-// UnmarshalJSON defines custom unmarshalling of rawPresentation from JSON.
-func (rp *rawPresentation) UnmarshalJSON(data []byte) error {
-	type Alias rawPresentation
-
-	alias := (*Alias)(rp)
-	rp.CustomFields = make(CustomFields)
-
-	err := jsonutil.UnmarshalWithCustomFields(data, alias, rp.CustomFields)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
+type rawPresentation = map[string]interface{}
 
 // presentationOpts holds options for the Verifiable Presentation decoding.
 type presentationOpts struct {
@@ -474,36 +447,53 @@ func getPresentationOpts(opts []PresentationOpt) *presentationOpts {
 	return vpOpts
 }
 
-func newPresentation(vpRaw *rawPresentation, vpOpts *presentationOpts) (*Presentation, error) {
-	types, err := decodeType(vpRaw.Type)
+func newPresentation(vpRaw rawPresentation, vpOpts *presentationOpts) (*Presentation, error) {
+	types, err := decodeType(vpRaw[vpFldType])
 	if err != nil {
 		return nil, fmt.Errorf("fill presentation types from raw: %w", err)
 	}
 
-	context, customContext, err := decodeContext(vpRaw.Context)
+	context, customContext, err := decodeContext(vpRaw[vpFldContext])
 	if err != nil {
 		return nil, fmt.Errorf("fill presentation contexts from raw: %w", err)
 	}
 
-	creds, err := decodeCredentials(vpRaw.Credential, vpOpts)
+	creds, err := decodeCredentials(vpRaw[vpFldCredential], vpOpts)
 	if err != nil {
 		return nil, fmt.Errorf("decode credentials of presentation: %w", err)
 	}
 
-	proofs, err := parseProof(vpRaw.Proof)
+	proofs, err := parseLDProof(vpRaw[vpFldProof])
 	if err != nil {
-		return nil, fmt.Errorf("fill credential proof from raw: %w", err)
+		return nil, fmt.Errorf("fill presentation proof from raw: %w", err)
+	}
+
+	id, err := parseStringFld(vpRaw, vpFldID)
+	if err != nil {
+		return nil, fmt.Errorf("fill presentation id from raw: %w", err)
+	}
+
+	holder, err := parseStringFld(vpRaw, vpFldHolder)
+	if err != nil {
+		return nil, fmt.Errorf("fill presentation holder from raw: %w", err)
 	}
 
 	return &Presentation{
 		Context:       context,
 		CustomContext: customContext,
-		ID:            vpRaw.ID,
+		ID:            id,
 		Type:          types,
 		credentials:   creds,
-		Holder:        vpRaw.Holder,
+		Holder:        holder,
 		Proofs:        proofs,
-		CustomFields:  vpRaw.CustomFields,
+		CustomFields: jsonutil.CopyExcept(vpRaw,
+			vpFldContext,
+			vpFldID,
+			vpFldType,
+			vpFldCredential,
+			vpFldHolder,
+			vpFldProof,
+		),
 	}, nil
 }
 
@@ -513,35 +503,43 @@ func newPresentation(vpRaw *rawPresentation, vpOpts *presentationOpts) (*Present
 // 2) the same as 1) but as array - e.g. zero ore more JWS
 // 3) struct (should be map[string]interface{}) representing credential data model
 // 4) the same as 3) but as array - i.e. zero or more credentials structs.
-func decodeCredentials(rawCred interface{}, opts *presentationOpts) ([]interface{}, error) {
+func decodeCredentials(rawCred interface{}, opts *presentationOpts) ([]*Credential, error) { //nolint:funlen
 	// Accept the case when VP does not have any VCs.
 	if rawCred == nil {
 		return nil, nil
 	}
 
-	unmarshalSingleCredFn := func(cred interface{}) (interface{}, error) {
+	unmarshalSingleCredFn := func(cred interface{}) (*Credential, error) {
+		credOpts := []CredentialOpt{
+			WithPublicKeyFetcher(opts.publicKeyFetcher),
+			WithEmbeddedSignatureSuites(opts.ldpSuites...),
+			WithJSONLDDocumentLoader(opts.jsonldCredentialOpts.jsonldDocumentLoader),
+		}
+
+		if opts.disabledProofCheck {
+			credOpts = append(credOpts, WithDisabledProofCheck())
+		}
+
 		// Check the case when VC is defined in string format (e.g. JWT).
 		// Decode credential and keep result of decoding.
 		if sCred, ok := cred.(string); ok {
 			bCred := []byte(sCred)
-
-			credOpts := []CredentialOpt{
-				WithPublicKeyFetcher(opts.publicKeyFetcher),
-				WithEmbeddedSignatureSuites(opts.ldpSuites...),
-				WithJSONLDDocumentLoader(opts.jsonldCredentialOpts.jsonldDocumentLoader),
-			}
-
-			if opts.disabledProofCheck {
-				credOpts = append(credOpts, WithDisabledProofCheck())
-			}
 
 			vc, err := ParseCredential(bCred, credOpts...)
 
 			return vc, err
 		}
 
-		// return credential in a structure format as is
-		return cred, nil
+		if jsonCred, ok := cred.(JSONObject); ok {
+			//TODO: Previous implementation do not validate credentials, should we enable it?
+			credOpts = append(credOpts, WithCredDisableValidation())
+			vc, err := ParseCredentialJSON(jsonCred, credOpts...)
+
+			return vc, err
+		}
+
+		return nil,
+			fmt.Errorf("invalid crenetial type should be string or map[string]interface{}, got: %T", cred)
 	}
 
 	switch cred := rawCred.(type) {
@@ -552,7 +550,7 @@ func decodeCredentials(rawCred interface{}, opts *presentationOpts) ([]interface
 		}
 
 		// 1 or more credentials
-		creds := make([]interface{}, len(cred))
+		creds := make([]*Credential, len(cred))
 
 		for i := range cred {
 			c, err := unmarshalSingleCredFn(cred[i])
@@ -571,7 +569,7 @@ func decodeCredentials(rawCred interface{}, opts *presentationOpts) ([]interface
 			return nil, err
 		}
 
-		return []interface{}{c}, nil
+		return []*Credential{c}, nil
 	}
 }
 
@@ -613,7 +611,7 @@ func validateVPJSONSchema(data []byte) error {
 }
 
 //nolint:gocyclo
-func decodeRawPresentation(vpData []byte, vpOpts *presentationOpts) ([]byte, *rawPresentation, string, error) {
+func decodeRawPresentation(vpData []byte, vpOpts *presentationOpts) ([]byte, rawPresentation, string, error) {
 	vpStr := string(unQuote(vpData))
 
 	if jwt.IsJWS(vpStr) {
@@ -643,7 +641,7 @@ func decodeRawPresentation(vpData []byte, vpOpts *presentationOpts) ([]byte, *ra
 			return nil, nil, "", fmt.Errorf("decoding of Verifiable Presentation from unsecured JWT: %w", err)
 		}
 
-		if err := checkEmbeddedProof(rawBytes, embeddedProofCheckOpts); err != nil {
+		if err := checkEmbeddedProofBytes(rawBytes, embeddedProofCheckOpts); err != nil {
 			return nil, nil, "", err
 		}
 
@@ -655,24 +653,24 @@ func decodeRawPresentation(vpData []byte, vpOpts *presentationOpts) ([]byte, *ra
 		return nil, nil, "", err
 	}
 
-	err = checkEmbeddedProof(vpData, embeddedProofCheckOpts)
+	err = checkEmbeddedProofBytes(vpData, embeddedProofCheckOpts)
 	if err != nil {
 		return nil, nil, "", err
 	}
 
 	// check that embedded proof is present, if not, it's not a verifiable presentation
-	if vpOpts.requireProof && vpRaw.Proof == nil {
+	if vpOpts.requireProof && vpRaw[vpFldProof] == nil {
 		return nil, nil, "", errors.New("embedded proof is missing")
 	}
 
 	return vpData, vpRaw, "", err
 }
 
-func decodeVPFromJSON(vpData []byte) (*rawPresentation, error) {
+func decodeVPFromJSON(vpData []byte) (rawPresentation, error) {
 	// unmarshal VP from JSON
-	raw := new(rawPresentation)
+	var raw rawPresentation
 
-	err := json.Unmarshal(vpData, raw)
+	err := json.Unmarshal(vpData, &raw)
 	if err != nil {
 		return nil, fmt.Errorf("JSON unmarshalling of verifiable presentation: %w", err)
 	}

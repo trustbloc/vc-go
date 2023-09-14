@@ -17,6 +17,7 @@ import (
 	"github.com/trustbloc/did-go/doc/did/endpoint"
 	"github.com/trustbloc/did-go/vdr/api"
 	"github.com/trustbloc/kms-go/spi/kms"
+
 	"github.com/trustbloc/vc-go/internal/testutil/signatureutil"
 
 	"github.com/trustbloc/vc-go/signature/verifier"
@@ -70,10 +71,9 @@ func TestParseCredentialFromJWS(t *testing.T) {
 		vc, err := parseTestCredential(t, testCred)
 		require.NoError(t, err)
 
-		require.NotEqual(t, "", vcFromJWT.JWT)
-		vcFromJWT.JWT = ""
+		require.True(t, vcFromJWT.IsJWT())
 
-		require.Equal(t, vc, vcFromJWT)
+		require.Equal(t, vc.Contents(), vcFromJWT.Contents())
 	})
 
 	t.Run("Decoding credential from JWS with minimized fields of \"vc\" claim", func(t *testing.T) {
@@ -86,10 +86,9 @@ func TestParseCredentialFromJWS(t *testing.T) {
 		vc, err := parseTestCredential(t, testCred)
 		require.NoError(t, err)
 
-		require.NotEqual(t, "", vcFromJWT.JWT)
-		vcFromJWT.JWT = ""
+		require.True(t, vcFromJWT.IsJWT())
 
-		require.Equal(t, vc, vcFromJWT)
+		require.Equal(t, vc.Contents(), vcFromJWT.Contents())
 	})
 
 	t.Run("Failed JWT signature verification of credential", func(t *testing.T) {
@@ -107,7 +106,7 @@ func TestParseCredentialFromJWS(t *testing.T) {
 			}))
 
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "JWS decoding: unmarshal VC JWT claims")
+		require.Contains(t, err.Error(), "verification error")
 		require.Nil(t, vc)
 	})
 
@@ -148,11 +147,10 @@ func TestParseCredentialFromJWS_EdDSA(t *testing.T) {
 		WithPublicKeyFetcher(SingleJWK(signer.PublicJWK(), kms.ED25519)))
 	require.NoError(t, err)
 
-	require.NotEqual(t, "", vcFromJWS.JWT)
-	vcFromJWS.JWT = ""
+	require.True(t, vcFromJWS.IsJWT())
 
 	// unmarshalled credential must be the same as original one
-	require.Equal(t, vc, vcFromJWS)
+	require.Equal(t, vc.Contents(), vcFromJWS.Contents())
 }
 
 func TestParseCredentialFromUnsecuredJWT(t *testing.T) {
@@ -272,7 +270,7 @@ func createDIDKeyFetcher(t *testing.T, pub ed25519.PublicKey, didID string) Publ
 	resolver := NewVDRKeyResolver(v)
 	require.NotNil(t, resolver)
 
-	return resolver.resolvePublicKey
+	return resolver.PublicKeyFetcher()
 }
 
 func createRS256JWS(t *testing.T, cred []byte, signer Signer, minimize bool) []byte {
@@ -281,7 +279,7 @@ func createRS256JWS(t *testing.T, cred []byte, signer Signer, minimize bool) []b
 
 	jwtClaims, err := vc.JWTClaims(minimize)
 	require.NoError(t, err)
-	vcJWT, err := jwtClaims.MarshalJWS(RS256, signer, vc.Issuer.ID+"#keys-"+keyID)
+	vcJWT, err := jwtClaims.MarshalJWSString(RS256, signer, vc.Contents().Issuer.ID+"#keys-"+keyID)
 	require.NoError(t, err)
 
 	return []byte(vcJWT)
@@ -293,7 +291,7 @@ func createEdDSAJWS(t *testing.T, cred []byte, signer Signer, minimize bool) []b
 
 	jwtClaims, err := vc.JWTClaims(minimize)
 	require.NoError(t, err)
-	vcJWT, err := jwtClaims.MarshalJWS(EdDSA, signer, vc.Issuer.ID+"#keys-"+keyID)
+	vcJWT, err := jwtClaims.MarshalJWSString(EdDSA, signer, vc.Contents().Issuer.ID+"#keys-"+keyID)
 	require.NoError(t, err)
 
 	return []byte(vcJWT)

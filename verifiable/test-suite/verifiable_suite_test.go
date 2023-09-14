@@ -132,17 +132,12 @@ func encodeVCToJWS(vcBytes []byte, privateKey *rsa.PrivateKey) {
 		abort("failed to decode credential: %v", err)
 	}
 
-	jwtClaims, err := credential.JWTClaims(true)
-	if err != nil {
-		abort("verifiable credential encoding to JWS failed: %v", err)
-	}
-
-	jws, err := jwtClaims.MarshalJWS(verifiable.RS256, getRsaSigner(privateKey), "any")
+	jwtClaims, err := credential.CreateSignedJWTVC(true, verifiable.RS256, getRsaSigner(privateKey), "any")
 	if err != nil {
 		abort("failed to serialize JWS: %v", err)
 	}
 
-	fmt.Println(jws)
+	fmt.Println(jwtClaims.ToJWTString())
 }
 
 func encodeVPToJWS(vpBytes []byte, audience string, privateKey *rsa.PrivateKey, publicKey *rsa.PublicKey) {

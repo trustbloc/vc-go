@@ -8,17 +8,19 @@ package verifiable
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+	"encoding/json"
 	"errors"
-	"fmt"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+
 	"github.com/trustbloc/vc-go/internal/testutil/signatureutil"
 
 	"github.com/trustbloc/kms-go/spi/kms"
 
 	utiltime "github.com/trustbloc/did-go/doc/util/time"
+
 	"github.com/trustbloc/vc-go/signature/verifier"
 )
 
@@ -160,7 +162,23 @@ func TestParsePresentationWithVCJWT(t *testing.T) {
 	issued := time.Date(2010, time.January, 1, 19, 23, 24, 0, time.UTC)
 	expired := time.Date(2020, time.January, 1, 19, 23, 24, 0, time.UTC)
 
-	vc := &Credential{
+	subjBytes, err := json.Marshal(UniversityDegreeSubject{
+		ID:     "did:example:ebfeb1f712ebc6f1c276e12ec21",
+		Name:   "Jayden Doe",
+		Spouse: "did:example:c276e12ec21ebfeb1f712ebc6f1",
+		Degree: UniversityDegree{
+			Type:       "BachelorDegree",
+			University: "MIT",
+		},
+	})
+
+	require.NoError(t, err)
+
+	var subject Subject
+
+	require.NoError(t, json.Unmarshal(subjBytes, &subject))
+
+	vcc := CredentialContents{
 		Context: []string{
 			"https://www.w3.org/2018/credentials/v1",
 			"https://www.w3.org/2018/credentials/examples/v1",
@@ -170,16 +188,8 @@ func TestParsePresentationWithVCJWT(t *testing.T) {
 			"VerifiableCredential",
 			"UniversityDegreeCredential",
 		},
-		Subject: UniversityDegreeSubject{
-			ID:     "did:example:ebfeb1f712ebc6f1c276e12ec21",
-			Name:   "Jayden Doe",
-			Spouse: "did:example:c276e12ec21ebfeb1f712ebc6f1",
-			Degree: UniversityDegree{
-				Type:       "BachelorDegree",
-				University: "MIT",
-			},
-		},
-		Issuer: Issuer{
+		Subject: []Subject{subject},
+		Issuer: &Issuer{
 			ID:           "did:example:76e12ec712ebc6f1c221ebfeb1f",
 			CustomFields: CustomFields{"name": "Example University"},
 		},
@@ -188,18 +198,18 @@ func TestParsePresentationWithVCJWT(t *testing.T) {
 		Schemas: []TypedID{},
 	}
 
-	vcJWTClaims, err := vc.JWTClaims(true)
+	vc, err := CreateCredential(vcc, nil)
 	r.NoError(err)
 
 	issuerSigner := signatureutil.CryptoSigner(t, kms.RSARS256Type)
 
-	vcJWS, err := vcJWTClaims.MarshalJWS(RS256, issuerSigner, "did:123#issuer-key")
+	jwtVC, err := vc.CreateSignedJWTVC(true, RS256, issuerSigner, "did:123#issuer-key")
 	r.NoError(err)
-	r.NotNil(vcJWS)
+	r.NotNil(jwtVC)
 
 	t.Run("Presentation with VC defined as JWS", func(t *testing.T) {
 		// Create and encode VP.
-		vp, err := NewPresentation(WithJWTCredentials(vcJWS))
+		vp, err := NewPresentation(WithCredentials(jwtVC))
 		r.NoError(err)
 
 		vp.ID = "urn:uuid:2978344f-8596-4c3a-a978-8fcaba3903c"
@@ -241,7 +251,7 @@ func TestParsePresentationWithVCJWT(t *testing.T) {
 		vcDecoded, err := parseTestCredential(t, vpCreds[0], WithPublicKeyFetcher(publicKeyFetcher))
 		r.NoError(err)
 
-		r.Equal(fmt.Sprintf("%q", vcJWS), vcDecoded.stringJSON(t))
+		r.Equal(jwtVC.stringJSON(t), vcDecoded.stringJSON(t))
 	})
 
 	t.Run("Presentation with VC defined as VC struct", func(t *testing.T) {
@@ -276,7 +286,7 @@ func TestParsePresentationWithVCJWT(t *testing.T) {
 	})
 
 	t.Run("Failed check of VC due to invalid JWS", func(t *testing.T) {
-		vp, err := NewPresentation(WithJWTCredentials(vcJWS))
+		vp, err := NewPresentation(WithCredentials(jwtVC))
 		r.NoError(err)
 
 		vp.ID = "urn:uuid:0978344f-8596-4c3a-a978-8fcaba3903c"
@@ -316,7 +326,7 @@ func TestParsePresentationWithVCJWT(t *testing.T) {
 			}))
 		r.Error(err)
 		r.Contains(err.Error(), "decode credentials of presentation")
-		r.Contains(err.Error(), "JWS decoding")
+		r.Contains(err.Error(), "JWS proof check")
 		r.Nil(vp)
 	})
 }

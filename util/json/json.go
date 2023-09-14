@@ -7,6 +7,8 @@ package json
 
 import (
 	"encoding/json"
+
+	"golang.org/x/exp/slices"
 )
 
 // MarshalWithCustomFields marshals value merged with custom fields defined in the map into JSON bytes.
@@ -77,6 +79,65 @@ func MergeCustomFields(v interface{}, cf map[string]interface{}) (map[string]int
 	return kf, nil
 }
 
+// AddCustomFields add custom filed to json object.
+func AddCustomFields(obj map[string]interface{}, cf map[string]interface{}) {
+	// Supplement value map with custom fields.
+	for k, v := range cf {
+		if _, exists := obj[k]; !exists {
+			obj[k] = v
+		}
+	}
+}
+
+// SplitJSONObj splits provides fields into separate object.
+func SplitJSONObj(json map[string]interface{}, flds ...string) (map[string]interface{}, map[string]interface{}) {
+	fldsMap := make(map[string]interface{})
+	rest := make(map[string]interface{})
+
+	for k, v := range json {
+		if slices.Contains(flds, k) {
+			fldsMap[k] = v
+		} else {
+			rest[k] = v
+		}
+	}
+
+	return fldsMap, rest
+}
+
+// ShallowCopyObj creates new json object with copied fields form provided object.
+func ShallowCopyObj(json map[string]interface{}) map[string]interface{} {
+	flds := make(map[string]interface{})
+
+	for k, v := range json {
+		flds[k] = v
+	}
+
+	return flds
+}
+
+// CopyExcept copies all fields except fields with given names.
+func CopyExcept(json map[string]interface{}, flds ...string) map[string]interface{} {
+	newJSON := ShallowCopyObj(json)
+
+	for _, fld := range flds {
+		delete(newJSON, fld)
+	}
+
+	return newJSON
+}
+
+// Select copies only fields with given names.
+func Select(json map[string]interface{}, flds ...string) map[string]interface{} {
+	newJSON := map[string]interface{}{}
+
+	for _, fld := range flds {
+		newJSON[fld] = json[fld]
+	}
+
+	return newJSON
+}
+
 // ToMap convert object, string or bytes to json object represented by map.
 func ToMap(v interface{}) (map[string]interface{}, error) {
 	var (
@@ -104,20 +165,4 @@ func ToMap(v interface{}) (map[string]interface{}, error) {
 	}
 
 	return m, nil
-}
-
-// ToMaps convert array to array of json objects.
-func ToMaps(v []interface{}) ([]map[string]interface{}, error) {
-	maps := make([]map[string]interface{}, len(v))
-
-	for i := range v {
-		m, err := ToMap(v[i])
-		if err != nil {
-			return nil, err
-		}
-
-		maps[i] = m
-	}
-
-	return maps, nil
 }

@@ -68,7 +68,7 @@ func TestWithPresRequireProof(t *testing.T) {
 	vpOpt(opts)
 	require.True(t, opts.requireProof)
 
-	raw := &rawPresentation{}
+	var raw rawPresentation
 	require.NoError(t, json.Unmarshal([]byte(validPresentation), &raw))
 	raw.Proof = nil
 	bytes, err := json.Marshal(raw)

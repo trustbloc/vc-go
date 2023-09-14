@@ -16,18 +16,18 @@ import (
 type JWTPresClaims struct {
 	*jwt.Claims
 
-	Presentation *rawPresentation `json:"vp,omitempty"`
+	Presentation rawPresentation `json:"vp,omitempty"`
 }
 
 func (jpc *JWTPresClaims) refineFromJWTClaims() {
 	raw := jpc.Presentation
 
 	if jpc.Issuer != "" {
-		raw.Holder = jpc.Issuer
+		raw[vpFldHolder] = jpc.Issuer
 	}
 
 	if jpc.ID != "" {
-		raw.ID = jpc.ID
+		raw[vpFldID] = jpc.ID
 	}
 }
 
@@ -43,7 +43,7 @@ func newJWTPresClaims(vp *Presentation, audience []string, minimizeVP bool) (*JW
 	}
 
 	var (
-		rawVP *rawPresentation
+		rawVP rawPresentation
 		err   error
 	)
 
@@ -60,8 +60,6 @@ func newJWTPresClaims(vp *Presentation, audience []string, minimizeVP bool) (*JW
 		return nil, err
 	}
 
-	rawVP.JWT = ""
-
 	presClaims := &JWTPresClaims{
 		Claims:       jwtClaims,
 		Presentation: rawVP,
@@ -75,7 +73,7 @@ type JWTPresClaimsUnmarshaller func(vpJWT string) (*JWTPresClaims, error)
 
 // decodePresJWT parses JWT from the specified bytes array in compact format using the unmarshaller.
 // It returns decoded Verifiable Presentation refined by JWT Claims in raw byte array and rawPresentation form.
-func decodePresJWT(vpJWT string, unmarshaller JWTPresClaimsUnmarshaller) ([]byte, *rawPresentation, error) {
+func decodePresJWT(vpJWT string, unmarshaller JWTPresClaimsUnmarshaller) ([]byte, rawPresentation, error) {
 	presClaims, err := unmarshaller(vpJWT)
 	if err != nil {
 		return nil, nil, fmt.Errorf("decode Verifiable Presentation JWT claims: %w", err)

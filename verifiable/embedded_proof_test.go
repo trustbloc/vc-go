@@ -53,7 +53,7 @@ func Test_parseEmbeddedProof(t *testing.T) {
 	})
 }
 
-func Test_checkEmbeddedProof(t *testing.T) {
+func Test_checkEmbeddedProofBytes(t *testing.T) {
 	r := require.New(t)
 	nonJSONBytes := []byte("not JSON")
 	defaultOpts := &embeddedProofCheckOpts{}
@@ -63,7 +63,7 @@ func Test_checkEmbeddedProof(t *testing.T) {
 		vcBytes := vc.byteJSON(t)
 
 		vSuite := ed25519signature2018.New(suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier()))
-		err := checkEmbeddedProof(vcBytes, &embeddedProofCheckOpts{
+		err := checkEmbeddedProofBytes(vcBytes, &embeddedProofCheckOpts{
 			publicKeyFetcher:     publicKeyFetcher,
 			ldpSuites:            []verifier.SignatureSuite{vSuite},
 			jsonldCredentialOpts: jsonldCredentialOpts{jsonldDocumentLoader: createTestDocumentLoader(t)},
@@ -77,7 +77,7 @@ func Test_checkEmbeddedProof(t *testing.T) {
 		vcBytes := vc.byteJSON(t)
 
 		vSuite := ed25519signature2018.New(suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier()))
-		err := checkEmbeddedProof(vcBytes, &embeddedProofCheckOpts{
+		err := checkEmbeddedProofBytes(vcBytes, &embeddedProofCheckOpts{
 			publicKeyFetcher:     publicKeyFetcher,
 			ldpSuites:            []verifier.SignatureSuite{vSuite},
 			jsonldCredentialOpts: jsonldCredentialOpts{jsonldDocumentLoader: createTestDocumentLoader(t)},
@@ -87,12 +87,12 @@ func Test_checkEmbeddedProof(t *testing.T) {
 	})
 
 	t.Run("Does not check the embedded proof if credentialOpts.disabledProofCheck", func(t *testing.T) {
-		err := checkEmbeddedProof(nonJSONBytes, &embeddedProofCheckOpts{disabledProofCheck: true})
+		err := checkEmbeddedProofBytes(nonJSONBytes, &embeddedProofCheckOpts{disabledProofCheck: true})
 		r.NoError(err)
 	})
 
 	t.Run("error on checking non-JSON embedded proof", func(t *testing.T) {
-		err := checkEmbeddedProof(nonJSONBytes, defaultOpts)
+		err := checkEmbeddedProofBytes(nonJSONBytes, defaultOpts)
 		r.Error(err)
 		r.Contains(err.Error(), "embedded proof is not JSON")
 	})
@@ -101,7 +101,7 @@ func Test_checkEmbeddedProof(t *testing.T) {
 		docWithoutProof := `{
   "@context": "https://www.w3.org/2018/credentials/v1"
 }`
-		err := checkEmbeddedProof([]byte(docWithoutProof), defaultOpts)
+		err := checkEmbeddedProofBytes([]byte(docWithoutProof), defaultOpts)
 		r.NoError(err)
 	})
 
@@ -110,7 +110,7 @@ func Test_checkEmbeddedProof(t *testing.T) {
   "@context": "https://www.w3.org/2018/credentials/v1",
   "proof": "some string proof"
 }`
-		err := checkEmbeddedProof([]byte(docWithNotMapProof), defaultOpts)
+		err := checkEmbeddedProofBytes([]byte(docWithNotMapProof), defaultOpts)
 		r.Error(err)
 		r.EqualError(err, "check embedded proof: invalid proof type")
 	})
@@ -120,7 +120,7 @@ func Test_checkEmbeddedProof(t *testing.T) {
   "@context": "https://www.w3.org/2018/credentials/v1",
   "proof": "some string proof"
 }`
-		err := checkEmbeddedProof([]byte(docWithNotMapProof), defaultOpts)
+		err := checkEmbeddedProofBytes([]byte(docWithNotMapProof), defaultOpts)
 		r.Error(err)
 		r.EqualError(err, "check embedded proof: invalid proof type")
 	})
@@ -142,7 +142,7 @@ func Test_checkEmbeddedProof(t *testing.T) {
 
 }
 `
-		err := checkEmbeddedProof([]byte(docWithNotMapProof), defaultOpts)
+		err := checkEmbeddedProofBytes([]byte(docWithNotMapProof), defaultOpts)
 		r.Error(err)
 		r.EqualError(err, "check embedded proof: invalid proof type")
 	})
@@ -154,7 +154,7 @@ func Test_checkEmbeddedProof(t *testing.T) {
 	"type": "SomethingUnsupported"
   }
 }`
-		err := checkEmbeddedProof([]byte(docWithNotSupportedProof), defaultOpts)
+		err := checkEmbeddedProofBytes([]byte(docWithNotSupportedProof), defaultOpts)
 		r.Error(err)
 		r.EqualError(err, "check embedded proof: unsupported proof type: SomethingUnsupported")
 	})
@@ -169,7 +169,7 @@ func Test_checkEmbeddedProof(t *testing.T) {
     "proofValue": "invalid value"
   }
 }`
-		err := checkEmbeddedProof([]byte(docWithNotSupportedProof),
+		err := checkEmbeddedProofBytes([]byte(docWithNotSupportedProof),
 			&embeddedProofCheckOpts{publicKeyFetcher: SingleKey([]byte("pub key bytes"), kms.ED25519)})
 		r.Error(err)
 		r.Contains(err.Error(), "check embedded proof")
@@ -185,7 +185,7 @@ func Test_checkEmbeddedProof(t *testing.T) {
     "proofValue": "invalid value"
   }
 }`
-		err := checkEmbeddedProof([]byte(docWithNotSupportedProof), defaultOpts)
+		err := checkEmbeddedProofBytes([]byte(docWithNotSupportedProof), defaultOpts)
 		r.Error(err)
 		r.EqualError(err, "public key fetcher is not defined")
 	})

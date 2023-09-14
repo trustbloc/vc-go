@@ -22,6 +22,7 @@ import (
 	"github.com/trustbloc/did-go/vdr"
 	"github.com/trustbloc/kms-go/doc/jose"
 	"github.com/trustbloc/kms-go/spi/kms"
+
 	"github.com/trustbloc/vc-go/internal/testutil/signatureutil"
 	afgjwt "github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/verifiable"
@@ -199,18 +200,19 @@ func TestIsValidDomainCredentialJWT(t *testing.T) {
 	})
 
 	t.Run("success - credential created with AFG", func(t *testing.T) {
-		dlcJWT := &verifiable.Credential{
+		dlcJWT, err := verifiable.CreateCredential(verifiable.CredentialContents{
 			Issued:  afgotime.NewTime(time.Now()),
 			Expired: afgotime.NewTime(time.Now().Add(time.Hour)),
 			Context: []string{verifiable.ContextURI, ContextV1},
 			Types:   []string{verifiable.VCType, domainLinkageCredentialType},
 			Subject: []verifiable.Subject{{ID: testDID, CustomFields: map[string]interface{}{"origin": testJWTDomain}}},
-			Issuer:  verifiable.Issuer{ID: testDID},
-		}
+			Issuer:  &verifiable.Issuer{ID: testDID},
+		}, nil)
+		require.NoError(t, err)
 
 		ed25519Signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
 
-		dlcJWT.JWT = createEdDSAJWS(t, dlcJWT, ed25519Signer, testKID, false)
+		dlcJWT = createEdDSAJWS(t, dlcJWT, ed25519Signer, testKID, false)
 
 		jwt, err := dlcJWT.MarshalJSON()
 		require.NoError(t, err)
@@ -239,14 +241,15 @@ func TestIsValidDomainCredentialJWT(t *testing.T) {
 	})
 
 	t.Run("error - typ not JWT", func(t *testing.T) {
-		dlcJWT := &verifiable.Credential{
+		dlcJWT, err := verifiable.CreateCredential(verifiable.CredentialContents{
 			Issued:  afgotime.NewTime(time.Now()),
 			Expired: afgotime.NewTime(time.Now().Add(time.Hour)),
 			Context: []string{verifiable.ContextURI, ContextV1},
 			Types:   []string{verifiable.VCType, domainLinkageCredentialType},
 			Subject: []verifiable.Subject{{ID: testDID, CustomFields: map[string]interface{}{"origin": testJWTDomain}}},
-			Issuer:  verifiable.Issuer{ID: testDID},
-		}
+			Issuer:  &verifiable.Issuer{ID: testDID},
+		}, nil)
+		require.NoError(t, err)
 
 		jwtClaims, err := dlcJWT.JWTClaims(false)
 		require.NoError(t, err)
@@ -275,7 +278,7 @@ func TestIsValidDomainCredentialJWT(t *testing.T) {
 		jwt, err = token.Serialize(false)
 		require.NoError(t, err)
 
-		vcParsed.JWT = jwt
+		vcParsed.JWTEnvelope.JWT = jwt
 
 		err = isValidDomainLinkageCredential(vcParsed, testDID, testJWTDomain)
 		require.Error(t, err)
@@ -283,14 +286,15 @@ func TestIsValidDomainCredentialJWT(t *testing.T) {
 	})
 
 	t.Run("error - no alg in JWT header", func(t *testing.T) {
-		dlcJWT := &verifiable.Credential{
+		dlcJWT, err := verifiable.CreateCredential(verifiable.CredentialContents{
 			Issued:  afgotime.NewTime(time.Now()),
 			Expired: afgotime.NewTime(time.Now().Add(time.Hour)),
 			Context: []string{verifiable.ContextURI, ContextV1},
 			Types:   []string{verifiable.VCType, domainLinkageCredentialType},
 			Subject: []verifiable.Subject{{ID: testDID, CustomFields: map[string]interface{}{"origin": testJWTDomain}}},
-			Issuer:  verifiable.Issuer{ID: testDID},
-		}
+			Issuer:  &verifiable.Issuer{ID: testDID},
+		}, nil)
+		require.NoError(t, err)
 
 		jwtClaims, err := dlcJWT.JWTClaims(false)
 		require.NoError(t, err)
@@ -319,7 +323,7 @@ func TestIsValidDomainCredentialJWT(t *testing.T) {
 		jwt, err = token.Serialize(false)
 		require.NoError(t, err)
 
-		vcParsed.JWT = jwt
+		vcParsed.JWTEnvelope.JWT = jwt
 
 		err = isValidDomainLinkageCredential(vcParsed, testDID, testJWTDomain)
 		require.Error(t, err)
@@ -327,14 +331,15 @@ func TestIsValidDomainCredentialJWT(t *testing.T) {
 	})
 
 	t.Run("error - extra property in JWT Payload", func(t *testing.T) {
-		dlcJWT := &verifiable.Credential{
+		dlcJWT, err := verifiable.CreateCredential(verifiable.CredentialContents{
 			Issued:  afgotime.NewTime(time.Now()),
 			Expired: afgotime.NewTime(time.Now().Add(time.Hour)),
 			Context: []string{verifiable.ContextURI, ContextV1},
 			Types:   []string{verifiable.VCType, domainLinkageCredentialType},
 			Subject: []verifiable.Subject{{ID: testDID, CustomFields: map[string]interface{}{"origin": testJWTDomain}}},
-			Issuer:  verifiable.Issuer{ID: testDID},
-		}
+			Issuer:  &verifiable.Issuer{ID: testDID},
+		}, nil)
+		require.NoError(t, err)
 
 		jwtClaims, err := dlcJWT.JWTClaims(false)
 		require.NoError(t, err)
@@ -363,14 +368,15 @@ func TestIsValidDomainCredentialJWT(t *testing.T) {
 	})
 
 	t.Run("error - extra property in JWT Header", func(t *testing.T) {
-		dlcJWT := &verifiable.Credential{
+		dlcJWT, err := verifiable.CreateCredential(verifiable.CredentialContents{
 			Issued:  afgotime.NewTime(time.Now()),
 			Expired: afgotime.NewTime(time.Now().Add(time.Hour)),
 			Context: []string{verifiable.ContextURI, ContextV1},
 			Types:   []string{verifiable.VCType, domainLinkageCredentialType},
 			Subject: []verifiable.Subject{{ID: testDID, CustomFields: map[string]interface{}{"origin": testJWTDomain}}},
-			Issuer:  verifiable.Issuer{ID: testDID},
-		}
+			Issuer:  &verifiable.Issuer{ID: testDID},
+		}, nil)
+		require.NoError(t, err)
 
 		jwtClaims, err := dlcJWT.JWTClaims(false)
 		require.NoError(t, err)
@@ -431,7 +437,7 @@ func TestIsValidDomainCredentialJWT(t *testing.T) {
 		vc, err := verifiable.ParseCredential([]byte(dlcJWT), credOpts...)
 		require.NoError(t, err)
 
-		vc.JWT = "invalid.abc.xyz"
+		vc.JWTEnvelope.JWT = "invalid.abc.xyz"
 
 		err = isValidDomainLinkageCredential(vc, testDID, testJWTDomain)
 		require.Error(t, err)
@@ -439,18 +445,19 @@ func TestIsValidDomainCredentialJWT(t *testing.T) {
 	})
 
 	t.Run("error - sub must be equal to subject ID", func(t *testing.T) {
-		dlcJWT := &verifiable.Credential{
+		dlcJWT, err := verifiable.CreateCredential(verifiable.CredentialContents{
 			Issued:  afgotime.NewTime(time.Now()),
 			Expired: afgotime.NewTime(time.Now().Add(time.Hour)),
 			Context: []string{verifiable.ContextURI, ContextV1},
 			Types:   []string{verifiable.VCType, domainLinkageCredentialType},
 			Subject: []verifiable.Subject{{ID: "did:key:different", CustomFields: map[string]interface{}{"origin": testJWTDomain}}}, // nolint:lll
-			Issuer:  verifiable.Issuer{ID: testDID},
-		}
+			Issuer:  &verifiable.Issuer{ID: testDID},
+		}, nil)
+		require.NoError(t, err)
 
 		ed25519Signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
 
-		dlcJWT.JWT = createEdDSAJWS(t, dlcJWT, ed25519Signer, testKID, false)
+		dlcJWT = createEdDSAJWS(t, dlcJWT, ed25519Signer, testKID, false)
 
 		e = isValidDomainLinkageCredential(dlcJWT, testDID, testJWTDomain)
 		require.Error(t, e)
@@ -459,24 +466,28 @@ func TestIsValidDomainCredentialJWT(t *testing.T) {
 	})
 
 	t.Run("error - create JWT Claims error", func(t *testing.T) {
-		dlcJWT := &verifiable.Credential{
+		dlcJWT, err := verifiable.CreateCredential(verifiable.CredentialContents{
 			Issued:  afgotime.NewTime(time.Now()),
 			Expired: afgotime.NewTime(time.Now().Add(time.Hour)),
 			Context: []string{verifiable.ContextURI, ContextV1},
 			Types:   []string{verifiable.VCType, domainLinkageCredentialType},
 			Subject: []verifiable.Subject{{ID: testDID, CustomFields: map[string]interface{}{"origin": testJWTDomain}}},
-			Issuer:  verifiable.Issuer{ID: testDID},
-		}
+			Issuer:  &verifiable.Issuer{ID: testDID},
+		}, nil)
+		require.NoError(t, err)
 
 		ed25519Signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
 
-		dlcJWT.JWT = createEdDSAJWS(t, dlcJWT, ed25519Signer, testKID, false)
+		dlcJWT = createEdDSAJWS(t, dlcJWT, ed25519Signer, testKID, false)
 
-		dlcJWT.Subject = nil
+		borkenJWT, err := verifiable.CreateCredential(verifiable.CredentialContents{}, nil)
+		require.NoError(t, err)
 
-		e = isValidDomainLinkageCredential(dlcJWT, testDID, testJWTDomain)
+		borkenJWT.JWTEnvelope = dlcJWT.JWTEnvelope
+
+		e = isValidDomainLinkageCredential(borkenJWT, testDID, testJWTDomain)
 		require.Error(t, e)
-		require.Contains(t, e.Error(), "get VC subject id: subject id is not defined")
+		require.Contains(t, e.Error(), "get VC subject id: no subject is defined")
 	})
 }
 
@@ -527,9 +538,10 @@ func TestIsValidDomainLinkageCredential(t *testing.T) {
 		vc, err := verifiable.ParseCredential([]byte(dlc), credOpts...)
 		require.NoError(t, err)
 
-		vc.Types = nil
+		vcc := vc.Contents()
+		vcc.Types = nil
 
-		err = isValidDomainLinkageCredential(vc, testDID, testDomain)
+		err = validateDomainLinkageCredential(vcc, testDID, testDomain)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "credential is not of DomainLinkageCredential type")
 	})
@@ -538,9 +550,10 @@ func TestIsValidDomainLinkageCredential(t *testing.T) {
 		vc, err := verifiable.ParseCredential([]byte(dlc), credOpts...)
 		require.NoError(t, err)
 
-		vc.ID = "https://domain.com/vc-id"
+		vcc := vc.Contents()
+		vcc.ID = "https://domain.com/vc-id"
 
-		err = isValidDomainLinkageCredential(vc, testDID, testDomain)
+		err = validateDomainLinkageCredential(vcc, testDID, testDomain)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "id MUST NOT be present")
 	})
@@ -549,9 +562,10 @@ func TestIsValidDomainLinkageCredential(t *testing.T) {
 		vc, err := verifiable.ParseCredential([]byte(dlc), credOpts...)
 		require.NoError(t, err)
 
-		vc.Issued = nil
+		vcc := vc.Contents()
+		vcc.Issued = nil
 
-		err = isValidDomainLinkageCredential(vc, testDID, testDomain)
+		err = validateDomainLinkageCredential(vcc, testDID, testDomain)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "issuance date MUST be present")
 	})
@@ -560,9 +574,10 @@ func TestIsValidDomainLinkageCredential(t *testing.T) {
 		vc, err := verifiable.ParseCredential([]byte(dlc), credOpts...)
 		require.NoError(t, err)
 
-		vc.Expired = nil
+		vcc := vc.Contents()
+		vcc.Expired = nil
 
-		err = isValidDomainLinkageCredential(vc, testDID, testDomain)
+		err = validateDomainLinkageCredential(vcc, testDID, testDomain)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "expiration date MUST be present")
 	})
@@ -571,9 +586,10 @@ func TestIsValidDomainLinkageCredential(t *testing.T) {
 		vc, err := verifiable.ParseCredential([]byte(dlc), credOpts...)
 		require.NoError(t, err)
 
-		vc.Subject = nil
+		vcc := vc.Contents()
+		vcc.Subject = nil
 
-		err = isValidDomainLinkageCredential(vc, testDID, testDomain)
+		err = validateDomainLinkageCredential(vcc, testDID, testDomain)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "subject MUST be present")
 	})
@@ -582,9 +598,10 @@ func TestIsValidDomainLinkageCredential(t *testing.T) {
 		vc, err := verifiable.ParseCredential([]byte(dlc), credOpts...)
 		require.NoError(t, err)
 
-		delete(vc.Subject.([]verifiable.Subject)[0].CustomFields, "origin")
+		vcc := vc.Contents()
+		delete(vcc.Subject[0].CustomFields, "origin")
 
-		err = isValidDomainLinkageCredential(vc, testDID, testDomain)
+		err = validateDomainLinkageCredential(vcc, testDID, testDomain)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "credentialSubject.origin MUST be present")
 	})
@@ -593,9 +610,10 @@ func TestIsValidDomainLinkageCredential(t *testing.T) {
 		vc, err := verifiable.ParseCredential([]byte(dlc), credOpts...)
 		require.NoError(t, err)
 
-		vc.Subject.([]verifiable.Subject)[0].CustomFields["origin"] = nil
+		vcc := vc.Contents()
+		vcc.Subject[0].CustomFields["origin"] = nil
 
-		err = isValidDomainLinkageCredential(vc, testDID, testDomain)
+		err = validateDomainLinkageCredential(vcc, testDID, testDomain)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "credentialSubject.origin MUST be string")
 	})
@@ -604,31 +622,22 @@ func TestIsValidDomainLinkageCredential(t *testing.T) {
 		vc, err := verifiable.ParseCredential([]byte(dlc), credOpts...)
 		require.NoError(t, err)
 
-		vc.Subject = append(vc.Subject.([]verifiable.Subject), vc.Subject.([]verifiable.Subject)[0])
+		vcc := vc.Contents()
+		vcc.Subject = append(vcc.Subject, vcc.Subject[0])
 
-		err = isValidDomainLinkageCredential(vc, testDID, testDomain)
+		err = validateDomainLinkageCredential(vcc, testDID, testDomain)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "encountered multiple subjects")
-	})
-
-	t.Run("error - unexpected interface for subject", func(t *testing.T) {
-		vc, err := verifiable.ParseCredential([]byte(dlc), credOpts...)
-		require.NoError(t, err)
-
-		vc.Subject = make(map[string]string)
-
-		err = isValidDomainLinkageCredential(vc, testDID, testDomain)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "unexpected interface[map[string]string] for subject")
 	})
 
 	t.Run("error - no subject ID", func(t *testing.T) {
 		vc, err := verifiable.ParseCredential([]byte(dlc), credOpts...)
 		require.NoError(t, err)
 
-		vc.Subject.([]verifiable.Subject)[0].ID = ""
+		vcc := vc.Contents()
+		vcc.Subject[0].ID = ""
 
-		err = isValidDomainLinkageCredential(vc, testDID, testDomain)
+		err = validateDomainLinkageCredential(vcc, testDID, testDomain)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "credentialSubject.id MUST be present")
 	})
@@ -637,9 +646,10 @@ func TestIsValidDomainLinkageCredential(t *testing.T) {
 		vc, err := verifiable.ParseCredential([]byte(dlc), credOpts...)
 		require.NoError(t, err)
 
-		vc.Subject.([]verifiable.Subject)[0].ID = "not-did"
+		vcc := vc.Contents()
+		vcc.Subject[0].ID = "not-did"
 
-		err = isValidDomainLinkageCredential(vc, testDID, testDomain)
+		err = validateDomainLinkageCredential(vcc, testDID, testDomain)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "credentialSubject.id MUST be a DID")
 	})
@@ -655,12 +665,10 @@ func TestSetDebugOutput(t *testing.T) {
 }
 
 func createEdDSAJWS(t *testing.T, cred *verifiable.Credential, signer verifiable.Signer,
-	keyID string, minimize bool) string {
+	keyID string, minimize bool) *verifiable.Credential {
 	t.Helper()
 
-	jwtClaims, err := cred.JWTClaims(minimize)
-	require.NoError(t, err)
-	vcJWT, err := jwtClaims.MarshalJWS(verifiable.EdDSA, signer, cred.Issuer.ID+"#keys-"+keyID)
+	vcJWT, err := cred.CreateSignedJWTVC(minimize, verifiable.EdDSA, signer, cred.Contents().Issuer.ID+"#keys-"+keyID)
 	require.NoError(t, err)
 
 	return vcJWT

@@ -32,12 +32,13 @@ func (vc *Credential) AddDataIntegrityProof(context *DataIntegrityProofContext, 
 		return fmt.Errorf("add data integrity proof to VC: %w", err)
 	}
 
+	// TODO: rewrite to use json object instead bytes presentation
 	proofs, err := addDataIntegrityProof(context, vcBytes, signer)
 	if err != nil {
 		return err
 	}
 
-	vc.Proofs = proofs
+	vc.ldProofs = proofs
 
 	return nil
 }
@@ -100,7 +101,7 @@ func addDataIntegrityProof(
 		return nil, err
 	}
 
-	proofs, err := parseProof(rProof.Proof)
+	proofs, err := parseLDProof(rProof.Proof)
 	if err != nil {
 		return nil, err
 	}
@@ -115,6 +116,7 @@ type verifyDataIntegrityOpts struct {
 	Challenge string
 }
 
+// TODO: refactor to directly use map[string]inteface{} instead []byte.
 func checkDataIntegrityProof(ldBytes []byte, opts *verifyDataIntegrityOpts) error {
 	if opts == nil || opts.Verifier == nil {
 		return fmt.Errorf("data integrity proof needs data integrity verifier")

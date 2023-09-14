@@ -6,7 +6,6 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -101,29 +100,21 @@ func mapJSONLDProcessorOpts(jsonldOpts *jsonldCredentialOpts) []ldprocessor.Opts
 }
 
 type rawProof struct {
-	Proof json.RawMessage `json:"proof,omitempty"`
+	Proof JSONObject `json:"proof,omitempty"`
 }
 
 // addLinkedDataProof adds a new proof to the JSON-LD document (VC or VP). It returns a slice
 // of the proofs which were already present appended with a newly created proof.
-func addLinkedDataProof(context *LinkedDataProofContext, jsonldBytes []byte,
+func addLinkedDataProof(context *LinkedDataProofContext, jsonld JSONObject,
 	opts ...ldprocessor.Opts) ([]Proof, error) {
 	documentSigner := signer.New(context.Suite)
 
-	vcWithNewProofBytes, err := documentSigner.Sign(mapContext(context), jsonldBytes, opts...)
+	err := documentSigner.Sign(mapContext(context), jsonld, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("add linked data proof: %w", err)
 	}
 
-	// Get a proof from json-ld document.
-	var rProof rawProof
-
-	err = json.Unmarshal(vcWithNewProofBytes, &rProof)
-	if err != nil {
-		return nil, err
-	}
-
-	proofs, err := parseProof(rProof.Proof)
+	proofs, err := parseLDProof(jsonld[jsonFldLDProof])
 	if err != nil {
 		return nil, err
 	}

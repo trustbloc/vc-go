@@ -72,15 +72,16 @@ func Test_mDLNestedCtx(t *testing.T) {
 		URI: "https://example.org/examples#mDL",
 	}}
 
-	creds := []*verifiable.Credential{
-		{
-			Context: []string{
-				verifiable.ContextURI,
-				"https://trustbloc.github.io/context/vc/examples/mdl-v1.jsonld",
-			},
-			Types: []string{verifiable.VCType, "mDL"},
+	cred, err := verifiable.CreateCredential(verifiable.CredentialContents{
+		Context: []string{
+			verifiable.ContextURI,
+			"https://trustbloc.github.io/context/vc/examples/mdl-v1.jsonld",
 		},
-	}
+		Types: []string{verifiable.VCType, "mDL"},
+	}, nil)
+	require.NoError(t, err)
+
+	creds := []*verifiable.Credential{cred}
 
 	t.Run("success", func(t *testing.T) {
 		docLoader, err := ldtestutil.DocumentLoader(ldcontext.Document{

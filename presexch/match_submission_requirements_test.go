@@ -20,6 +20,7 @@ import (
 	"github.com/trustbloc/kms-go/crypto/primitive/bbs12381g2pub"
 
 	utiltime "github.com/trustbloc/did-go/doc/util/time"
+
 	"github.com/trustbloc/vc-go/presexch"
 	"github.com/trustbloc/vc-go/signature/suite"
 	"github.com/trustbloc/vc-go/signature/suite/bbsblssignature2020"
@@ -175,7 +176,7 @@ func TestInstance_GetSubmissionRequirements(t *testing.T) {
 			}},
 		}
 
-		vc := &verifiable.Credential{
+		vc := createTestCredential(t, credentialProto{
 			ID: "https://issuer.oidp.uscis.gov/credentials/83627465",
 			Context: []string{
 				verifiable.ContextURI,
@@ -186,7 +187,7 @@ func TestInstance_GetSubmissionRequirements(t *testing.T) {
 				"VerifiableCredential",
 				"UniversityDegreeCredential",
 			},
-			Subject: verifiable.Subject{
+			Subject: []verifiable.Subject{{
 				ID: "did:example:b34ca6cd37bbf23",
 				CustomFields: map[string]interface{}{
 					"name":   "Jayden Doe",
@@ -197,14 +198,14 @@ func TestInstance_GetSubmissionRequirements(t *testing.T) {
 						"type":         "BachelorDegree",
 					},
 				},
-			},
+			}},
 			Issued: &utiltime.TimeWrapper{
 				Time: time.Now(),
 			},
 			Expired: &utiltime.TimeWrapper{
 				Time: time.Now().AddDate(1, 0, 0),
 			},
-			Issuer: verifiable.Issuer{
+			Issuer: &verifiable.Issuer{
 				ID: "did:example:489398593",
 			},
 			CustomFields: map[string]interface{}{
@@ -212,7 +213,7 @@ func TestInstance_GetSubmissionRequirements(t *testing.T) {
 				"name":        "Permanent Resident Card",
 				"description": "Government of Example Permanent Resident Card.",
 			},
-		}
+		})
 
 		publicKey, privateKey, err := bbs12381g2pub.GenerateKeyPair(sha256.New, nil)
 		require.NoError(t, err)
@@ -247,9 +248,9 @@ func TestInstance_GetSubmissionRequirements(t *testing.T) {
 
 		matchedVC := matched[0].Descriptors[0].MatchedVCs[0]
 
-		require.Equal(t, vc.ID, matchedVC.ID)
+		require.Equal(t, vc.Contents().ID, matchedVC.Contents().ID)
 
-		subject := matchedVC.Subject.([]verifiable.Subject)[0]
+		subject := matchedVC.Contents().Subject[0]
 		degree := subject.CustomFields["degree"]
 		require.NotNil(t, degree)
 
@@ -261,7 +262,7 @@ func TestInstance_GetSubmissionRequirements(t *testing.T) {
 		require.Empty(t, degreeMap["degree"])
 		require.Equal(t, "did:example:b34ca6cd37bbf23", subject.ID)
 		require.Empty(t, subject.CustomFields["spouse"])
-		require.Empty(t, matchedVC.CustomFields["name"])
+		require.Empty(t, matchedVC.CustomField("name"))
 
 		require.NotEmpty(t, matchedVC.Proofs)
 	})
@@ -312,23 +313,23 @@ func TestInstance_GetSubmissionRequirements(t *testing.T) {
 		}
 
 		result, err := pd.MatchSubmissionRequirement([]*verifiable.Credential{
-			{
+			createTestCredential(t, credentialProto{
 				Context: []string{verifiable.ContextURI},
 				Types:   []string{verifiable.VCType},
 				ID:      uuid.New().String(),
 				CustomFields: map[string]interface{}{
 					"first_name": "Jesse",
 				},
-			}, {
+			}), createTestCredential(t, credentialProto{
 				ID:      uuid.New().String(),
 				Subject: []verifiable.Subject{{ID: issuerID}},
-				Issuer:  verifiable.Issuer{ID: issuerID},
+				Issuer:  &verifiable.Issuer{ID: issuerID},
 				CustomFields: map[string]interface{}{
 					"first_name": "Jesse",
 					"last_name":  "Travis",
 					"age":        17,
 				},
-			},
+			}),
 		}, docLoader)
 
 		require.EqualError(t, err, "no descriptors for from: teenager")

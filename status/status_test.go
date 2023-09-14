@@ -43,8 +43,8 @@ func TestClient_VerifyStatus(t *testing.T) {
 		}()
 
 		// status: not revoked
-		err := client.VerifyStatus(&verifiable.Credential{
-			Issuer: verifiable.Issuer{
+		err := client.VerifyStatus(createTestCredential(t, verifiable.CredentialContents{
+			Issuer: &verifiable.Issuer{
 				ID: issuerID,
 			},
 			Status: &verifiable.TypedID{
@@ -56,12 +56,12 @@ func TestClient_VerifyStatus(t *testing.T) {
 					statuslist2021.StatusListIndex:      "0",
 				},
 			},
-		})
+		}))
 		require.NoError(t, err)
 
 		// status: revoked
-		err = client.VerifyStatus(&verifiable.Credential{
-			Issuer: verifiable.Issuer{
+		err = client.VerifyStatus(createTestCredential(t, verifiable.CredentialContents{
+			Issuer: &verifiable.Issuer{
 				ID: issuerID,
 			},
 
@@ -74,7 +74,7 @@ func TestClient_VerifyStatus(t *testing.T) {
 					statuslist2021.StatusListIndex:      "1",
 				},
 			},
-		})
+		}))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), RevokedMessage)
 	})
@@ -82,7 +82,7 @@ func TestClient_VerifyStatus(t *testing.T) {
 	t.Run("fail", func(t *testing.T) {
 		t.Run("missing status field", func(t *testing.T) {
 			client := &Client{}
-			err := client.VerifyStatus(&verifiable.Credential{})
+			err := client.VerifyStatus(createTestCredential(t, verifiable.CredentialContents{}))
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "vc missing status list field")
 		})
@@ -95,9 +95,9 @@ func TestClient_VerifyStatus(t *testing.T) {
 					return nil, expectErr
 				},
 			}
-			err := client.VerifyStatus(&verifiable.Credential{
+			err := client.VerifyStatus(createTestCredential(t, verifiable.CredentialContents{
 				Status: &verifiable.TypedID{},
-			})
+			}))
 			require.Error(t, err)
 			require.ErrorIs(t, err, expectErr)
 		})
@@ -112,9 +112,9 @@ func TestClient_VerifyStatus(t *testing.T) {
 					}, nil
 				},
 			}
-			err := client.VerifyStatus(&verifiable.Credential{
+			err := client.VerifyStatus(createTestCredential(t, verifiable.CredentialContents{
 				Status: &verifiable.TypedID{},
-			})
+			}))
 			require.Error(t, err)
 			require.ErrorIs(t, err, expectErr)
 		})
@@ -129,9 +129,9 @@ func TestClient_VerifyStatus(t *testing.T) {
 					}, nil
 				},
 			}
-			err := client.VerifyStatus(&verifiable.Credential{
+			err := client.VerifyStatus(createTestCredential(t, verifiable.CredentialContents{
 				Status: &verifiable.TypedID{},
-			})
+			}))
 			require.Error(t, err)
 			require.ErrorIs(t, err, expectErr)
 		})
@@ -146,9 +146,9 @@ func TestClient_VerifyStatus(t *testing.T) {
 					}, nil
 				},
 			}
-			err := client.VerifyStatus(&verifiable.Credential{
+			err := client.VerifyStatus(createTestCredential(t, verifiable.CredentialContents{
 				Status: &verifiable.TypedID{},
-			})
+			}))
 			require.Error(t, err)
 			require.ErrorIs(t, err, expectErr)
 		})
@@ -164,9 +164,9 @@ func TestClient_VerifyStatus(t *testing.T) {
 					Err: expectErr,
 				},
 			}
-			err := client.VerifyStatus(&verifiable.Credential{
+			err := client.VerifyStatus(createTestCredential(t, verifiable.CredentialContents{
 				Status: &verifiable.TypedID{},
-			})
+			}))
 			require.Error(t, err)
 			require.ErrorIs(t, err, expectErr)
 		})
@@ -177,39 +177,21 @@ func TestClient_VerifyStatus(t *testing.T) {
 					return &mockValidator{}, nil
 				},
 				Resolver: &mockResolver{
-					Cred: &verifiable.Credential{
-						Issuer: verifiable.Issuer{
+					Cred: createTestCredential(t, verifiable.CredentialContents{
+						Issuer: &verifiable.Issuer{
 							ID: "bar",
 						},
-					},
+					}),
 				},
 			}
-			err := client.VerifyStatus(&verifiable.Credential{
-				Issuer: verifiable.Issuer{
+			err := client.VerifyStatus(createTestCredential(t, verifiable.CredentialContents{
+				Issuer: &verifiable.Issuer{
 					ID: "foo",
 				},
 				Status: &verifiable.TypedID{},
-			})
+			}))
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "issuer of the credential does not match status list vc issuer")
-		})
-
-		t.Run("subject has unexpected type", func(t *testing.T) {
-			client := &Client{
-				ValidatorGetter: func(string) (api.Validator, error) {
-					return &mockValidator{}, nil
-				},
-				Resolver: &mockResolver{
-					Cred: &verifiable.Credential{
-						Subject: &mockValidator{},
-					},
-				},
-			}
-			err := client.VerifyStatus(&verifiable.Credential{
-				Status: &verifiable.TypedID{},
-			})
-			require.Error(t, err)
-			require.Contains(t, err.Error(), "invalid subject field structure")
 		})
 
 		t.Run("status bitstring has invalid format", func(t *testing.T) {
@@ -218,7 +200,10 @@ func TestClient_VerifyStatus(t *testing.T) {
 					return &mockValidator{}, nil
 				},
 				Resolver: &mockResolver{
-					Cred: &verifiable.Credential{
+					Cred: createTestCredential(t, verifiable.CredentialContents{
+						Issuer: &verifiable.Issuer{
+							ID: issuerID,
+						},
 						Subject: []verifiable.Subject{
 							{
 								CustomFields: map[string]interface{}{
@@ -226,12 +211,15 @@ func TestClient_VerifyStatus(t *testing.T) {
 								},
 							},
 						},
-					},
+					}),
 				},
 			}
-			err := client.VerifyStatus(&verifiable.Credential{
+			err := client.VerifyStatus(createTestCredential(t, verifiable.CredentialContents{
 				Status: &verifiable.TypedID{},
-			})
+				Issuer: &verifiable.Issuer{
+					ID: issuerID,
+				},
+			}))
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "failed to decode bits")
 		})
@@ -295,10 +283,10 @@ func mockStatusVC(t *testing.T, issuerID string, vcStatus isRevoked) *verifiable
 	statusEncoded, err := bitstring.Encode(statusBits)
 	require.NoError(t, err)
 
-	return &verifiable.Credential{
+	return createTestCredential(t, verifiable.CredentialContents{
 		Context: []string{verifiable.ContextURI},
 		Types:   []string{verifiable.VCType},
-		Issuer: verifiable.Issuer{
+		Issuer: &verifiable.Issuer{
 			ID: issuerID,
 		},
 		Subject: []verifiable.Subject{
@@ -308,7 +296,7 @@ func mockStatusVC(t *testing.T, issuerID string, vcStatus isRevoked) *verifiable
 				},
 			},
 		},
-	}
+	})
 }
 
 func mockStatusResponseHandler(t *testing.T, statusVC *verifiable.Credential) http.HandlerFunc {
@@ -321,4 +309,11 @@ func mockStatusResponseHandler(t *testing.T, statusVC *verifiable.Credential) ht
 		_, err = w.Write(vcBytes)
 		require.NoError(t, err)
 	}
+}
+
+func createTestCredential(t *testing.T, contents verifiable.CredentialContents) *verifiable.Credential {
+	cred, err := verifiable.CreateCredential(contents, nil)
+	require.NoError(t, err)
+
+	return cred
 }

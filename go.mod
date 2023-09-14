@@ -13,7 +13,6 @@ require (
 	github.com/btcsuite/btcd v0.22.3
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/go-jose/go-jose/v3 v3.0.1-0.20221117193127-916db76e8214
-	github.com/google/tink/go v1.7.0
 	github.com/google/uuid v1.3.0
 	github.com/kawamuray/jsonpath v0.0.0-20201211160320-7483bafabd7e
 	github.com/mitchellh/mapstructure v1.5.0
@@ -39,6 +38,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
+	github.com/google/tink/go v1.7.0 // indirect
 	github.com/hyperledger/fabric-amcl v0.0.0-20230602173724-9e02669dceb2 // indirect
 	github.com/hyperledger/ursa-wrapper-go v0.3.1 // indirect
 	github.com/kilic/bls12-381 v0.1.1-0.20210503002446-7b7597926c69 // indirect

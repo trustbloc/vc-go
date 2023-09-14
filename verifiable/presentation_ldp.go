@@ -13,12 +13,12 @@ import (
 
 // AddLinkedDataProof appends proof to the Verifiable Presentation.
 func (vp *Presentation) AddLinkedDataProof(context *LinkedDataProofContext, jsonldOpts ...ldprocessor.Opts) error {
-	vcBytes, err := vp.MarshalJSON()
+	raw, err := vp.raw()
 	if err != nil {
 		return fmt.Errorf("add linked data proof to VP: %w", err)
 	}
 
-	proofs, err := addLinkedDataProof(context, vcBytes, jsonldOpts...)
+	proofs, err := addLinkedDataProof(context, raw, jsonldOpts...)
 	if err != nil {
 		return err
 	}

@@ -25,6 +25,6 @@ func unmarshalUnsecuredJWTPresClaims(vpJWT string) (*JWTPresClaims, error) {
 	return &claims, nil
 }
 
-func decodeVPFromUnsecuredJWT(vpJWT string) ([]byte, *rawPresentation, error) {
+func decodeVPFromUnsecuredJWT(vpJWT string) ([]byte, rawPresentation, error) {
 	return decodePresJWT(vpJWT, unmarshalUnsecuredJWTPresClaims)
 }

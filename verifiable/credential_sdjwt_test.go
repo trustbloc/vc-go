@@ -17,6 +17,7 @@ import (
 	"github.com/go-jose/go-jose/v3/jwt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
 	"github.com/trustbloc/vc-go/internal/testutil/signatureutil"
 
 	"github.com/trustbloc/kms-go/doc/jose"
@@ -63,7 +64,9 @@ func TestParseSDJWT(t *testing.T) {
 		ed25519Signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
 		require.NoError(t, e)
 
-		vc.JWT, e = claims.MarshalJWS(EdDSA, ed25519Signer, issuerID+"#keys-1")
+		// TODO: rewrite tests to not directly manipulate JWTEnvelope. And make JWTEnvelope private.
+		vc.JWTEnvelope.JWT, vc.JWTEnvelope.JWTHeaders,
+			e = claims.MarshalJWS(EdDSA, ed25519Signer, issuerID+"#keys-1")
 		require.NoError(t, e)
 
 		modifiedCred, e := vc.MarshalWithDisclosure(DiscloseAll())
@@ -85,16 +88,18 @@ func TestParseSDJWT(t *testing.T) {
 		claims, e := vc.JWTClaims(false)
 		require.NoError(t, e)
 
+		// TODO: rewrite tests to not directly manipulate JWTEnvelope and claims. And make JWTEnvelope private.
 		claims.VC["credentialSubject"].(map[string]interface{})["_sd_alg"] = claims.VC["_sd_alg"]
 		delete(claims.VC, "_sd_alg")
 
 		ed25519Signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
 		require.NoError(t, e)
 
-		vc.JWT, e = claims.MarshalJWS(EdDSA, ed25519Signer, issuerID+"#keys-1")
+		vc.JWTEnvelope.JWT, vc.JWTEnvelope.JWTHeaders, e = claims.MarshalJWS(
+			EdDSA, ed25519Signer, issuerID+"#keys-1")
 		require.NoError(t, e)
 
-		vc.SDJWTVersion = 100500
+		vc.JWTEnvelope.SDJWTVersion = 100500
 		modifiedCred, e := vc.MarshalWithDisclosure(DiscloseAll(), MarshalWithSDJWTVersion(common.SDJWTVersionV5))
 		require.NoError(t, e)
 
@@ -113,7 +118,7 @@ func TestParseSDJWT(t *testing.T) {
 		newVC, e := ParseCredential([]byte(sdJWTString+common.CombinedFormatSeparator+mockHolderBinding),
 			WithPublicKeyFetcher(createDIDKeyFetcher(t, pubKey, issuerID)))
 		require.NoError(t, e)
-		require.Equal(t, mockHolderBinding, newVC.SDHolderBinding)
+		require.Equal(t, mockHolderBinding, newVC.JWTEnvelope.SDHolderBinding)
 	})
 
 	t.Run("invalid SDJWT disclosures", func(t *testing.T) {
@@ -168,6 +173,16 @@ func TestMarshalWithDisclosure(t *testing.T) {
 
 			require.Equal(t, src.Disclosures, res.Disclosures)
 			require.NotEmpty(t, res.HolderVerification)
+
+			sdVC, err := ParseCredential([]byte(resultCred), WithDisabledProofCheck())
+			require.NoError(t, err)
+			require.NotEmpty(t, sdVC)
+
+			require.Len(t, sdVC.SDJWTDisclosures(), len(src.Disclosures))
+
+			sdVCStr, err := sdVC.ToJWTString()
+			require.NoError(t, err)
+			require.Equal(t, len(resultCred), len(sdVCStr))
 		})
 
 		t.Run("disclose required and some if-available claims", func(t *testing.T) {
@@ -241,7 +256,7 @@ func TestMarshalWithDisclosure(t *testing.T) {
 				require.NoError(t, err)
 
 				// disclosure list empty
-				badVC.SDJWTDisclosures = nil
+				badVC.JWTEnvelope.SDJWTDisclosures = nil
 
 				resultCred, err := badVC.MarshalWithDisclosure(DiscloseGivenRequired([]string{"id"}))
 				require.Error(t, err)
@@ -339,11 +354,11 @@ func TestMakeSDJWT(t *testing.T) {
 
 	testCred := []byte(jwtTestCredential)
 
-	vc, e := parseTestCredential(t, testCred)
-	require.NoError(t, e)
-
 	t.Run("success", func(t *testing.T) {
 		t.Run("with default hash", func(t *testing.T) {
+			vc, e := parseTestCredential(t, testCred)
+			require.NoError(t, e)
+
 			sdjwt, err := vc.MakeSDJWT(afgojwt.NewEd25519Signer(privKey), "did:example:abc123#key-1")
 			require.NoError(t, err)
 
@@ -352,11 +367,8 @@ func TestMakeSDJWT(t *testing.T) {
 		})
 
 		t.Run("with SD JWT V5", func(t *testing.T) {
-			originalVersion := vc.SDJWTVersion
-			vc.SDJWTVersion = common.SDJWTVersionDefault
-			defer func() {
-				vc.SDJWTVersion = originalVersion
-			}()
+			vc, e := parseTestCredential(t, testCred)
+			require.NoError(t, e)
 
 			sdjwt, err := vc.MakeSDJWT(
 				afgojwt.NewEd25519Signer(privKey), "did:example:abc123#key-1",
@@ -371,6 +383,9 @@ func TestMakeSDJWT(t *testing.T) {
 		})
 
 		t.Run("with hash option", func(t *testing.T) {
+			vc, e := parseTestCredential(t, testCred)
+			require.NoError(t, e)
+
 			sdjwt, err := vc.MakeSDJWT(afgojwt.NewEd25519Signer(privKey), "did:example:abc123#key-1",
 				MakeSDJWTWithHash(crypto.SHA512))
 			require.NoError(t, err)
@@ -391,6 +406,9 @@ func TestMakeSDJWT(t *testing.T) {
 		})
 
 		t.Run("creating SD-JWT", func(t *testing.T) {
+			vc, e := parseTestCredential(t, testCred)
+			require.NoError(t, e)
+
 			expectErr := fmt.Errorf("expected error")
 
 			sdjwt, err := vc.MakeSDJWT(&mockSigner{signErr: expectErr}, "did:example:abc123#key-1")
@@ -446,8 +464,7 @@ func TestCreateDisplayCredential(t *testing.T) {
 			displayVC, err := vc.CreateDisplayCredential(DisplayAllDisclosures())
 			require.NoError(t, err)
 
-			subj, ok := displayVC.Subject.([]Subject)
-			require.True(t, ok)
+			subj := displayVC.Contents().Subject
 
 			require.Len(t, subj, 1)
 			require.NotEmpty(t, subj[0].ID)
@@ -478,8 +495,7 @@ func TestCreateDisplayCredential(t *testing.T) {
 			displayVC, err := vc.CreateDisplayCredential()
 			require.NoError(t, err)
 
-			subj, ok := displayVC.Subject.([]Subject)
-			require.True(t, ok)
+			subj := displayVC.Contents().Subject
 
 			require.Len(t, subj, 1)
 			require.NotEmpty(t, subj[0].ID)
@@ -490,8 +506,7 @@ func TestCreateDisplayCredential(t *testing.T) {
 			displayVC, err := vc.CreateDisplayCredential(DisplayGivenDisclosures([]string{"id", "type"}))
 			require.NoError(t, err)
 
-			subj, ok := displayVC.Subject.([]Subject)
-			require.True(t, ok)
+			subj := displayVC.Contents().Subject
 
 			require.Len(t, subj, 1)
 			require.NotEmpty(t, subj[0].ID)
@@ -518,9 +533,15 @@ func TestCreateDisplayCredential(t *testing.T) {
 		})
 
 		t.Run("parsing malformed JWT VC", func(t *testing.T) {
+			badAlg := crypto.Hash(0)
 			badVC := &Credential{
-				JWT:          "blah blah blahblah blah",
-				SDJWTHashAlg: "blah, blahblah",
+				JWTEnvelope: &JWTEnvelope{
+					JWT: "blah blah blahblah blah",
+				},
+				credentialJSON: JSONObject{
+					jsonFldSDJWTHashAlg: "blah, blahblah",
+				},
+				credentialContents: CredentialContents{SDJWTHashAlg: &badAlg},
 			}
 
 			displayVC, err := badVC.CreateDisplayCredential(DisplayAllDisclosures())
@@ -533,8 +554,7 @@ func TestCreateDisplayCredential(t *testing.T) {
 			vc, err := ParseCredential([]byte(sourceCred), WithDisabledProofCheck())
 			require.NoError(t, err)
 
-			subj, ok := vc.Subject.([]Subject)
-			require.True(t, ok)
+			subj := vc.Contents().Subject
 			require.Len(t, subj, 1)
 
 			testCases := []interface{}{
@@ -548,10 +568,13 @@ func TestCreateDisplayCredential(t *testing.T) {
 				claims, err := vc.JWTClaims(false)
 				require.NoError(t, err)
 
-				badJWS, err := claims.MarshalJWS(EdDSA, ed25519Signer, "did:foo:bar#key-1")
+				claims.VC["credentialSubject"].(map[string]interface{})["_sd"] = testCase
+
+				badJWS, headers, err := claims.MarshalJWS(EdDSA, ed25519Signer, "did:foo:bar#key-1")
 				require.NoError(t, err)
 
-				vc.JWT = badJWS
+				vc.JWTEnvelope.JWT = badJWS
+				vc.JWTEnvelope.JWTHeaders = headers
 
 				displayVC, err := vc.CreateDisplayCredential(DisplayAllDisclosures())
 				require.Error(t, err)
@@ -569,13 +592,14 @@ func TestCreateDisplayCredential(t *testing.T) {
 
 			claims.VC["@context"] = 5
 
-			vc.JWT, err = claims.MarshalJWS(EdDSA, ed25519Signer, "did:foo:bar#key-1")
+			vc.JWTEnvelope.JWT, vc.JWTEnvelope.JWTHeaders, err = claims.MarshalJWS(
+				EdDSA, ed25519Signer, "did:foo:bar#key-1")
 			require.NoError(t, err)
 
 			displayVC, err := vc.CreateDisplayCredential(DisplayAllDisclosures())
 			require.Error(t, err)
 			require.Nil(t, displayVC)
-			require.Contains(t, err.Error(), "parsing new VC from JSON")
+			require.Contains(t, err.Error(), "credential context of unknown type")
 		})
 	})
 }
@@ -601,8 +625,10 @@ func createTestSDJWTCred(
 	srcVC, err := parseTestCredential(t, testCred)
 	require.NoError(t, err)
 
-	sdjwt, err := srcVC.MakeSDJWT(afgojwt.NewEd25519Signer(privKey), srcVC.Issuer.ID+"#keys-1", opts...)
+	srcVCC := srcVC.Contents()
+
+	sdjwt, err := srcVC.MakeSDJWT(afgojwt.NewEd25519Signer(privKey), srcVCC.Issuer.ID+"#keys-1", opts...)
 	require.NoError(t, err)
 
-	return sdjwt, srcVC.Issuer.ID
+	return sdjwt, srcVCC.Issuer.ID
 }

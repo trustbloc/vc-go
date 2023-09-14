@@ -14,6 +14,7 @@ import (
 	"github.com/trustbloc/did-go/doc/ld/proof"
 	"github.com/trustbloc/did-go/doc/ld/testutil"
 	kmsapi "github.com/trustbloc/kms-go/spi/kms"
+
 	"github.com/trustbloc/vc-go/internal/testutil/signatureutil"
 
 	"github.com/trustbloc/vc-go/signature/suite"
@@ -31,20 +32,25 @@ func TestDocumentSigner_Sign(t *testing.T) {
 	signer := signatureutil.CryptoSigner(t, kmsapi.ED25519Type)
 
 	s := New(ed25519signature2018.New(suite.WithSigner(signer)))
-	signedDoc, err := s.Sign(context, []byte(validDoc), testutil.WithDocumentLoader(t))
+
+	var signedDoc map[string]interface{}
+
+	require.NoError(t, json.Unmarshal([]byte(validDoc), &signedDoc))
+
+	err := s.Sign(context, signedDoc, testutil.WithDocumentLoader(t))
 	require.NoError(t, err)
 	require.NotNil(t, signedDoc)
 
+	var signedJWSDoc map[string]interface{}
+
+	require.NoError(t, json.Unmarshal([]byte(validDoc), &signedJWSDoc))
+
 	context.SignatureRepresentation = proof.SignatureJWS
-	signedJWSDoc, err := s.Sign(context, []byte(validDoc), testutil.WithDocumentLoader(t))
+	err = s.Sign(context, signedJWSDoc, testutil.WithDocumentLoader(t))
 	require.NoError(t, err)
 	require.NotNil(t, signedJWSDoc)
 
-	var signedJWSMap map[string]interface{}
-	err = json.Unmarshal(signedJWSDoc, &signedJWSMap)
-	require.NoError(t, err)
-
-	proofsIface, ok := signedJWSMap["proof"]
+	proofsIface, ok := signedJWSDoc["proof"]
 	require.True(t, ok)
 
 	proofs, ok := proofsIface.([]interface{})
@@ -62,23 +68,19 @@ func TestDocumentSigner_Sign(t *testing.T) {
 }
 
 func TestDocumentSigner_SignErrors(t *testing.T) {
-	context := getSignatureContext()
 	signer := signatureutil.CryptoSigner(t, kmsapi.ED25519Type)
 
 	s := New(ed25519signature2018.New(suite.WithSigner(signer)))
 
-	// test invalid json
-	signedDoc, err := s.Sign(context, []byte("not json"), testutil.WithDocumentLoader(t))
-	require.NotNil(t, err)
-	require.Nil(t, signedDoc)
-	require.Contains(t, err.Error(), "failed to unmarshal json ld document")
+	var signedDoc map[string]interface{}
+
+	require.NoError(t, json.Unmarshal([]byte(validDoc), &signedDoc))
 
 	// test for signature suite not supported
-	context = getSignatureContext()
+	context := getSignatureContext()
 	context.SignatureType = "non-existent"
-	signedDoc, err = s.Sign(context, []byte(validDoc), testutil.WithDocumentLoader(t))
+	err := s.Sign(context, signedDoc, testutil.WithDocumentLoader(t))
 	require.NotNil(t, err)
-	require.Nil(t, signedDoc)
 	require.Contains(t, err.Error(), "signature type non-existent not supported")
 
 	// test verify data creation error
@@ -88,22 +90,21 @@ func TestDocumentSigner_SignErrors(t *testing.T) {
 	require.NoError(t, err)
 
 	validDocMap["@context"] = "invalid context"
-	invalidDocBytes, err := json.Marshal(validDocMap)
-	require.NoError(t, err)
 
 	context = getSignatureContext()
-	signedDoc, err = s.Sign(context, invalidDocBytes, testutil.WithDocumentLoader(t))
+	err = s.Sign(context, validDocMap, testutil.WithDocumentLoader(t))
 	require.NotNil(t, err)
-	require.Nil(t, signedDoc)
 	require.Contains(t, err.Error(), "invalid context")
 
 	// test signing error
 	context = getSignatureContext()
 	s = New(ed25519signature2018.New(
 		suite.WithSigner(signatureutil.GetEd25519Signer([]byte("invalid"), nil))))
-	signedDoc, err = s.Sign(context, []byte(validDoc), testutil.WithDocumentLoader(t))
+
+	require.NoError(t, json.Unmarshal([]byte(validDoc), &signedDoc))
+
+	err = s.Sign(context, signedDoc, testutil.WithDocumentLoader(t))
 	require.NotNil(t, err)
-	require.Nil(t, signedDoc)
 	require.Contains(t, err.Error(), "bad private key length")
 }
 
@@ -112,9 +113,13 @@ func TestDocumentSigner_isValidContext(t *testing.T) {
 
 	context := getSignatureContext()
 	context.SignatureType = ""
-	signedDoc, err := s.Sign(context, []byte(validDoc), testutil.WithDocumentLoader(t))
+
+	var signedDoc map[string]interface{}
+
+	require.NoError(t, json.Unmarshal([]byte(validDoc), &signedDoc))
+
+	err := s.Sign(context, signedDoc, testutil.WithDocumentLoader(t))
 	require.NotNil(t, err)
-	require.Nil(t, signedDoc)
 	require.Contains(t, err.Error(), "signature type is missing")
 }
 

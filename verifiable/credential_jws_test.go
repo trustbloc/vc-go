@@ -14,6 +14,7 @@ import (
 	"github.com/go-jose/go-jose/v3"
 	"github.com/go-jose/go-jose/v3/jwt"
 	"github.com/stretchr/testify/require"
+
 	"github.com/trustbloc/vc-go/internal/testutil/signatureutil"
 
 	ariesjose "github.com/trustbloc/kms-go/doc/jose"
@@ -32,7 +33,7 @@ func TestJWTCredClaimsMarshalJWS(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("Marshal signed JWT", func(t *testing.T) {
-		jws, err := jwtClaims.MarshalJWS(RS256, signer, "did:123#key1")
+		jws, err := jwtClaims.MarshalJWSString(RS256, signer, "did:123#key1")
 		require.NoError(t, err)
 
 		headers, vcBytes, err := decodeCredJWS(jws, true, func(issuerID, keyID string) (*verifier.PublicKey, error) {
@@ -44,12 +45,12 @@ func TestJWTCredClaimsMarshalJWS(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, ariesjose.Headers{"alg": "RS256", "kid": "did:123#key1"}, headers)
 
-		vcRaw := new(rawCredential)
+		var vcRaw JSONObject
 		err = json.Unmarshal(vcBytes, &vcRaw)
 		require.NoError(t, err)
 
 		require.NoError(t, err)
-		require.Equal(t, vc.stringJSON(t), vcRaw.stringJSON(t))
+		require.Equal(t, vc.stringJSON(t), jsonObjectToString(t, vcRaw))
 	})
 }
 
@@ -76,13 +77,13 @@ func TestCredJWSDecoderUnmarshal(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, headers)
 
-		vcRaw := new(rawCredential)
+		var vcRaw JSONObject
 		err = json.Unmarshal(vcBytes, &vcRaw)
 		require.NoError(t, err)
 
 		vc, err := parseTestCredential(t, []byte(jwtTestCredential))
 		require.NoError(t, err)
-		require.Equal(t, vc.stringJSON(t), vcRaw.stringJSON(t))
+		require.Equal(t, vc.stringJSON(t), jsonObjectToString(t, vcRaw))
 	})
 
 	t.Run("Invalid serialized JWS", func(t *testing.T) {

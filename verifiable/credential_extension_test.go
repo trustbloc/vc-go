@@ -77,17 +77,15 @@ func NewUniversityDegreeCredential(t *testing.T, vcData []byte,
 		return nil, fmt.Errorf("new university degree credential: %w", err)
 	}
 
+	vcc := cred.Contents()
+
 	// One way to build custom credential subject is to convert []Subject to the custom credential.
 	udc := UniversityDegreeCredential{
 		Base:    *cred,
-		Subject: mapUniversityDegreeSubject(credSubjects(cred)),
+		Subject: mapUniversityDegreeSubject(vcc.Subject),
 	}
 
-	// The other way is to marshal credential subject and unmarshal back to custom subject structure.
-	subjects, ok := cred.Subject.([]Subject)
-	if !ok {
-		return nil, errors.New("expected subject of []Subject type")
-	}
+	subjects := vcc.Subject
 
 	if len(subjects) != 1 {
 		return nil, errors.New("expected a single subject")
@@ -104,18 +102,6 @@ func NewUniversityDegreeCredential(t *testing.T, vcData []byte,
 	}
 
 	return &udc, nil
-}
-
-func credSubjects(vc *Credential) []Subject {
-	if vc.Subject == nil {
-		return nil
-	}
-
-	if subjects, ok := vc.Subject.([]Subject); ok {
-		return subjects
-	}
-
-	return nil
 }
 
 func TestCredentialExtensibility(t *testing.T) {
@@ -206,9 +192,11 @@ func TestCredentialExtensibility(t *testing.T) {
 	require.Equal(t, *cred, udc.Base)
 
 	// default issuer credential decoder is applied (i.e. not re-written by new custom decoder)
-	require.NotNil(t, cred.Issuer)
-	require.Equal(t, cred.Issuer.ID, "did:example:76e12ec712ebc6f1c221ebfeb1f")
-	require.Equal(t, cred.Issuer.CustomFields["name"], "Example University")
+	vcc := cred.Contents()
+
+	require.NotNil(t, vcc.Issuer)
+	require.Equal(t, vcc.Issuer.ID, "did:example:76e12ec712ebc6f1c221ebfeb1f")
+	require.Equal(t, vcc.Issuer.CustomFields["name"], "Example University")
 
 	// new mapping is applied
 	subj := udc.Subject

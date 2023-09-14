@@ -16,7 +16,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"reflect"
 	"strings"
 	"time"
 
@@ -26,6 +25,7 @@ import (
 	"github.com/xeipuuv/gojsonschema"
 
 	util "github.com/trustbloc/did-go/doc/util/time"
+
 	"github.com/trustbloc/vc-go/dataintegrity"
 	"github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/sdjwt/common"
@@ -397,6 +397,10 @@ func (sc *ExpirableSchemaCache) Get(k string) ([]byte, bool) {
 // Evidence defines evidence of Verifiable Credential.
 type Evidence interface{}
 
+const (
+	jsonFldIssuerID = "id"
+)
+
 // Issuer of the Verifiable Credential.
 type Issuer struct {
 	ID string `json:"id,omitempty"`
@@ -404,54 +408,37 @@ type Issuer struct {
 	CustomFields CustomFields `json:"-"`
 }
 
-// MarshalJSON marshals Issuer to JSON.
-func (i *Issuer) MarshalJSON() ([]byte, error) {
-	if len(i.CustomFields) == 0 {
-		// as string
-		return json.Marshal(i.ID)
+func issuerToJSON(issuer Issuer) JSONObject {
+	jsonObj := jsonutil.ShallowCopyObj(issuer.CustomFields)
+
+	if issuer.ID != "" {
+		jsonObj[jsonFldIssuerID] = issuer.ID
 	}
 
-	// as object
-	type Alias Issuer
-
-	alias := Alias(*i)
-
-	data, err := jsonutil.MarshalWithCustomFields(alias, i.CustomFields)
-	if err != nil {
-		return nil, fmt.Errorf("marshal Issuer: %w", err)
-	}
-
-	return data, nil
+	return jsonObj
 }
 
-// UnmarshalJSON unmarshals issuer from JSON.
-func (i *Issuer) UnmarshalJSON(data []byte) error {
-	var issuerID string
+func issuerFromJSON(issuerObj JSONObject) (*Issuer, error) {
+	flds, rest := jsonutil.SplitJSONObj(issuerObj, jsonFldIssuerID)
 
-	if err := json.Unmarshal(data, &issuerID); err == nil {
-		// as string
-		i.ID = issuerID
-		return nil
-	}
-
-	// as object
-	type Alias Issuer
-
-	alias := (*Alias)(i)
-
-	i.CustomFields = make(CustomFields)
-
-	err := jsonutil.UnmarshalWithCustomFields(data, alias, i.CustomFields)
+	id, err := parseStringFld(flds, jsonFldIssuerID)
 	if err != nil {
-		return fmt.Errorf("unmarshal Issuer: %w", err)
+		return nil, fmt.Errorf("fill issuer id from raw: %w", err)
 	}
 
-	if i.ID == "" {
-		return errors.New("issuer ID is not defined")
+	if id == "" {
+		return nil, errors.New("issuer ID is not defined")
 	}
 
-	return nil
+	return &Issuer{
+		ID:           id,
+		CustomFields: rest,
+	}, nil
 }
+
+const (
+	jsonFldSubjectID = "id"
+)
 
 // Subject of the Verifiable Credential.
 type Subject struct {
@@ -460,118 +447,187 @@ type Subject struct {
 	CustomFields CustomFields `json:"-"`
 }
 
-// MarshalJSON marshals Subject to JSON.
-func (s *Subject) MarshalJSON() ([]byte, error) {
-	type Alias Subject
+// SubjectToJSON converts credential subject to json object.
+func SubjectToJSON(subject Subject) JSONObject {
+	jsonObj := jsonutil.ShallowCopyObj(subject.CustomFields)
 
-	alias := Alias(*s)
-
-	data, err := jsonutil.MarshalWithCustomFields(alias, s.CustomFields)
-	if err != nil {
-		return nil, fmt.Errorf("marshal Subject: %w", err)
+	if subject.ID != "" {
+		jsonObj[jsonFldSubjectID] = subject.ID
 	}
 
-	return data, nil
+	return jsonObj
 }
 
-// UnmarshalJSON unmarshals Subject from JSON.
-func (s *Subject) UnmarshalJSON(data []byte) error {
-	var subjectID string
+// SubjectFromJSON creates credential subject form json object.
+func SubjectFromJSON(subjectObj JSONObject) (Subject, error) {
+	flds, rest := jsonutil.SplitJSONObj(subjectObj, jsonFldSubjectID)
 
-	if err := json.Unmarshal(data, &subjectID); err == nil {
-		// as string
-		s.ID = subjectID
-		return nil
-	}
-
-	type Alias Subject
-
-	alias := (*Alias)(s)
-
-	s.CustomFields = make(CustomFields)
-
-	err := jsonutil.UnmarshalWithCustomFields(data, alias, s.CustomFields)
+	id, err := parseStringFld(flds, jsonFldSubjectID)
 	if err != nil {
-		return fmt.Errorf("unmarshal Subject: %w", err)
+		return Subject{}, fmt.Errorf("fill subject id from raw: %w", err)
 	}
 
-	return nil
+	return Subject{
+		ID:           id,
+		CustomFields: rest,
+	}, nil
 }
 
-// Credential Verifiable Credential definition.
-type Credential struct {
-	Context       []string
-	CustomContext []interface{}
-	ID            string
-	Types         []string
-	// Subject can be a string, map, slice of maps, struct (Subject or any custom), slice of structs.
-	Subject        interface{}
-	Issuer         Issuer
+// CredentialContents store credential contents as typed structure.
+type CredentialContents struct {
+	Context        []string
+	CustomContext  []interface{}
+	ID             string
+	Types          []string
+	Subject        []Subject
+	Issuer         *Issuer
 	Issued         *util.TimeWrapper
 	Expired        *util.TimeWrapper
-	Proofs         []Proof
 	Status         *TypedID
 	Schemas        []TypedID
 	Evidence       Evidence
 	TermsOfUse     []TypedID
 	RefreshService []TypedID
-	JWT            string
+	SDJWTHashAlg   *crypto.Hash
+}
+
+// JSONObject used to store json object.
+type JSONObject = map[string]interface{}
+
+// Credential Verifiable Credential definition.
+type Credential struct {
+	// credentialJSON contains vc as json object. For json-ld vc this will be original json object.
+	// For jwt vc it will be jwt claims json object.
+	credentialJSON     JSONObject
+	credentialContents CredentialContents
+	ldProofs           []Proof
+	//TODO: make this private. Currently used in tests to create invalid jwt vc's.
+	JWTEnvelope *JWTEnvelope
+}
+
+// JWTEnvelope contains information about JWT that envelops credential.
+type JWTEnvelope struct {
+	JWT        string
+	JWTHeaders jose.Headers
 
 	SDJWTVersion     common.SDJWTVersion
-	SDJWTHashAlg     string
 	SDJWTDisclosures []*common.DisclosureClaim
 	SDHolderBinding  string
-
-	CustomFields CustomFields
 }
 
-// rawCredential is a basic verifiable credential.
-type rawCredential struct {
-	Context          interface{}         `json:"@context,omitempty"`
-	ID               string              `json:"id,omitempty"`
-	Type             interface{}         `json:"type,omitempty"`
-	Subject          json.RawMessage     `json:"credentialSubject,omitempty"`
-	Issued           *util.TimeWrapper   `json:"issuanceDate,omitempty"`
-	Expired          *util.TimeWrapper   `json:"expirationDate,omitempty"`
-	Proof            json.RawMessage     `json:"proof,omitempty"`
-	Status           *TypedID            `json:"credentialStatus,omitempty"`
-	Issuer           json.RawMessage     `json:"issuer,omitempty"`
-	Schema           interface{}         `json:"credentialSchema,omitempty"`
-	Evidence         Evidence            `json:"evidence,omitempty"`
-	TermsOfUse       json.RawMessage     `json:"termsOfUse,omitempty"`
-	RefreshService   json.RawMessage     `json:"refreshService,omitempty"`
-	JWT              string              `json:"jwt,omitempty"`
-	SDJWTHashAlg     string              `json:"_sd_alg,omitempty"`
-	SDJWTDisclosures []string            `json:"-"`
-	SDJWTVersion     common.SDJWTVersion `json:"-"`
-
-	// All unmapped fields are put here.
-	CustomFields `json:"-"`
+// Contents returns credential contents as typed structure.
+func (vc *Credential) Contents() CredentialContents {
+	// TODO: consider deep copy
+	return vc.credentialContents
 }
 
-// MarshalJSON defines custom marshalling of rawCredential to JSON.
-func (rc *rawCredential) MarshalJSON() ([]byte, error) {
-	type Alias rawCredential
+// ToRawJSON return vc as json object. For json-ld vc this will be original json object.
+// For jwt vc it will be jwt claims json object.
+func (vc *Credential) ToRawJSON() JSONObject {
+	// TODO: consider deep copy
+	raw := jsonutil.ShallowCopyObj(vc.credentialJSON)
 
-	alias := (*Alias)(rc)
-
-	return jsonutil.MarshalWithCustomFields(alias, rc.CustomFields)
-}
-
-// UnmarshalJSON defines custom unmarshalling of rawCredential from JSON.
-func (rc *rawCredential) UnmarshalJSON(data []byte) error {
-	type Alias rawCredential
-
-	alias := (*Alias)(rc)
-	rc.CustomFields = make(CustomFields)
-
-	err := jsonutil.UnmarshalWithCustomFields(data, alias, rc.CustomFields)
-	if err != nil {
-		return err
+	if len(vc.ldProofs) > 0 {
+		raw[jsonFldLDProof] = proofsToRaw(vc.ldProofs)
 	}
+
+	return raw
+}
+
+// ToJWTString returns vc as a jwt string. Works only for jwt vc, in other case returns error.
+func (vc *Credential) ToJWTString() (string, error) {
+	if !vc.IsJWT() {
+		return "", errors.New("to jwt string can be called only for jwt vc")
+	}
+
+	if vc.credentialContents.SDJWTHashAlg != nil {
+		sdJWT, err := vc.MarshalWithDisclosure(DiscloseAll())
+		if err != nil {
+			return "", err
+		}
+
+		return sdJWT, nil
+	}
+
+	// If vc.JWTEnvelope exists, marshal only the JWT, since all other values should be unchanged
+	// from when the JWT was parsed.
+	return vc.JWTEnvelope.JWT, nil
+}
+
+// ToUniversalForm returns vc in its natural form. For jwt-vc it is a jwt string. For json-ld vc it is a json object.
+func (vc *Credential) ToUniversalForm() (interface{}, error) {
+	if vc.IsJWT() {
+		jwtStr, err := vc.ToJWTString()
+		if err != nil {
+			return nil, fmt.Errorf("converting to universal form: %w", err)
+		}
+
+		return jwtStr, nil
+	}
+
+	return vc.ToRawJSON(), nil
+}
+
+// Proofs returns json-ld and data integrity proofs.
+func (vc *Credential) Proofs() []Proof {
+	return vc.ldProofs
+}
+
+// IsJWT returns is vc envelop into jwt.
+func (vc *Credential) IsJWT() bool {
+	return vc.JWTEnvelope != nil
+}
+
+// JWTHeaders returns jwt headers for jwt-vc.
+func (vc *Credential) JWTHeaders() jose.Headers {
+	if vc.JWTEnvelope == nil {
+		return nil
+	}
+
+	return vc.JWTEnvelope.JWTHeaders
+}
+
+// SDJWTDisclosures returns sd disclosures for sdjwt.
+func (vc *Credential) SDJWTDisclosures() []*common.DisclosureClaim {
+	if vc.JWTEnvelope == nil {
+		return nil
+	}
+
+	return vc.JWTEnvelope.SDJWTDisclosures
+}
+
+// SetSDJWTDisclosures sets sd disclosures for sdjwt.
+func (vc *Credential) SetSDJWTDisclosures(disclosures []*common.DisclosureClaim) error {
+	if vc.JWTEnvelope == nil {
+		return fmt.Errorf("non jws credentials not support sd jwt disclosure")
+	}
+
+	vc.JWTEnvelope.SDJWTDisclosures = disclosures
 
 	return nil
 }
+
+// CustomField returns custom field by name.
+func (vc *Credential) CustomField(name string) interface{} {
+	return vc.credentialJSON[name]
+}
+
+const (
+	jsonFldContext        = "@context"
+	jsonFldID             = "id"
+	jsonFldType           = "type"
+	jsonFldSubject        = "credentialSubject"
+	jsonFldIssued         = "issuanceDate"
+	jsonFldExpired        = "expirationDate"
+	jsonFldLDProof        = "proof"
+	jsonFldStatus         = "credentialStatus"
+	jsonFldIssuer         = "issuer"
+	jsonFldSchema         = "credentialSchema"
+	jsonFldEvidence       = "evidence"
+	jsonFldTermsOfUse     = "termsOfUse"
+	jsonFldRefreshService = "refreshService"
+	jsonFldSDJWTHashAlg   = "_sd_alg"
+)
 
 // CredentialDecoder makes a custom decoding of Verifiable Credential in JSON form to existent
 // instance of Credential.
@@ -752,139 +808,223 @@ func WithEmbeddedSignatureSuites(suites ...verifier.SignatureSuite) CredentialOp
 // - a string which is ID of the issuer;
 //
 // - object with mandatory "id" field and optional "name" field.
-func parseIssuer(issuerBytes json.RawMessage) (Issuer, error) {
-	if len(issuerBytes) == 0 {
-		return Issuer{}, nil
+func parseIssuer(issuerRaw interface{}) (*Issuer, error) {
+	if issuerRaw == nil {
+		return nil, nil
 	}
 
-	var issuer Issuer
+	switch issuer := issuerRaw.(type) {
+	case string:
+		if issuer == "" {
+			return nil, errors.New("issuer ID is not defined")
+		}
 
-	err := json.Unmarshal(issuerBytes, &issuer)
-	if err != nil {
-		return Issuer{}, err
+		return &Issuer{ID: issuer}, nil
+	case map[string]interface{}:
+		return issuerFromJSON(issuer)
 	}
 
-	return issuer, err
+	return nil, fmt.Errorf("should be json object or string but got %v", issuerRaw)
+}
+
+func serializeIssuer(issuer Issuer) interface{} {
+	if len(issuer.CustomFields) == 0 {
+		return issuer.ID
+	}
+
+	return issuerToJSON(issuer)
 }
 
 // parseSubject parses raw credential subject.
 //
 // Subject can be defined as a string (subject ID) or single object or array of objects.
-func parseSubject(subjectBytes json.RawMessage) (interface{}, error) {
-	if len(subjectBytes) == 0 {
+func parseSubject(subjectRaw interface{}) ([]Subject, error) {
+	if subjectRaw == nil {
 		return nil, nil
 	}
 
-	var subjectID string
+	switch subject := subjectRaw.(type) {
+	case string:
+		return []Subject{{ID: subject}}, nil
+	case map[string]interface{}:
+		parsed, err := SubjectFromJSON(subject)
+		if err != nil {
+			return nil, fmt.Errorf("parse subject: %w", err)
+		}
 
-	err := json.Unmarshal(subjectBytes, &subjectID)
-	if err == nil {
-		return subjectID, nil
-	}
+		return []Subject{parsed}, nil
+	case []map[string]interface{}:
+		var subjects []Subject
 
-	var subject Subject
+		for _, s := range subject {
+			parsed, err := SubjectFromJSON(s)
+			if err != nil {
+				return nil, fmt.Errorf("parse subjects array: %w", err)
+			}
 
-	err = json.Unmarshal(subjectBytes, &subject)
-	if err == nil {
-		return []Subject{subject}, nil
-	}
+			subjects = append(subjects, parsed)
+		}
 
-	var subjects []Subject
-
-	err = json.Unmarshal(subjectBytes, &subjects)
-	if err == nil {
 		return subjects, nil
 	}
 
-	return nil, errors.New("verifiable credential subject of unsupported format")
+	return nil, fmt.Errorf("verifiable credential subject of unsupported format")
 }
 
 // decodeCredentialSchemas decodes credential schema(s).
 //
 // credential schema can be defined as a single object or array of objects.
-func decodeCredentialSchemas(data *rawCredential) ([]TypedID, error) {
-	switch schema := data.Schema.(type) {
-	case []interface{}:
-		tids := make([]TypedID, len(schema))
+func decodeCredentialSchemas(raw JSONObject) ([]TypedID, error) {
+	return parseTypedID(raw[jsonFldSchema])
+}
 
-		for i := range schema {
-			tid, err := newTypedID(schema[i])
-			if err != nil {
-				return nil, err
-			}
+// CreateCredential creates vc from CredentialContents.
+func CreateCredential(vcc CredentialContents, customFields CustomFields) (*Credential, error) {
+	vcJSON, err := serializeCredentialContents(&vcc, nil)
+	if err != nil {
+		return nil, fmt.Errorf("converting credential contents: %w", err)
+	}
 
-			tids[i] = tid
-		}
+	jsonutil.AddCustomFields(vcJSON, customFields)
 
-		return tids, nil
+	return &Credential{
+		credentialJSON:     vcJSON,
+		credentialContents: vcc,
+	}, nil
+}
 
-	case interface{}:
-		tid, err := newTypedID(schema)
+// CreateCredentialWithProofs creates vc from CredentialContents, with provided proofs.
+func CreateCredentialWithProofs(vcc CredentialContents, customFields CustomFields,
+	proofs []Proof) (*Credential, error) {
+	vcJSON, err := serializeCredentialContents(&vcc, proofs)
+	if err != nil {
+		return nil, fmt.Errorf("converting credential contents: %w", err)
+	}
+
+	jsonutil.AddCustomFields(vcJSON, customFields)
+
+	return &Credential{
+		credentialJSON:     vcJSON,
+		credentialContents: vcc,
+		ldProofs:           proofs,
+	}, nil
+}
+
+// ParseCredentialJSON parses Verifiable Credential from json-ld object.
+func ParseCredentialJSON(vcJSON JSONObject, opts ...CredentialOpt) (*Credential, error) {
+	vcOpts := getCredentialOpts(opts)
+
+	ldProofs, err := parseLDProof(vcJSON[jsonFldLDProof])
+	if err != nil {
+		return nil, fmt.Errorf("fill credential proof from raw: %w", err)
+	}
+
+	contents, err := parseCredentialContents(vcJSON, false)
+	if err != nil {
+		return nil, err
+	}
+
+	if !vcOpts.disableValidation {
+		err = validateCredential(contents, vcJSON, vcOpts)
 		if err != nil {
 			return nil, err
 		}
-
-		return []TypedID{tid}, nil
-
-	default:
-		return nil, errors.New("verifiable credential schema of unsupported format")
 	}
+
+	return &Credential{
+		credentialJSON:     vcJSON,
+		credentialContents: *contents,
+		ldProofs:           ldProofs,
+	}, nil
 }
 
 // ParseCredential parses Verifiable Credential from bytes which could be marshalled JSON or serialized JWT.
 // It also applies miscellaneous options like settings of schema validation.
 // It returns decoded Credential.
-func ParseCredential(vcData []byte, opts ...CredentialOpt) (*Credential, error) { // nolint:funlen
+func ParseCredential(vcData []byte, opts ...CredentialOpt) (*Credential, error) { // nolint:funlen,gocyclo
 	// Apply options.
 	vcOpts := getCredentialOpts(opts)
 
 	vcStr := unwrapStringVC(vcData)
 
 	var (
+		externalJWT string
+		jwtHeader   jose.Headers
+		err         error
+
 		vcDataDecoded []byte
-		externalJWT   string
-		err           error
-		isJWT         bool
-		disclosures   []string
-		holderBinding string
-		sdJWTVersion  common.SDJWTVersion
 	)
 
-	isJWT, vcStr, disclosures, holderBinding = isJWTVC(vcStr)
-	if isJWT {
-		_, vcDataDecoded, err = decodeJWTVC(vcStr, vcOpts)
+	jwtParseRes := tryParseAsJWSVC(vcStr)
+	if jwtParseRes.isJWS {
+		jwtHeader, vcDataDecoded, err = decodeJWTVC(jwtParseRes.onlyJWT)
 		if err != nil {
 			return nil, fmt.Errorf("decode new JWT credential: %w", err)
 		}
 
-		if err = validateDisclosures(vcDataDecoded, disclosures); err != nil {
+		if err = validateDisclosures(vcDataDecoded, jwtParseRes.sdDisclosures); err != nil {
 			return nil, err
 		}
 
-		externalJWT = vcStr
+		externalJWT = jwtParseRes.onlyJWT
 	} else {
 		// Decode json-ld credential, from unsecured JWT or raw JSON
-		vcDataDecoded, err = decodeLDVC(vcData, vcStr, vcOpts)
+		vcDataDecoded, err = decodeLDVC(vcData, vcStr)
 		if err != nil {
 			return nil, fmt.Errorf("decode new credential: %w", err)
 		}
 	}
 
-	vc, err := populateCredential(vcDataDecoded, disclosures, sdJWTVersion)
+	vcJSON, err := parseCredentialJSON(vcDataDecoded)
+	if err != nil {
+		return nil, err
+	}
+
+	ldProofs, err := parseLDProof(vcJSON[jsonFldLDProof])
+	if err != nil {
+		return nil, fmt.Errorf("fill credential proof from raw: %w", err)
+	}
+
+	contents, err := parseCredentialContents(vcJSON, jwtParseRes.isSDJWT)
 	if err != nil {
 		return nil, err
 	}
 
 	if externalJWT == "" && !vcOpts.disableValidation {
 		// TODO: consider new validation options for, eg, jsonschema only, for JWT VC
-		err = validateCredential(vc, vcDataDecoded, vcOpts)
+		err = validateCredential(contents, vcJSON, vcOpts)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	vc.JWT = externalJWT
-	vc.SDHolderBinding = holderBinding
+	vc := &Credential{
+		credentialJSON:     vcJSON,
+		credentialContents: *contents,
+		ldProofs:           ldProofs,
+	}
+
+	parsedDisclosures, err := parseDisclosures(jwtParseRes.sdDisclosures, contents.SDJWTHashAlg)
+	if err != nil {
+		return nil, fmt.Errorf("fill credential sdjwt disclosures from raw: %w", err)
+	}
+
+	if jwtParseRes.isJWS {
+		vc.JWTEnvelope = &JWTEnvelope{
+			JWT:              externalJWT,
+			JWTHeaders:       jwtHeader,
+			SDJWTVersion:     common.SDJWTVersionDefault,
+			SDJWTDisclosures: parsedDisclosures,
+			SDHolderBinding:  jwtParseRes.sdHolderBinding,
+		}
+	}
+
+	if !vcOpts.disabledProofCheck {
+		err = vc.CheckProof(opts...)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	return vc, nil
 }
@@ -916,28 +1056,26 @@ func validateDisclosures(vcBytes []byte, disclosures []string) error {
 	return nil
 }
 
-func populateCredential(vcJSON []byte, sdDisclosures []string, sdJWTVersion common.SDJWTVersion) (*Credential, error) {
+func parseCredentialJSON(vcJSON []byte) (JSONObject, error) {
 	// Unmarshal raw credential from JSON.
-	var raw rawCredential
+	var raw JSONObject
 
 	err := json.Unmarshal(vcJSON, &raw)
 	if err != nil {
 		return nil, fmt.Errorf("unmarshal new credential: %w", err)
 	}
 
-	raw.SDJWTDisclosures = sdDisclosures
-	raw.SDJWTVersion = sdJWTVersion
-
-	// Create credential from raw.
-	vc, err := newCredential(&raw)
-	if err != nil {
-		return nil, fmt.Errorf("build new credential: %w", err)
-	}
-
-	return vc, nil
+	return raw, nil
 }
 
-func validateCredential(vc *Credential, vcBytes []byte, vcOpts *credentialOpts) error {
+// ValidateCredential validate both ld and jwt credentials. WithCredDisableValidation is ignored.
+func (vc *Credential) ValidateCredential(opts ...CredentialOpt) error {
+	vcOpts := getCredentialOpts(opts)
+
+	return validateCredential(&vc.credentialContents, vc.credentialJSON, vcOpts)
+}
+
+func validateCredential(vcc *CredentialContents, vcJSON JSONObject, vcOpts *credentialOpts) error {
 	// Credential and type constraint.
 	switch vcOpts.modelValidationMode {
 	case combinedValidation:
@@ -945,57 +1083,59 @@ func validateCredential(vc *Credential, vcBytes []byte, vcOpts *credentialOpts) 
 		// Validate VC using JSON schema. Even in case of VC data model extension (i.e. more than one @context
 		// is defined and thus JSON-LD validation is made), it's reasonable to do JSON Schema validation
 		// prior to the JSON-LD one as the former does not check several aspects like mandatory fields or fields format.
-		err := vc.validateJSONSchema(vcBytes, vcOpts)
+		err := validateJSONSchema(vcJSON, vcc, vcOpts)
 		if err != nil {
 			return err
 		}
 
-		return vc.validateJSONLD(vcBytes, vcOpts)
+		return validateJSONLD(vcJSON, vcOpts)
 
 	case jsonldValidation:
-		return vc.validateJSONLD(vcBytes, vcOpts)
+		return validateJSONLD(vcJSON, vcOpts)
 
 	case baseContextValidation:
-		return vc.validateBaseContext(vcBytes, vcOpts)
+		return validateBaseContext(vcJSON, vcc, vcOpts)
 
 	case baseContextExtendedValidation:
-		return vc.validateBaseContextWithExtendedValidation(vcOpts, vcBytes)
+		return validateBaseContextWithExtendedValidation(vcJSON, vcc, vcOpts)
 
 	default:
 		return fmt.Errorf("unsupported vcModelValidationMode: %v", vcOpts.modelValidationMode)
 	}
 }
 
-func (vc *Credential) validateBaseContext(vcBytes []byte, vcOpts *credentialOpts) error {
-	if len(vc.Types) > 1 || vc.Types[0] != vcType {
+func validateBaseContext(vcJSON JSONObject, vcc *CredentialContents, vcOpts *credentialOpts) error {
+	if len(vcc.Types) > 1 || vcc.Types[0] != vcType {
 		return errors.New("violated type constraint: not base only type defined")
 	}
 
-	if len(vc.Context) > 1 || vc.Context[0] != baseContext {
+	if len(vcc.Context) > 1 || vcc.Context[0] != baseContext {
 		return errors.New("violated @context constraint: not base only @context defined")
 	}
 
-	return vc.validateJSONSchema(vcBytes, vcOpts)
+	return validateJSONSchema(vcJSON, vcc, vcOpts)
 }
 
-func (vc *Credential) validateBaseContextWithExtendedValidation(vcOpts *credentialOpts, vcBytes []byte) error {
-	for _, vcContext := range vc.Context {
+func validateBaseContextWithExtendedValidation(vcJSON JSONObject, vcc *CredentialContents,
+	vcOpts *credentialOpts) error {
+	for _, vcContext := range vcc.Context {
 		if _, ok := vcOpts.allowedCustomContexts[vcContext]; !ok {
 			return fmt.Errorf("not allowed @context: %s", vcContext)
 		}
 	}
 
-	for _, vcType := range vc.Types {
+	for _, vcType := range vcc.Types {
 		if _, ok := vcOpts.allowedCustomTypes[vcType]; !ok {
 			return fmt.Errorf("not allowed type: %s", vcType)
 		}
 	}
 
-	return vc.validateJSONSchema(vcBytes, vcOpts)
+	return validateJSONSchema(vcJSON, vcc, vcOpts)
 }
 
-func (vc *Credential) validateJSONLD(vcBytes []byte, vcOpts *credentialOpts) error {
-	return docjsonld.ValidateJSONLD(string(vcBytes),
+func validateJSONLD(vcJSON JSONObject, vcOpts *credentialOpts) error {
+	// TODO: docjsonld.ValidateJSONLDMap has bug that it modify contexts of input vcJSON. Fix in did-go
+	return docjsonld.ValidateJSONLDMap(jsonutil.ShallowCopyObj(vcJSON),
 		docjsonld.WithDocumentLoader(vcOpts.jsonldCredentialOpts.jsonldDocumentLoader),
 		docjsonld.WithExternalContext(vcOpts.jsonldCredentialOpts.externalContext),
 		docjsonld.WithStrictValidation(vcOpts.strictValidation),
@@ -1003,48 +1143,11 @@ func (vc *Credential) validateJSONLD(vcBytes []byte, vcOpts *credentialOpts) err
 	)
 }
 
-// CustomCredentialProducer is a factory for Credentials with extended data model.
-type CustomCredentialProducer interface {
-	// Accept checks if producer is capable of building extended Credential data model.
-	Accept(vc *Credential) bool
-
-	// Apply creates custom credential using base credential and its JSON bytes.
-	Apply(vc *Credential, dataJSON []byte) (interface{}, error)
-}
-
-// CreateCustomCredential creates custom extended credentials from bytes which could be marshalled JSON
-// or serialized JWT. It parses input bytes to the base Verifiable Credential using ParseCredential().
-// It then checks all producers to find the capable one to build extended Credential data model.
-// If none of producers accept the credential, the base credential is returned.
-func CreateCustomCredential(vcData []byte, producers []CustomCredentialProducer,
-	opts ...CredentialOpt) (interface{}, error) {
-	vcBase, credErr := ParseCredential(vcData, opts...)
-	if credErr != nil {
-		return nil, fmt.Errorf("build base verifiable credential: %w", credErr)
-	}
-
-	vcBaseBytes, _ := vcBase.MarshalJSON() //nolint:errcheck
-
-	for _, p := range producers {
-		if p.Accept(vcBase) {
-			customCred, err := p.Apply(vcBase, vcBaseBytes)
-			if err != nil {
-				return nil, fmt.Errorf("build extended verifiable credential: %w", err)
-			}
-
-			return customCred, nil
-		}
-	}
-
-	// Return base credential as no producers are capable of VC extension.
-	return vcBase, nil
-}
-
 // nolint: funlen,gocyclo
-func newCredential(raw *rawCredential) (*Credential, error) {
+func parseCredentialContents(raw JSONObject, isSDJWT bool) (*CredentialContents, error) {
 	var schemas []TypedID
 
-	if raw.Schema != nil {
+	if raw[jsonFldSchema] != nil {
 		var err error
 
 		schemas, err = decodeCredentialSchemas(raw)
@@ -1055,105 +1158,153 @@ func newCredential(raw *rawCredential) (*Credential, error) {
 		schemas = make([]TypedID, 0)
 	}
 
-	types, err := decodeType(raw.Type)
+	types, err := decodeType(raw[jsonFldType])
 	if err != nil {
 		return nil, fmt.Errorf("fill credential types from raw: %w", err)
 	}
 
-	issuer, err := parseIssuer(raw.Issuer)
+	issuer, err := parseIssuer(raw[jsonFldIssuer])
 	if err != nil {
 		return nil, fmt.Errorf("fill credential issuer from raw: %w", err)
 	}
 
-	context, customContext, err := decodeContext(raw.Context)
+	context, customContext, err := decodeContext(raw[jsonFldContext])
 	if err != nil {
 		return nil, fmt.Errorf("fill credential context from raw: %w", err)
 	}
 
-	termsOfUse, err := parseTypedID(raw.TermsOfUse)
+	termsOfUse, err := parseTypedID(raw[jsonFldTermsOfUse])
 	if err != nil {
 		return nil, fmt.Errorf("fill credential terms of use from raw: %w", err)
 	}
 
-	refreshService, err := parseTypedID(raw.RefreshService)
+	refreshService, err := parseTypedID(raw[jsonFldRefreshService])
 	if err != nil {
 		return nil, fmt.Errorf("fill credential refresh service from raw: %w", err)
 	}
 
-	proofs, err := parseProof(raw.Proof)
-	if err != nil {
-		return nil, fmt.Errorf("fill credential proof from raw: %w", err)
-	}
-
-	subjects, err := parseSubject(raw.Subject)
+	subjects, err := parseSubject(raw[jsonFldSubject])
 	if err != nil {
 		return nil, fmt.Errorf("fill credential subject from raw: %w", err)
 	}
 
-	alg, _ := common.GetCryptoHash(raw.SDJWTHashAlg) // nolint:errcheck
-	if alg == 0 {
-		sub, _ := subjects.([]Subject) // nolint:errcheck
-		if len(sub) > 0 && len(sub[0].CustomFields) > 0 {
-			alg, _ = common.GetCryptoHashFromClaims(sub[0].CustomFields) // nolint:errcheck
-		}
-	}
-
-	disclosures, err := parseDisclosures(raw.SDJWTDisclosures, alg)
+	sdJWTHashAlgCode, err := parseSDAlg(raw, subjects, isSDJWT)
 	if err != nil {
-		return nil, fmt.Errorf("fill credential sdjwt disclosures from raw: %w", err)
+		return nil, fmt.Errorf("fill credential sd jwt alg from raw: %w", err)
 	}
 
-	return &Credential{
-		Context:          context,
-		CustomContext:    customContext,
-		ID:               raw.ID,
-		Types:            types,
-		Subject:          subjects,
-		Issuer:           issuer,
-		Issued:           raw.Issued,
-		Expired:          raw.Expired,
-		Proofs:           proofs,
-		Status:           raw.Status,
-		Schemas:          schemas,
-		Evidence:         raw.Evidence,
-		TermsOfUse:       termsOfUse,
-		RefreshService:   refreshService,
-		JWT:              raw.JWT,
-		CustomFields:     raw.CustomFields,
-		SDJWTHashAlg:     raw.SDJWTHashAlg,
-		SDJWTVersion:     raw.SDJWTVersion,
-		SDJWTDisclosures: disclosures,
+	id, err := parseStringFld(raw, jsonFldID)
+	if err != nil {
+		return nil, fmt.Errorf("fill credential id from raw: %w", err)
+	}
+
+	issued, err := parseTimeFld(raw, jsonFldIssued)
+	if err != nil {
+		return nil, fmt.Errorf("fill credential issued from raw: %w", err)
+	}
+
+	expired, err := parseTimeFld(raw, jsonFldExpired)
+	if err != nil {
+		return nil, fmt.Errorf("fill credential expired from raw: %w", err)
+	}
+
+	status, err := newNilableTypedID(raw[jsonFldStatus])
+	if err != nil {
+		return nil, fmt.Errorf("fill credential status from raw: %w", err)
+	}
+
+	return &CredentialContents{
+		Context:        context,
+		CustomContext:  customContext,
+		ID:             id,
+		Types:          types,
+		Subject:        subjects,
+		Issuer:         issuer,
+		Issued:         issued,
+		Expired:        expired,
+		Status:         status,
+		Schemas:        schemas,
+		Evidence:       raw[jsonFldEvidence],
+		TermsOfUse:     termsOfUse,
+		RefreshService: refreshService,
+		SDJWTHashAlg:   sdJWTHashAlgCode,
 	}, nil
 }
 
-func parseTypedID(data json.RawMessage) ([]TypedID, error) {
-	if len(data) == 0 {
+func parseTypedID(typeIDRaw interface{}) ([]TypedID, error) {
+	if typeIDRaw == nil {
 		return nil, nil
 	}
 
-	var singleTypedID TypedID
+	switch typeID := typeIDRaw.(type) {
+	case map[string]interface{}:
+		parsed, err := parseTypedIDObj(typeID)
+		if err != nil {
+			return nil, fmt.Errorf("parse type id: %w", err)
+		}
 
-	err := json.Unmarshal(data, &singleTypedID)
-	if err == nil {
-		return []TypedID{singleTypedID}, nil
+		return []TypedID{parsed}, nil
+	case []interface{}:
+		var typedIDS []TypedID
+
+		for _, s := range typeID {
+			json, ok := s.(map[string]interface{})
+			if !ok {
+				return nil, fmt.Errorf("slice with typeIDs of unsupported format, %v", typeIDRaw)
+			}
+
+			parsed, err := parseTypedIDObj(json)
+			if err != nil {
+				return nil, fmt.Errorf("parse type ids array: %w", err)
+			}
+
+			typedIDS = append(typedIDS, parsed)
+		}
+
+		return typedIDS, nil
 	}
 
-	var composedTypedID []TypedID
-
-	err = json.Unmarshal(data, &composedTypedID)
-	if err == nil {
-		return composedTypedID, nil
-	}
-
-	return nil, err
+	return nil, fmt.Errorf("typeID of unsupported format, %v", typeIDRaw)
 }
 
-func parseDisclosures(disclosures []string, hash crypto.Hash) ([]*common.DisclosureClaim, error) {
+func parseSDAlg(rawCred JSONObject, subjects []Subject, isSDJWT bool) (*crypto.Hash, error) {
+	if !isSDJWT {
+		return nil, nil
+	}
+
+	sdJWTHashAlgStr, err := parseStringFld(rawCred, jsonFldSDJWTHashAlg)
+	if err != nil {
+		return nil, fmt.Errorf("get %q fld: %w", jsonFldSDJWTHashAlg, err)
+	}
+
+	sdJWTHashAlgCode, err := parseSDAlgValue(sdJWTHashAlgStr, subjects)
+	if err != nil {
+		return nil, fmt.Errorf("parse sd jwt alg string: %w", err)
+	}
+
+	return &sdJWTHashAlgCode, nil
+}
+
+func parseSDAlgValue(sdJWTHashAlg string, subjects []Subject) (crypto.Hash, error) {
+	if sdJWTHashAlg == "" {
+		if len(subjects) > 0 && len(subjects[0].CustomFields) > 0 {
+			return common.GetCryptoHashFromClaims(subjects[0].CustomFields)
+		}
+	}
+
+	return common.ParseCryptoHashAlg(sdJWTHashAlg)
+}
+
+func parseDisclosures(disclosures []string, hash *crypto.Hash) ([]*common.DisclosureClaim, error) {
 	if len(disclosures) == 0 {
 		return nil, nil
 	}
 
-	disc, err := common.GetDisclosureClaims(disclosures, hash)
+	if hash == nil {
+		return nil, fmt.Errorf("inconsistent state, if selective disclosures are present, sd alg should be set")
+	}
+
+	disc, err := common.GetDisclosureClaims(disclosures, *hash)
 	if err != nil {
 		return nil, fmt.Errorf("parsing disclosures from SD-JWT credential: %w", err)
 	}
@@ -1191,21 +1342,26 @@ func unwrapStringVC(vcData []byte) string {
 	return vcStr
 }
 
-// isJWTVC returns whether vcStr is a JWT or SD-JWT.
-//
-// If vcStr is a combined SD-JWT, the second return value is a truncated vcStr containing only the JWT,
-// the third return value is a slice of the disclosure strings, and the fourth is an optional holder binding.
-//
-// If vcStr is not a combined SD-JWT, isJWTVC returns vcStr unchanged, and a nil slice.
-func isJWTVC(vcStr string) (bool, string, []string, string) {
+type jwsVCParseResult struct {
+	isJWS   bool
+	isSDJWT bool
+	// If original JWS is a combined SD-JWT, 'onlyJWT' contains only the JWT part,
+	onlyJWT         string
+	sdDisclosures   []string
+	sdHolderBinding string
+}
+
+func tryParseAsJWSVC(vcStr string) jwsVCParseResult {
 	var (
 		disclosures   []string
 		holderBinding string
+		isSDJWT       bool
 	)
 
 	tmpVCStr := vcStr
 
 	if strings.Contains(tmpVCStr, common.CombinedFormatSeparator) {
+		isSDJWT = true
 		sdTokens := strings.Split(vcStr, common.CombinedFormatSeparator)
 		lastElem := sdTokens[len(sdTokens)-1]
 
@@ -1225,18 +1381,45 @@ func isJWTVC(vcStr string) (bool, string, []string, string) {
 	}
 
 	if jwt.IsJWS(tmpVCStr) {
-		return true, tmpVCStr, disclosures, holderBinding
+		return jwsVCParseResult{
+			isJWS:           true,
+			isSDJWT:         isSDJWT,
+			onlyJWT:         tmpVCStr,
+			sdDisclosures:   disclosures,
+			sdHolderBinding: holderBinding,
+		}
 	}
 
-	return false, vcStr, nil, ""
+	return jwsVCParseResult{
+		isJWS:           false,
+		onlyJWT:         "",
+		sdDisclosures:   nil,
+		sdHolderBinding: "",
+	}
 }
 
-func decodeJWTVC(vcStr string, vcOpts *credentialOpts) (jose.Headers, []byte, error) {
-	if vcOpts.publicKeyFetcher == nil && !vcOpts.disabledProofCheck {
-		return nil, nil, errors.New("public key fetcher is not defined")
+// CheckProof checks credential proofs.
+func (vc *Credential) CheckProof(opts ...CredentialOpt) error {
+	vcOpts := getCredentialOpts(opts)
+
+	if vc.JWTEnvelope != nil {
+		if vcOpts.publicKeyFetcher == nil && !vcOpts.disabledProofCheck {
+			return errors.New("public key fetcher is not defined")
+		}
+
+		_, _, err := decodeCredJWS(vc.JWTEnvelope.JWT, true, vcOpts.publicKeyFetcher)
+		if err != nil {
+			return fmt.Errorf("JWS proof check: %w", err)
+		}
+
+		return nil
 	}
 
-	joseHeaders, vcDecodedBytes, err := decodeCredJWS(vcStr, !vcOpts.disabledProofCheck, vcOpts.publicKeyFetcher)
+	return checkEmbeddedProof(vc.credentialJSON, getEmbeddedProofCheckOpts(vcOpts))
+}
+
+func decodeJWTVC(vcStr string) (jose.Headers, []byte, error) {
+	joseHeaders, vcDecodedBytes, err := decodeCredJWS(vcStr, false, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("JWS decoding: %w", err)
 	}
@@ -1244,7 +1427,7 @@ func decodeJWTVC(vcStr string, vcOpts *credentialOpts) (jose.Headers, []byte, er
 	return joseHeaders, vcDecodedBytes, nil
 }
 
-func decodeLDVC(vcData []byte, vcStr string, vcOpts *credentialOpts) ([]byte, error) {
+func decodeLDVC(vcData []byte, vcStr string) ([]byte, error) {
 	if jwt.IsJWTUnsecured(vcStr) { // Embedded proof.
 		var e error
 
@@ -1255,7 +1438,7 @@ func decodeLDVC(vcData []byte, vcStr string, vcOpts *credentialOpts) ([]byte, er
 	}
 
 	// Embedded proof.
-	return vcData, checkEmbeddedProof(vcData, getEmbeddedProofCheckOpts(vcOpts))
+	return vcData, nil
 }
 
 // JWTVCToJSON parses a JWT VC without verifying, and returns the JSON VC contents.
@@ -1301,96 +1484,25 @@ func newDefaultSchemaLoader() *CredentialSchemaLoader {
 	}
 }
 
-func issuerToRaw(issuer Issuer) (json.RawMessage, error) {
-	return issuer.MarshalJSON()
-}
-
-// subjectToBytes converts subject(s) to bytes.
-// A subject can be of a different kind:
-// - string (represents subject id)
-// - map
-// - slice of maps
-// - Subject
-// - slice of Subjects
-// - custom struct
-// - slice of custom structs
+// SerializeSubject converts subject(s) JSON object or array
 // If the subject is nil no error will be returned.
-func subjectToBytes(subject interface{}) ([]byte, error) {
+func SerializeSubject(subject []Subject) interface{} {
 	if subject == nil {
-		return nil, nil
+		return nil
 	}
 
-	switch s := subject.(type) {
-	case string:
-		return json.Marshal(s)
-
-	case []map[string]interface{}:
-		if len(s) == 1 {
-			return json.Marshal(s[0])
-		}
-
-		return json.Marshal(s)
-
-	case map[string]interface{}:
-		return subjectMapToRaw(s)
-
-	case Subject:
-		return s.MarshalJSON()
-
-	case []Subject:
-		if len(s) == 1 {
-			return s[0].MarshalJSON()
-		}
-
-		return json.Marshal(s)
-
-	default:
-		return subjectStructToRaw(subject)
-	}
-}
-
-func subjectStructToRaw(subject interface{}) (json.RawMessage, error) {
-	// convert to slice of maps and try once again
-	if reflect.TypeOf(subject).Kind() == reflect.Slice {
-		sValue := reflect.ValueOf(subject)
-		subjects := make([]interface{}, sValue.Len())
-
-		for i := 0; i < sValue.Len(); i++ {
-			subjects[i] = sValue.Index(i).Interface()
-		}
-
-		sMaps, err := jsonutil.ToMaps(subjects)
-		if err != nil {
-			return nil, errors.New("subject of unknown structure")
-		}
-
-		return subjectToBytes(sMaps)
-	}
-
-	// convert to map and try once again
-	sMap, err := jsonutil.ToMap(subject)
-	if err != nil {
-		return nil, errors.New("subject of unknown structure")
-	}
-
-	return subjectToBytes(sMap)
-}
-
-func subjectMapToRaw(subject map[string]interface{}) (json.RawMessage, error) {
 	if len(subject) == 1 {
-		if _, ok := subject["id"]; ok {
-			return json.Marshal(safeStringValue(subject["id"]))
-		}
+		return SubjectToJSON(subject[0])
 	}
 
-	return json.Marshal(subject)
+	return mapSlice(subject, SubjectToJSON)
 }
 
-func (vc *Credential) validateJSONSchema(data []byte, opts *credentialOpts) error {
-	return validateCredentialUsingJSONSchema(data, vc.Schemas, opts)
+func validateJSONSchema(vcJSON JSONObject, vcc *CredentialContents, opts *credentialOpts) error {
+	return validateCredentialUsingJSONSchema(vcJSON, vcc.Schemas, opts)
 }
 
-func validateCredentialUsingJSONSchema(data []byte, schemas []TypedID, opts *credentialOpts) error {
+func validateCredentialUsingJSONSchema(vcJSON JSONObject, schemas []TypedID, opts *credentialOpts) error {
 	// Validate that the Verifiable Credential conforms to the serialization of the Verifiable Credential data model
 	// (https://w3c.github.io/vc-data-model/#example-1-a-simple-example-of-a-verifiable-credential)
 	schemaLoader, err := getSchemaLoader(schemas, opts)
@@ -1398,7 +1510,7 @@ func validateCredentialUsingJSONSchema(data []byte, schemas []TypedID, opts *cre
 		return err
 	}
 
-	loader := gojsonschema.NewStringLoader(string(data))
+	loader := gojsonschema.NewGoLoader(vcJSON)
 
 	result, err := gojsonschema.Validate(schemaLoader, loader)
 	if err != nil {
@@ -1550,164 +1662,189 @@ func loadJSONSchema(url string, client *http.Client) ([]byte, error) {
 
 // JWTClaims converts Verifiable Credential into JWT Credential claims, which can be than serialized
 // e.g. into JWS.
+// TODO: review JWT and SDJWT implementation. Do not expose claims externally.
 func (vc *Credential) JWTClaims(minimizeVC bool) (*JWTCredClaims, error) {
 	return newJWTCredClaims(vc, minimizeVC)
 }
 
-// SubjectID gets ID of single subject if present or
-// returns error if there are several subjects or one without ID defined.
-// It can also try to get ID from subject of struct type.
-func SubjectID(subject interface{}) (string, error) { // nolint:gocyclo
-	switch subject := subject.(type) {
-	case []Subject:
-		if len(subject) == 0 {
-			return "", errors.New("no subject is defined")
-		}
-
-		if len(subject) > 1 {
-			return "", errors.New("more than one subject is defined")
-		}
-
-		return subject[0].ID, nil
-
-	case Subject:
-		return subject.ID, nil
-
-	case map[string]interface{}:
-		return subjectIDFromMap(subject)
-
-	case []map[string]interface{}:
-		if len(subject) == 0 {
-			return "", errors.New("no subject is defined")
-		}
-
-		if len(subject) > 1 {
-			return "", errors.New("more than one subject is defined")
-		}
-
-		return subjectIDFromMap(subject[0])
-
-	case string:
-		return subject, nil
-
-	default:
-		// convert to map and try once again
-		sMap, err := jsonutil.ToMap(subject)
-		if err != nil {
-			return "", errors.New("subject of unknown structure")
-		}
-
-		return SubjectID(sMap)
+// CreateSignedJWTVC envelops current vc into signed jwt.
+func (vc *Credential) CreateSignedJWTVC(
+	minimizeVC bool, signatureAlg JWSAlgorithm, signer Signer, keyID string) (*Credential, error) {
+	jwtClaims, err := vc.JWTClaims(minimizeVC)
+	if err != nil {
+		return nil, err
 	}
+
+	jwsString, joseHeaders, err := jwtClaims.MarshalJWS(signatureAlg, signer, keyID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Credential{
+		credentialJSON:     vc.ToRawJSON(),
+		credentialContents: vc.Contents(),
+		ldProofs:           vc.ldProofs,
+		JWTEnvelope: &JWTEnvelope{
+			JWT:        jwsString,
+			JWTHeaders: joseHeaders,
+		},
+	}, nil
 }
 
-func subjectIDFromMap(subject map[string]interface{}) (string, error) {
-	subjectWithID, defined := subject["id"]
-	if !defined {
+// CreateUnsecuredJWTVC envelops current vc into unsigned jwt.
+func (vc *Credential) CreateUnsecuredJWTVC(minimizeVC bool) (*Credential, error) {
+	jwtClaims, err := vc.JWTClaims(minimizeVC)
+	if err != nil {
+		return nil, err
+	}
+
+	jwtString, err := jwtClaims.MarshalUnsecuredJWT()
+	if err != nil {
+		return nil, fmt.Errorf("limitDisclosure MarshalUnsecuredJWT: %w", err)
+	}
+
+	return &Credential{
+		credentialJSON:     vc.ToRawJSON(),
+		credentialContents: vc.Contents(),
+		ldProofs:           vc.ldProofs,
+		JWTEnvelope: &JWTEnvelope{
+			JWT: jwtString,
+		},
+	}, nil
+}
+
+// SubjectID gets ID of single subject if present or
+// returns error if there are several subjects or one without ID defined.
+func SubjectID(subject []Subject) (string, error) { //nolint:funlen
+	if len(subject) == 0 {
+		return "", errors.New("no subject is defined")
+	}
+
+	if len(subject) > 1 {
+		return "", errors.New("more than one subject is defined")
+	}
+
+	if subject[0].ID == "" {
 		return "", errors.New("subject id is not defined")
 	}
 
-	subjectID, isString := subjectWithID.(string)
-	if !isString {
-		return "", errors.New("subject id is not string")
-	}
-
-	return subjectID, nil
+	return subject[0].ID, nil
 }
 
-func (vc *Credential) raw() (*rawCredential, error) {
-	rawRefreshService, err := typedIDsToRaw(vc.RefreshService)
-	if err != nil {
-		return nil, err
+func serializeCredentialContents(vcc *CredentialContents, proofs []Proof) (JSONObject, error) { //nolint:funlen,gocyclo
+	contexts := contextToRaw(vcc.Context, vcc.CustomContext)
+
+	vcJSON := map[string]interface{}{}
+
+	if len(contexts) > 0 {
+		vcJSON[jsonFldContext] = contexts
 	}
 
-	rawTermsOfUse, err := typedIDsToRaw(vc.TermsOfUse)
-	if err != nil {
-		return nil, err
+	if vcc.ID != "" {
+		vcJSON[jsonFldID] = vcc.ID
 	}
 
-	proof, err := proofsToRaw(vc.Proofs)
-	if err != nil {
-		return nil, err
+	if len(vcc.Types) > 0 {
+		vcJSON[jsonFldType] = serializeTypes(vcc.Types)
 	}
 
-	var schema interface{}
-	if len(vc.Schemas) > 0 {
-		schema = vc.Schemas
+	if len(vcc.Subject) > 0 {
+		vcJSON[jsonFldSubject] = SerializeSubject(vcc.Subject)
 	}
 
-	issuer, err := issuerToRaw(vc.Issuer)
-	if err != nil {
-		return nil, err
+	if len(proofs) > 0 {
+		vcJSON[jsonFldLDProof] = proofsToRaw(proofs)
 	}
 
-	subject, err := subjectToBytes(vc.Subject)
-	if err != nil {
-		return nil, err
+	if vcc.Status != nil {
+		vcJSON[jsonFldStatus] = serializeTypedIDObj(*vcc.Status)
 	}
 
-	r := &rawCredential{
-		Context:        contextToRaw(vc.Context, vc.CustomContext),
-		ID:             vc.ID,
-		Type:           typesToRaw(vc.Types),
-		Subject:        subject,
-		Proof:          proof,
-		Status:         vc.Status,
-		Issuer:         issuer,
-		Schema:         schema,
-		Evidence:       vc.Evidence,
-		RefreshService: rawRefreshService,
-		TermsOfUse:     rawTermsOfUse,
-		Issued:         vc.Issued,
-		Expired:        vc.Expired,
-		JWT:            vc.JWT,
-		SDJWTHashAlg:   vc.SDJWTHashAlg,
-		CustomFields:   vc.CustomFields,
+	if vcc.Issuer != nil {
+		vcJSON[jsonFldIssuer] = serializeIssuer(*vcc.Issuer)
 	}
 
-	return r, nil
+	if len(vcc.Schemas) > 0 {
+		vcJSON[jsonFldSchema] = typedIDsToRaw(vcc.Schemas)
+	}
+
+	if vcc.Evidence != nil {
+		vcJSON[jsonFldEvidence] = vcc.Evidence
+	}
+
+	if len(vcc.RefreshService) > 0 {
+		vcJSON[jsonFldRefreshService] = typedIDsToRaw(vcc.RefreshService)
+	}
+
+	if len(vcc.TermsOfUse) > 0 {
+		vcJSON[jsonFldTermsOfUse] = typedIDsToRaw(vcc.TermsOfUse)
+	}
+
+	if vcc.Issued != nil {
+		vcJSON[jsonFldIssued] = serializeTime(vcc.Issued)
+	}
+
+	if vcc.Expired != nil {
+		vcJSON[jsonFldExpired] = serializeTime(vcc.Expired)
+	}
+
+	if vcc.SDJWTHashAlg != nil {
+		sdHashAlg, err := common.FormatCryptoHashAlg(*vcc.SDJWTHashAlg)
+		if err != nil {
+			return nil, fmt.Errorf("try to serialize %s: %w", jsonFldSDJWTHashAlg, err)
+		}
+
+		vcJSON[jsonFldSDJWTHashAlg] = sdHashAlg
+	}
+
+	return vcJSON, nil
 }
 
-func typesToRaw(types []string) interface{} {
+func serializeTime(t *util.TimeWrapper) interface{} {
+	return t.FormatToString()
+}
+
+func serializeTypes(types []string) interface{} {
 	if len(types) == 1 {
 		// as string
 		return types[0]
 	}
-	// as string array
-	return types
+
+	// as []interface{} if strings
+	return mapSlice(types, func(t string) interface{} {
+		return t
+	})
 }
 
-func contextToRaw(context []string, cContext []interface{}) interface{} {
-	if len(cContext) > 0 {
-		// return as array
-		sContext := make([]interface{}, len(context), len(context)+len(cContext))
-		for i := range context {
-			sContext[i] = context[i]
-		}
-
-		sContext = append(sContext, cContext...)
-
-		return sContext
+func contextToRaw(context []string, cContext []interface{}) []interface{} {
+	// return as array
+	sContext := make([]interface{}, len(context), len(context)+len(cContext))
+	for i := range context {
+		sContext[i] = context[i]
 	}
 
-	return context
+	sContext = append(sContext, cContext...)
+
+	return sContext
 }
 
-func typedIDsToRaw(typedIDs []TypedID) ([]byte, error) {
+func typedIDsToRaw(typedIDs []TypedID) interface{} {
 	switch len(typedIDs) {
-	case 0:
-		return nil, nil
 	case 1:
-		return json.Marshal(typedIDs[0])
+		return serializeTypedIDObj(typedIDs[0])
 	default:
-		return json.Marshal(typedIDs)
+		return mapSlice(typedIDs, serializeTypedIDObj)
 	}
 }
+
+//TODO: Credential shouldn't be directly marshalable, this create a lot of confusions.
+// change this function into two functions, one is returning JSONObject or string
+// Other returns credential bytes
 
 // MarshalJSON converts Verifiable Credential to JSON bytes.
 func (vc *Credential) MarshalJSON() ([]byte, error) {
-	if vc.JWT != "" {
-		if vc.SDJWTHashAlg != "" {
+	if vc.JWTEnvelope != nil && vc.JWTEnvelope.JWT != "" {
+		if vc.credentialContents.SDJWTHashAlg != nil {
 			sdJWT, err := vc.MarshalWithDisclosure(DiscloseAll())
 			if err != nil {
 				return nil, err
@@ -1718,15 +1855,25 @@ func (vc *Credential) MarshalJSON() ([]byte, error) {
 
 		// If vc.JWT exists, marshal only the JWT, since all other values should be unchanged
 		// from when the JWT was parsed.
-		return []byte("\"" + vc.JWT + "\""), nil
+		return []byte("\"" + vc.JWTEnvelope.JWT + "\""), nil
 	}
 
-	raw, err := vc.raw()
+	obj, err := vc.ToUniversalForm()
+	if err != nil {
+		return nil, fmt.Errorf("object marshalling of verifiable credential: %w", err)
+	}
+
+	byteCred, err := json.Marshal(obj)
 	if err != nil {
 		return nil, fmt.Errorf("JSON marshalling of verifiable credential: %w", err)
 	}
 
-	byteCred, err := json.Marshal(raw)
+	return byteCred, nil
+}
+
+// MarshalAsJSONLD converts Verifiable Credential to JSON bytes ignoring that it is in JWT form.
+func (vc *Credential) MarshalAsJSONLD() ([]byte, error) {
+	byteCred, err := json.Marshal(vc.ToRawJSON())
 	if err != nil {
 		return nil, fmt.Errorf("JSON marshalling of verifiable credential: %w", err)
 	}

@@ -10,6 +10,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	jsonutil "github.com/trustbloc/vc-go/util/json"
 )
 
 func TestJwtAlgorithm_Name(t *testing.T) {
@@ -57,24 +59,11 @@ func TestTypedID_MarshalJSON(t *testing.T) {
 
 		require.Equal(t, tid, tidRecovered)
 	})
-
-	t.Run("Invalid marshalling", func(t *testing.T) {
-		tid := TypedID{
-			CustomFields: map[string]interface{}{
-				"invalid": make(chan int),
-			},
-		}
-
-		b, err := json.Marshal(&tid)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "marshal TypedID")
-		require.Nil(t, b)
-	})
 }
 
 func TestTypedID_UnmarshalJSON(t *testing.T) {
 	t.Run("Successful unmarshalling", func(t *testing.T) {
-		tidJSON := `{
+		tidJSONBytes := `{
   "type": "IssuerPolicy",
   "id": "http://example.com/policies/credential/4",
   "profile": "http://example.com/profiles/credential",
@@ -85,8 +74,11 @@ func TestTypedID_UnmarshalJSON(t *testing.T) {
   }]
 }`
 
-		var tid TypedID
-		err := json.Unmarshal([]byte(tidJSON), &tid)
+		var tidJSON JSONObject
+		err := json.Unmarshal([]byte(tidJSONBytes), &tidJSON)
+		require.NoError(t, err)
+
+		tid, err := parseTypedIDObj(tidJSON)
 		require.NoError(t, err)
 
 		require.Equal(t, "http://example.com/policies/credential/4", tid.ID)
@@ -107,10 +99,14 @@ func TestTypedID_UnmarshalJSON(t *testing.T) {
 		tidJSONWithInvalidType := `{
   "type": 77
 }`
-		var tid TypedID
-		err := json.Unmarshal([]byte(tidJSONWithInvalidType), &tid)
+
+		var tidJSON JSONObject
+		err := json.Unmarshal([]byte(tidJSONWithInvalidType), &tidJSON)
+		require.NoError(t, err)
+
+		_, err = parseTypedIDObj(tidJSON)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "unmarshal TypedID")
+		require.Contains(t, err.Error(), "parse TypedID")
 	})
 }
 
@@ -200,22 +196,58 @@ func Test_proofsToRaw(t *testing.T) {
 		"proofValue": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..67TTULBvibJaJ2oZf3tGYhxZqxYS89qGQykL5hfCoh-MF0vrwQqzciZhjNrAGTAgHtDZsnSQVwJ8bO_7Sc0ECw", //nolint:lll
 	}}
 
-	singleProofBytes, err := proofsToRaw(singleProof)
+	singleProofRaw := proofsToRaw(singleProof)
+
+	expectedProof, err := jsonutil.ToMap(singleProof[0])
 	require.NoError(t, err)
 
-	var singleProofMap map[string]interface{}
-
-	err = json.Unmarshal(singleProofBytes, &singleProofMap)
-	require.NoError(t, err)
+	require.Equal(t, expectedProof, singleProofRaw)
 
 	severalProofs := []Proof{
 		singleProof[0],
 		{"proofValue": "if8ooA+32YZc4SQBvIDDY9tgTatPoq4IZ8Kr+We1t38LR2RuURmaVu9D4shbi4VvND87PUqq5/0vsNFEGIIEDA=="},
 	}
-	severalProofsBytes, err := proofsToRaw(severalProofs)
+	expectedSeveralProofs, err := toArray(severalProofs)
 	require.NoError(t, err)
 
-	var severalProofsMap []map[string]interface{}
-	err = json.Unmarshal(severalProofsBytes, &severalProofsMap)
-	require.NoError(t, err)
+	severalProofsRaw := proofsToRaw(severalProofs)
+
+	require.Equal(t, expectedSeveralProofs, severalProofsRaw)
+}
+
+func Test_parseLDProof(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		singleProof := []interface{}{map[string]interface{}{
+			"proofValue": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..67TTULBvibJaJ2oZf3tGYhxZqxYS89qGQykL5hfCoh-MF0vrwQqzciZhjNrAGTAgHtDZsnSQVwJ8bO_7Sc0ECw", //nolint:lll
+		}}
+
+		proofs, err := parseLDProof(singleProof)
+		require.NoError(t, err)
+		require.Len(t, proofs, 1)
+	})
+
+	t.Run("unsupported proof value", func(t *testing.T) {
+		singleProof := []interface{}{
+			"eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19", //nolint:lll
+		}
+
+		_, err := parseLDProof(singleProof)
+		require.Error(t, err)
+	})
+}
+
+// toArray convert array to array of json objects.
+func toArray[T any](v []T) ([]interface{}, error) {
+	maps := make([]interface{}, len(v))
+
+	for i := range v {
+		m, err := jsonutil.ToMap(v[i])
+		if err != nil {
+			return nil, err
+		}
+
+		maps[i] = m
+	}
+
+	return maps, nil
 }

@@ -31,26 +31,27 @@ type Client struct {
 // if the given credential's status is revoked, nil if the credential is not revoked, and a different error if
 // verification fails.
 func (c *Client) VerifyStatus(credential *verifiable.Credential) error { //nolint:gocyclo
-	if credential.Status == nil {
+	contents := credential.Contents()
+	if contents.Status == nil {
 		return fmt.Errorf("vc missing status list field")
 	}
 
-	validator, err := c.ValidatorGetter(credential.Status.Type)
+	validator, err := c.ValidatorGetter(contents.Status.Type)
 	if err != nil {
 		return err
 	}
 
-	err = validator.ValidateStatus(credential.Status)
+	err = validator.ValidateStatus(contents.Status)
 	if err != nil {
 		return err
 	}
 
-	statusListIndex, err := validator.GetStatusListIndex(credential.Status)
+	statusListIndex, err := validator.GetStatusListIndex(contents.Status)
 	if err != nil {
 		return err
 	}
 
-	statusVCURL, err := validator.GetStatusVCURI(credential.Status)
+	statusVCURL, err := validator.GetStatusVCURI(contents.Status)
 	if err != nil {
 		return err
 	}
@@ -60,14 +61,12 @@ func (c *Client) VerifyStatus(credential *verifiable.Credential) error { //nolin
 		return err
 	}
 
-	if statusListVC.Issuer.ID != credential.Issuer.ID {
+	statusListVCC := statusListVC.Contents()
+	if statusListVCC.Issuer == nil || contents.Issuer == nil || statusListVCC.Issuer.ID != contents.Issuer.ID {
 		return fmt.Errorf("issuer of the credential does not match status list vc issuer")
 	}
 
-	credSubject, ok := statusListVC.Subject.([]verifiable.Subject)
-	if !ok {
-		return fmt.Errorf("invalid subject field structure")
-	}
+	credSubject := statusListVCC.Subject
 
 	bitString, err := bitstring.Decode(credSubject[0].CustomFields["encodedList"].(string))
 	if err != nil {

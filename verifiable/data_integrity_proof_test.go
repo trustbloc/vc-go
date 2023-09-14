@@ -128,7 +128,7 @@ func Test_DataIntegrity_SignVerify(t *testing.T) {
 		require.NoError(t, e)
 
 		t.Run("fail if not provided verifier", func(t *testing.T) {
-			_, e = parseTestCredential(t, vpBytes)
+			_, e = newTestPresentation(t, vpBytes)
 			require.Error(t, e)
 			require.Contains(t, e.Error(), "needs data integrity verifier")
 		})
@@ -136,11 +136,12 @@ func Test_DataIntegrity_SignVerify(t *testing.T) {
 
 	t.Run("failure", func(t *testing.T) {
 		t.Run("marshal json", func(t *testing.T) {
-			vc := &Credential{
+			vc, err := CreateCredential(CredentialContents{
 				CustomContext: []interface{}{make(chan int)},
-			}
+			}, nil)
+			require.NoError(t, err)
 
-			err := vc.AddDataIntegrityProof(&DataIntegrityProofContext{}, &dataintegrity.Signer{})
+			err = vc.AddDataIntegrityProof(&DataIntegrityProofContext{}, &dataintegrity.Signer{})
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "add data integrity proof to VC")
 

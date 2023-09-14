@@ -54,10 +54,11 @@ func (v noVerifier) Verify(_ jose.Headers, _, _, _ []byte) error {
 }
 
 // MarshalJWS serializes JWT presentation claims into signed form (JWS).
-func marshalJWS(jwtClaims interface{}, signatureAlg JWSAlgorithm, signer Signer, keyID string) (string, error) {
+func marshalJWS(
+	jwtClaims interface{}, signatureAlg JWSAlgorithm, signer Signer, keyID string) (string, jose.Headers, error) {
 	algName, err := signatureAlg.Name()
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
 	headers := map[string]interface{}{
@@ -66,10 +67,15 @@ func marshalJWS(jwtClaims interface{}, signatureAlg JWSAlgorithm, signer Signer,
 
 	token, err := jwt.NewSigned(jwtClaims, headers, GetJWTSigner(signer, algName))
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
-	return token.Serialize(false)
+	jwtStr, err := token.Serialize(false)
+	if err != nil {
+		return "", nil, err
+	}
+
+	return jwtStr, token.Headers, nil
 }
 
 func unmarshalJWS(rawJwt string, checkProof bool, fetcher PublicKeyFetcher, claims interface{}) (jose.Headers, error) {

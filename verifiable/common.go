@@ -15,17 +15,18 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/piprate/json-gold/ld"
+	util "github.com/trustbloc/did-go/doc/util/time"
+	"github.com/xeipuuv/gojsonschema"
+
 	"github.com/trustbloc/did-go/doc/did"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	"github.com/trustbloc/kms-go/doc/jose/jwk"
 	kmsapi "github.com/trustbloc/kms-go/spi/kms"
-	"github.com/xeipuuv/gojsonschema"
 
 	"github.com/trustbloc/vc-go/jwt/didsignjwt"
 	"github.com/trustbloc/vc-go/signature/verifier"
@@ -185,57 +186,65 @@ type Proof map[string]interface{}
 // mapped to the struct fields.
 type CustomFields map[string]interface{}
 
+const (
+	jsonFldTypedIDID   = "id"
+	jsonFldTypedIDType = "type"
+)
+
 // TypedID defines a flexible structure with id and name fields and arbitrary extra fields
 // kept in CustomFields.
 type TypedID struct {
-	ID   string `json:"id,omitempty"`
-	Type string `json:"type,omitempty"`
+	ID   string
+	Type string
 
-	CustomFields `json:"-"`
+	CustomFields
 }
 
-// MarshalJSON defines custom marshalling of TypedID to JSON.
-func (tid TypedID) MarshalJSON() ([]byte, error) {
-	// TODO hide this exported method
-	type Alias TypedID
+func parseTypedIDObj(typedIDObj JSONObject) (TypedID, error) {
+	flds, rest := jsonutil.SplitJSONObj(typedIDObj, jsonFldTypedIDID, jsonFldTypedIDType)
 
-	alias := Alias(tid)
-
-	data, err := jsonutil.MarshalWithCustomFields(alias, tid.CustomFields)
+	id, err := parseStringFld(flds, jsonFldTypedIDID)
 	if err != nil {
-		return nil, fmt.Errorf("marshal TypedID: %w", err)
+		return TypedID{}, fmt.Errorf("parse TypedID: %w", err)
 	}
 
-	return data, nil
+	typeName, err := parseStringFld(flds, jsonFldTypedIDType)
+	if err != nil {
+		return TypedID{}, fmt.Errorf("parse TypedID: %w", err)
+	}
+
+	return TypedID{
+		ID:           id,
+		Type:         typeName,
+		CustomFields: rest,
+	}, nil
 }
 
-// UnmarshalJSON defines custom unmarshalling of TypedID from JSON.
-func (tid *TypedID) UnmarshalJSON(data []byte) error {
-	// TODO hide this exported method
-	type Alias TypedID
+func serializeTypedIDObj(typedID TypedID) JSONObject {
+	json := jsonutil.ShallowCopyObj(typedID.CustomFields)
 
-	alias := (*Alias)(tid)
+	json[jsonFldTypedIDID] = typedID.ID
+	json[jsonFldTypedIDType] = typedID.Type
 
-	tid.CustomFields = make(CustomFields)
-
-	err := jsonutil.UnmarshalWithCustomFields(data, alias, tid.CustomFields)
-	if err != nil {
-		return fmt.Errorf("unmarshal TypedID: %w", err)
-	}
-
-	return nil
+	return json
 }
 
-func newTypedID(v interface{}) (TypedID, error) {
-	bytes, err := json.Marshal(v)
-	if err != nil {
-		return TypedID{}, err
+func newNilableTypedID(v interface{}) (*TypedID, error) {
+	if v == nil {
+		return nil, nil
 	}
 
-	var tid TypedID
-	err = json.Unmarshal(bytes, &tid)
+	typedIDObj, ok := v.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("should be json object but got %v", v)
+	}
 
-	return tid, err
+	tid, err := parseTypedIDObj(typedIDObj)
+	if err != nil {
+		return nil, err
+	}
+
+	return &tid, err
 }
 
 func describeSchemaValidationError(result *gojsonschema.Result, what string) string {
@@ -276,6 +285,8 @@ func decodeType(t interface{}) ([]string, error) {
 		}
 
 		return types, nil
+	case []string:
+		return rType, nil
 	default:
 		return nil, errors.New("credential type of unknown structure")
 	}
@@ -305,6 +316,8 @@ func decodeContext(c interface{}) ([]string, []interface{}, error) {
 		}
 		// no contexts of custom type, just string contexts found
 		return s, nil, nil
+	case []string:
+		return rContext, nil, nil
 	default:
 		return nil, nil, errors.New("credential context of unknown type")
 	}
@@ -318,35 +331,98 @@ func safeStringValue(v interface{}) string {
 	return v.(string)
 }
 
-func proofsToRaw(proofs []Proof) ([]byte, error) {
+func proofsToRaw(proofs []Proof) interface{} {
 	switch len(proofs) {
 	case 0:
-		return nil, nil
+		return nil
 	case 1:
-		return json.Marshal(proofs[0])
+		return map[string]interface{}(proofs[0])
 	default:
-		return json.Marshal(proofs)
+		return mapSlice(proofs, func(p Proof) interface{} {
+			return map[string]interface{}(p)
+		})
 	}
 }
 
-func parseProof(proofBytes json.RawMessage) ([]Proof, error) {
-	if len(proofBytes) == 0 {
+func parseLDProof(proofJSON interface{}) ([]Proof, error) {
+	if proofJSON == nil {
 		return nil, nil
 	}
 
-	var singleProof Proof
+	switch proof := proofJSON.(type) {
+	case map[string]interface{}:
+		return []Proof{proof}, nil
+	case []interface{}:
+		return mapSlice2(proof, func(raw interface{}) (Proof, error) {
+			p, ok := raw.(map[string]interface{})
+			if !ok {
+				return nil, fmt.Errorf("unsupported proof value '%v'", proofJSON)
+			}
 
-	err := json.Unmarshal(proofBytes, &singleProof)
-	if err == nil {
-		return []Proof{singleProof}, nil
+			return p, nil
+		})
+	default:
+		return nil, fmt.Errorf("unsupported proof value '%v'", proofJSON)
+	}
+}
+
+func parseStringFld(obj JSONObject, fldName string) (string, error) {
+	jsonStr := obj[fldName]
+
+	if jsonStr == nil {
+		return "", nil
 	}
 
-	var composedProof []Proof
+	switch str := jsonStr.(type) {
+	case string:
+		return str, nil
 
-	err = json.Unmarshal(proofBytes, &composedProof)
-	if err == nil {
-		return composedProof, nil
+	default:
+		return "", fmt.Errorf("field %q should be string, instead got '%v'", fldName, jsonStr)
+	}
+}
+
+func parseTimeFld(obj JSONObject, fldName string) (*util.TimeWrapper, error) {
+	jsonTime := obj[fldName]
+
+	if jsonTime == nil {
+		return nil, nil
 	}
 
-	return nil, err
+	switch timeStr := jsonTime.(type) {
+	case string:
+		time, err := util.ParseTimeWrapper(timeStr)
+		if err != nil {
+			return nil, fmt.Errorf("field %q contains invalid time value '%v':%w", fldName, jsonTime, err)
+		}
+
+		return time, nil
+
+	default:
+		return nil, fmt.Errorf("time field %q should be json string, instead got '%v'", fldName, jsonTime)
+	}
+}
+
+func mapSlice[T any, U any](slice []T, mapFN func(T) U) []U {
+	var result []U
+	for _, v := range slice {
+		result = append(result, mapFN(v))
+	}
+
+	return result
+}
+
+func mapSlice2[T any, U any](slice []T, mapFN func(T) (U, error)) ([]U, error) {
+	var result []U
+
+	for _, v := range slice {
+		newVal, err := mapFN(v)
+		if err != nil {
+			return nil, err
+		}
+
+		result = append(result, newVal)
+	}
+
+	return result, nil
 }

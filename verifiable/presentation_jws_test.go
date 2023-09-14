@@ -32,7 +32,7 @@ func TestJWTPresClaims_MarshalJWS(t *testing.T) {
 	_, rawVC, err := decodeVPFromJWS(jws, true, SingleJWK(signer.PublicJWK(), kms.RSARS256))
 
 	require.NoError(t, err)
-	require.Equal(t, vp.stringJSON(t), rawVC.stringJSON(t))
+	require.Equal(t, vp.stringJSON(t), jsonObjectToString(t, rawVC))
 }
 
 type invalidPresClaims struct {
@@ -54,7 +54,7 @@ func TestUnmarshalPresJWSClaims(t *testing.T) {
 
 		claims, err := unmarshalPresJWSClaims(jws, true, testFetcher)
 		require.NoError(t, err)
-		require.Equal(t, vp.stringJSON(t), claims.Presentation.stringJSON(t))
+		require.Equal(t, vp.stringJSON(t), jsonObjectToString(t, claims.Presentation))
 	})
 
 	t.Run("Invalid serialized JWS", func(t *testing.T) {

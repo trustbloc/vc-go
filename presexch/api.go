@@ -227,9 +227,11 @@ func getMatchedCreds( //nolint:gocyclo,funlen
 			}
 
 			if len(passed) == 0 && !opts.DisableSchemaValidation {
+				vcc := vc.Contents()
+
 				return nil, fmt.Errorf(
 					"input descriptor id [%s] requires schemas %+v which do not match vc with @context [%+v] and types [%+v] selected by path [%s]", // nolint:lll
-					inputDescriptor.ID, inputDescriptor.Schema, vc.Context, vc.Types, mapping.Path)
+					inputDescriptor.ID, inputDescriptor.Schema, vcc.Context, vcc.Types, mapping.Path)
 			}
 
 			// TODO add support for constraints: https://github.com/hyperledger/aries-framework-go/issues/2108
