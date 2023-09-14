@@ -44,6 +44,29 @@ const jwtTestCredential = `
 }
 `
 
+const jwtTestCredentialWithType = `
+{
+	"@context": [
+	  "https://www.w3.org/2018/credentials/v1",
+	  "https://www.w3.org/2018/credentials/examples/v1"
+	],
+	"type": ["VerifiableCredential", "UniversityDegreeCredential"],
+	"credentialSubject": {
+	  "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+      "type": ["UniversityDegreeCredential"],
+	  "degree": {
+		"university": "MIT"
+	  }
+	},
+  "issuer": {
+    "id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+    "name": "Example University"
+  },
+  "issuanceDate": "2010-01-01T19:23:24Z",
+  "expirationDate": "2020-01-01T19:23:24Z"
+}
+`
+
 const keyID = "1"
 
 func TestParseCredentialFromJWS(t *testing.T) {

@@ -12,6 +12,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/go-jose/go-jose/v3/jwt"
@@ -361,6 +362,37 @@ func TestMakeSDJWT(t *testing.T) {
 
 			_, err = ParseCredential([]byte(sdjwt), WithPublicKeyFetcher(holderPublicKeyFetcher(pubKey)))
 			require.NoError(t, err)
+		})
+
+		t.Run("with SD JWT V5", func(t *testing.T) {
+			vcWithType, vcErr := parseTestCredential(t, []byte(jwtTestCredentialWithType), WithCredDisableValidation())
+			require.NoError(t, vcErr)
+
+			originalVersion := vcWithType.SDJWTVersion
+			vcWithType.SDJWTVersion = common.SDJWTVersionDefault
+			defer func() {
+				vcWithType.SDJWTVersion = originalVersion
+			}()
+
+			sdjwt, err := vcWithType.MakeSDJWT(
+				afgojwt.NewEd25519Signer(privKey), "did:example:abc123#key-1",
+				MakeSDJWTWithVersion(common.SDJWTVersionV5),
+				MakeSDJWTWithRecursiveClaimsObjects([]string{"degree"}),
+				MakeSDJWTWithAlwaysIncludeObjects([]string{"degree"}),
+			)
+			require.NoError(t, err)
+
+			p, err := jwt.ParseSigned(strings.Split(sdjwt, "~")[0])
+			require.NoError(t, err)
+
+			var targetMap map[string]interface{}
+			require.NoError(t, p.UnsafeClaimsWithoutVerification(&targetMap))
+
+			parsed, err := ParseCredential([]byte(sdjwt), WithPublicKeyFetcher(holderPublicKeyFetcher(pubKey)))
+			require.NoError(t, err)
+			require.Len(t, parsed.SDJWTDisclosures, 1)
+			require.Equal(t, []interface{}{"UniversityDegreeCredential"},
+				targetMap["credentialSubject"].(map[string]interface{})["type"])
 		})
 
 		t.Run("with hash option", func(t *testing.T) {
