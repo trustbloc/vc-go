@@ -14,6 +14,7 @@ import (
 	"github.com/go-jose/go-jose/v3"
 	"github.com/go-jose/go-jose/v3/jwt"
 	"github.com/stretchr/testify/require"
+	"github.com/trustbloc/vc-go/internal/testutil/signatureutil"
 
 	ariesjose "github.com/trustbloc/kms-go/doc/jose"
 	"github.com/trustbloc/kms-go/spi/kms"
@@ -22,8 +23,7 @@ import (
 )
 
 func TestJWTCredClaimsMarshalJWS(t *testing.T) {
-	signer, err := newCryptoSigner(kms.RSARS256Type)
-	require.NoError(t, err)
+	signer := signatureutil.CryptoSigner(t, kms.RSARS256Type)
 
 	vc, err := parseTestCredential(t, []byte(validCredential))
 	require.NoError(t, err)
@@ -37,8 +37,8 @@ func TestJWTCredClaimsMarshalJWS(t *testing.T) {
 
 		headers, vcBytes, err := decodeCredJWS(jws, true, func(issuerID, keyID string) (*verifier.PublicKey, error) {
 			return &verifier.PublicKey{
-				Type:  kms.RSARS256,
-				Value: signer.PublicKeyBytes(),
+				Type: kms.RSARS256,
+				JWK:  signer.PublicJWK(),
 			}, nil
 		})
 		require.NoError(t, err)
@@ -60,13 +60,12 @@ type invalidCredClaims struct {
 }
 
 func TestCredJWSDecoderUnmarshal(t *testing.T) {
-	signer, err := newCryptoSigner(kms.RSARS256Type)
-	require.NoError(t, err)
+	signer := signatureutil.CryptoSigner(t, kms.RSARS256Type)
 
 	pkFetcher := func(_, _ string) (*verifier.PublicKey, error) { //nolint:unparam
 		return &verifier.PublicKey{
-			Type:  kms.RSARS256,
-			Value: signer.PublicKeyBytes(),
+			Type: kms.RSARS256,
+			JWK:  signer.PublicJWK(),
 		}, nil
 	}
 
@@ -121,12 +120,11 @@ func TestCredJWSDecoderUnmarshal(t *testing.T) {
 	t.Run("Invalid signature of JWS", func(t *testing.T) {
 		pkFetcherOther := func(issuerID, keyID string) (*verifier.PublicKey, error) {
 			// use public key of VC Holder (while expecting to use the ones of Issuer)
-			holderSigner, err := newCryptoSigner(kms.RSARS256Type)
-			require.NoError(t, err)
+			holderSigner := signatureutil.CryptoSigner(t, kms.RSARS256Type)
 
 			return &verifier.PublicKey{
-				Type:  kms.RSARS256,
-				Value: holderSigner.PublicKeyBytes(),
+				Type: kms.RSARS256,
+				JWK:  holderSigner.PublicJWK(),
 			}, nil
 		}
 

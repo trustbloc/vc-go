@@ -15,8 +15,11 @@ import (
 	"github.com/trustbloc/did-go/doc/did/util/vmparse"
 	"github.com/trustbloc/did-go/vdr/api"
 	"github.com/trustbloc/kms-go/doc/jose"
+	"github.com/trustbloc/kms-go/doc/jose/jwk"
+	"github.com/trustbloc/kms-go/doc/jose/jwk/jwksupport"
 	"github.com/trustbloc/kms-go/doc/util/jwkkid"
 	"github.com/trustbloc/kms-go/doc/util/kmssigner"
+	"github.com/trustbloc/vc-go/signature/kmscrypto"
 
 	"github.com/trustbloc/vc-go/jwt"
 )
@@ -26,7 +29,7 @@ const (
 	vmSectionCount = 2
 )
 
-type keyReader interface {
+type keyReader interface { // TODO note: only used by deprecated function
 	// Get key handle for the given keyID
 	// Returns:
 	//  - handle instance (to private key)
@@ -38,7 +41,7 @@ type didResolver interface {
 	Resolve(did string, opts ...api.DIDMethodOption) (*did.DocResolution, error)
 }
 
-type cryptoSigner interface {
+type cryptoSigner interface { // TODO note: only used by deprecated function
 	// Sign will sign msg using a matching signature primitive in kh key handle of a private key
 	// returns:
 	// 		signature in []byte
@@ -52,43 +55,60 @@ type Signer interface {
 	Sign(msg []byte) ([]byte, error)
 }
 
-type defaultSigner struct {
-	keyHandle interface{}
-	signer    cryptoSigner
-}
-
 // SignerGetter creates a signer that signs with the private key corresponding to the given public key.
 type SignerGetter func(vm *did.VerificationMethod) (Signer, error)
 
 // UseDefaultSigner provides SignJWT with a signer that uses the given KMS and Crypto instances.
+//
+// Note: this API assumes that the KMS KID is the same as is used by localkms,
+// allowing it to be determined based on the public key.
+//
+// Deprecated: use UseKMSCryptoWrapperSigner instead.
 func UseDefaultSigner(r keyReader, s cryptoSigner) SignerGetter {
+	kcs := kmscrypto.NewKMSCryptoSigner(r, s)
+
+	return UseKMSCryptoWrapperSigner(kcs)
+}
+
+// UseKMSCryptoWrapperSigner uses the KMSCrypto wrapper to provide a signer.
+//
+// Note: this API assumes that the KMS KID is the same as is used by localkms,
+// allowing it to be determined based on the public key.
+func UseKMSCryptoWrapperSigner(crypto kmscrypto.KMSCryptoSigner) SignerGetter {
 	return func(vm *did.VerificationMethod) (Signer, error) {
-		pubKey, keyType, _, err := vmparse.VMToBytesTypeCrv(vm)
-		if err != nil {
-			return nil, fmt.Errorf("parsing verification method: %w", err)
+		var pubJWK *jwk.JWK
+
+		if vm.JSONWebKey() != nil {
+			pubJWK = vm.JSONWebKey()
+		} else {
+			pubKey, keyType, _, err := vmparse.VMToBytesTypeCrv(vm)
+			if err != nil {
+				return nil, fmt.Errorf("parsing verification method: %w", err)
+			}
+
+			kmsKID, err := jwkkid.CreateKID(pubKey, keyType)
+			if err != nil {
+				return nil, fmt.Errorf("determining the internal ID of the signing key: %w", err)
+			}
+
+			pubJWK, err = jwksupport.PubKeyBytesToJWK(pubKey, keyType)
+			if err != nil {
+				return nil, fmt.Errorf("creating JWK from signing key bytes: %w", err)
+			}
+
+			pubJWK.KeyID = kmsKID
 		}
 
-		kmsKID, err := jwkkid.CreateKID(pubKey, keyType)
+		fkc, err := crypto.FixedKeySigner(pubJWK)
 		if err != nil {
-			return nil, fmt.Errorf("determining the internal ID of the signing key: %w", err)
+			return nil, fmt.Errorf("finding key in KMS for signing operations: %w", err)
 		}
 
-		keyHandle, err := r.Get(kmsKID)
-		if err != nil {
-			return nil, fmt.Errorf("fetching the signing key from the key manager: %w", err)
-		}
-
-		return &defaultSigner{
-			keyHandle: keyHandle,
-			signer:    s,
-		}, nil
+		return fkc, nil
 	}
 }
 
-// Sign signs the given message using the key this signer holds a reference to.
-func (s *defaultSigner) Sign(msg []byte) ([]byte, error) {
-	return s.signer.Sign(msg, s.keyHandle)
-}
+// TODO: SignJWT, VerifyJWT are unused in vc-go, wallet-sdk, and vcs. Should they be used, or removed?
 
 // SignJWT signs a JWT using a key in the given KMS, identified by an owned DID.
 //

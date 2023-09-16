@@ -32,7 +32,8 @@ func TestGetECDSAP256Signer(t *testing.T) {
 	privKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	require.NoError(t, err)
 
-	signer := GetECDSAP256Signer(privKey)
+	signer, err := GetECDSAP256Signer(privKey)
+	require.NoError(t, err)
 	require.NotNil(t, signer)
 	require.Equal(t, privKey, signer.privateKey)
 	require.Equal(t, &privKey.PublicKey, signer.PubKey)
@@ -52,7 +53,8 @@ func TestGetECDSAP384Signer(t *testing.T) {
 	privKey, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
 	require.NoError(t, err)
 
-	signer := GetECDSAP384Signer(privKey)
+	signer, err := GetECDSAP384Signer(privKey)
+	require.NoError(t, err)
 	require.NotNil(t, signer)
 	require.Equal(t, privKey, signer.privateKey)
 	require.Equal(t, &privKey.PublicKey, signer.PubKey)
@@ -72,7 +74,8 @@ func TestGetECDSAP521Signer(t *testing.T) {
 	privKey, err := ecdsa.GenerateKey(elliptic.P521(), rand.Reader)
 	require.NoError(t, err)
 
-	signer := GetECDSAP521Signer(privKey)
+	signer, err := GetECDSAP521Signer(privKey)
+	require.NoError(t, err)
 	require.NotNil(t, signer)
 	require.Equal(t, privKey, signer.privateKey)
 	require.Equal(t, &privKey.PublicKey, signer.PubKey)
@@ -119,7 +122,8 @@ func TestGetECDSASecp256k1Signer(t *testing.T) {
 	privKey, err := ecdsa.GenerateKey(btcec.S256(), rand.Reader)
 	require.NoError(t, err)
 
-	signer := GetECDSASecp256k1Signer(privKey)
+	signer, err := GetECDSASecp256k1Signer(privKey)
+	require.NoError(t, err)
 	require.NotNil(t, signer)
 	require.Equal(t, privKey, signer.privateKey)
 	require.Equal(t, &privKey.PublicKey, signer.PubKey)

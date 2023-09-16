@@ -13,16 +13,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/did-go/doc/ld/proof"
 	"github.com/trustbloc/did-go/doc/ld/testutil"
-	"github.com/trustbloc/kms-go/crypto/tinkcrypto"
-	"github.com/trustbloc/kms-go/kms/localkms"
-	mockkms "github.com/trustbloc/kms-go/mock/kms"
-	"github.com/trustbloc/kms-go/secretlock/noop"
 	kmsapi "github.com/trustbloc/kms-go/spi/kms"
+	"github.com/trustbloc/vc-go/internal/testutil/signatureutil"
 
-	"github.com/trustbloc/vc-go/legacy/mock/storage"
 	"github.com/trustbloc/vc-go/signature/suite"
 	"github.com/trustbloc/vc-go/signature/suite/ed25519signature2018"
-	signature "github.com/trustbloc/vc-go/signature/util"
 )
 
 const signatureType = "Ed25519Signature2018"
@@ -33,8 +28,7 @@ var validDoc string //nolint:gochecknoglobals
 func TestDocumentSigner_Sign(t *testing.T) {
 	context := getSignatureContext()
 
-	signer, err := newCryptoSigner(kmsapi.ED25519Type)
-	require.NoError(t, err)
+	signer := signatureutil.CryptoSigner(t, kmsapi.ED25519Type)
 
 	s := New(ed25519signature2018.New(suite.WithSigner(signer)))
 	signedDoc, err := s.Sign(context, []byte(validDoc), testutil.WithDocumentLoader(t))
@@ -69,8 +63,7 @@ func TestDocumentSigner_Sign(t *testing.T) {
 
 func TestDocumentSigner_SignErrors(t *testing.T) {
 	context := getSignatureContext()
-	signer, err := newCryptoSigner(kmsapi.ED25519Type)
-	require.NoError(t, err)
+	signer := signatureutil.CryptoSigner(t, kmsapi.ED25519Type)
 
 	s := New(ed25519signature2018.New(suite.WithSigner(signer)))
 
@@ -107,7 +100,7 @@ func TestDocumentSigner_SignErrors(t *testing.T) {
 	// test signing error
 	context = getSignatureContext()
 	s = New(ed25519signature2018.New(
-		suite.WithSigner(signature.GetEd25519Signer([]byte("invalid"), nil))))
+		suite.WithSigner(signatureutil.GetEd25519Signer([]byte("invalid"), nil))))
 	signedDoc, err = s.Sign(context, []byte(validDoc), testutil.WithDocumentLoader(t))
 	require.NotNil(t, err)
 	require.Nil(t, signedDoc)
@@ -130,23 +123,4 @@ func getSignatureContext() *Context {
 		Creator:       "creator",
 		SignatureType: signatureType,
 	}
-}
-
-func newCryptoSigner(keyType kmsapi.KeyType) (signature.Signer, error) {
-	p, err := mockkms.NewProviderForKMS(storage.NewMockStoreProvider(), &noop.NoLock{})
-	if err != nil {
-		return nil, err
-	}
-
-	localKMS, err := localkms.New("local-lock://custom/master/key/", p)
-	if err != nil {
-		return nil, err
-	}
-
-	tinkCrypto, err := tinkcrypto.New()
-	if err != nil {
-		return nil, err
-	}
-
-	return signature.NewCryptoSigner(tinkCrypto, localKMS, keyType)
 }

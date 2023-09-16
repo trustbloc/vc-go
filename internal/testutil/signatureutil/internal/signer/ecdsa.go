@@ -14,13 +14,19 @@ import (
 	"errors"
 
 	"github.com/btcsuite/btcd/btcec"
+	"github.com/trustbloc/kms-go/doc/jose/jwk"
+	"github.com/trustbloc/kms-go/doc/jose/jwk/jwksupport"
 )
 
 const (
-	p256Alg    = "ES256"
-	p384Alg    = "ES384"
-	p521Alg    = "ES521"
-	secp256Alg = "ES256K"
+	// P256Alg jwa constant for ECDSA with P-256 keys.
+	P256Alg = "ES256"
+	// P384Alg jwa constant for ECDSA with P-384 keys.
+	P384Alg = "ES384"
+	// P521Alg jwa constant for ECDSA with P-521 keys.
+	P521Alg = "ES521"
+	// Secp256Alg jwa constant for ECDSA with SecP256k1 keys.
+	Secp256Alg = "ES256K"
 )
 
 // NewECDSAP256Signer creates a new ECDSA P256 signer with generated key.
@@ -30,12 +36,12 @@ func NewECDSAP256Signer() (*ECDSASigner, error) {
 		return nil, err
 	}
 
-	return newECDSASigner(privKey, &privKey.PublicKey, crypto.SHA256, p256Alg), nil
+	return newECDSASigner(privKey, &privKey.PublicKey, crypto.SHA256, P256Alg)
 }
 
 // GetECDSAP256Signer creates a new ECDSA P256 signer with passed ECDSA P256 private key.
-func GetECDSAP256Signer(privKey *ecdsa.PrivateKey) *ECDSASigner {
-	return newECDSASigner(privKey, &privKey.PublicKey, crypto.SHA256, p256Alg)
+func GetECDSAP256Signer(privKey *ecdsa.PrivateKey) (*ECDSASigner, error) {
+	return newECDSASigner(privKey, &privKey.PublicKey, crypto.SHA256, P256Alg)
 }
 
 // NewECDSAP384Signer creates a new ECDSA P384 signer with generated key.
@@ -45,12 +51,12 @@ func NewECDSAP384Signer() (*ECDSASigner, error) {
 		return nil, err
 	}
 
-	return newECDSASigner(privKey, &privKey.PublicKey, crypto.SHA384, p384Alg), nil
+	return newECDSASigner(privKey, &privKey.PublicKey, crypto.SHA384, P384Alg)
 }
 
 // GetECDSAP384Signer creates a new ECDSA P384 signer with passed ECDSA P384 private key.
-func GetECDSAP384Signer(privKey *ecdsa.PrivateKey) *ECDSASigner {
-	return newECDSASigner(privKey, &privKey.PublicKey, crypto.SHA384, p384Alg)
+func GetECDSAP384Signer(privKey *ecdsa.PrivateKey) (*ECDSASigner, error) {
+	return newECDSASigner(privKey, &privKey.PublicKey, crypto.SHA384, P384Alg)
 }
 
 // NewECDSAP521Signer creates a new ECDSA P521 signer with generated key.
@@ -60,12 +66,12 @@ func NewECDSAP521Signer() (*ECDSASigner, error) {
 		return nil, err
 	}
 
-	return newECDSASigner(privKey, &privKey.PublicKey, crypto.SHA512, p521Alg), nil
+	return newECDSASigner(privKey, &privKey.PublicKey, crypto.SHA512, P521Alg)
 }
 
 // GetECDSAP521Signer creates a new ECDSA P521 signer with passed ECDSA P521 private key.
-func GetECDSAP521Signer(privKey *ecdsa.PrivateKey) *ECDSASigner {
-	return newECDSASigner(privKey, &privKey.PublicKey, crypto.SHA512, p521Alg)
+func GetECDSAP521Signer(privKey *ecdsa.PrivateKey) (*ECDSASigner, error) {
+	return newECDSASigner(privKey, &privKey.PublicKey, crypto.SHA512, P521Alg)
 }
 
 // NewECDSASecp256k1Signer creates a new ECDSA Secp256k1 signer with generated key.
@@ -75,12 +81,12 @@ func NewECDSASecp256k1Signer() (*ECDSASigner, error) {
 		return nil, err
 	}
 
-	return newECDSASigner(privKey, &privKey.PublicKey, crypto.SHA256, secp256Alg), nil
+	return newECDSASigner(privKey, &privKey.PublicKey, crypto.SHA256, Secp256Alg)
 }
 
 // GetECDSASecp256k1Signer creates a new ECDSA Secp256k1 signer with passed ECDSA Secp256k1 private key.
-func GetECDSASecp256k1Signer(privKey *ecdsa.PrivateKey) *ECDSASigner {
-	return newECDSASigner(privKey, &privKey.PublicKey, crypto.SHA256, secp256Alg)
+func GetECDSASecp256k1Signer(privKey *ecdsa.PrivateKey) (*ECDSASigner, error) {
+	return newECDSASigner(privKey, &privKey.PublicKey, crypto.SHA256, Secp256Alg)
 }
 
 // NewECDSASigner creates a new ECDSA signer based on the input elliptic curve.
@@ -107,13 +113,13 @@ func NewECDSASigner(curve elliptic.Curve) (*ECDSASigner, error) {
 func GetECDSASigner(privKey *ecdsa.PrivateKey) (*ECDSASigner, error) {
 	switch privKey.Curve {
 	case elliptic.P256():
-		return GetECDSAP256Signer(privKey), nil
+		return GetECDSAP256Signer(privKey)
 	case elliptic.P384():
-		return GetECDSAP384Signer(privKey), nil
+		return GetECDSAP384Signer(privKey)
 	case elliptic.P521():
-		return GetECDSAP521Signer(privKey), nil
+		return GetECDSAP521Signer(privKey)
 	case btcec.S256():
-		return GetECDSASecp256k1Signer(privKey), nil
+		return GetECDSASecp256k1Signer(privKey)
 	default:
 		return nil, errors.New("unsupported curve")
 	}
@@ -123,24 +129,41 @@ func GetECDSASigner(privKey *ecdsa.PrivateKey) (*ECDSASigner, error) {
 type ECDSASigner struct {
 	privateKey  *ecdsa.PrivateKey
 	PubKey      *ecdsa.PublicKey
+	PubKeyJWK   *jwk.JWK
 	pubKeyBytes []byte
 	hash        crypto.Hash
 	alg         string
 }
 
-func newECDSASigner(privKey *ecdsa.PrivateKey, pubKey *ecdsa.PublicKey, hash crypto.Hash, alg string) *ECDSASigner {
+func newECDSASigner(
+	privKey *ecdsa.PrivateKey,
+	pubKey *ecdsa.PublicKey,
+	hash crypto.Hash,
+	alg string,
+) (*ECDSASigner, error) {
+	pubJWK, err := jwksupport.JWKFromKey(pubKey)
+	if err != nil {
+		return nil, err
+	}
+
 	return &ECDSASigner{
 		privateKey:  privKey,
 		PubKey:      pubKey,
+		PubKeyJWK:   pubJWK,
 		pubKeyBytes: elliptic.Marshal(pubKey.Curve, pubKey.X, pubKey.Y),
 		hash:        hash,
 		alg:         alg,
-	}
+	}, nil
 }
 
 // PublicKey returns a public key object (*ecdsa.PublicKey).
 func (es *ECDSASigner) PublicKey() interface{} {
 	return es.PubKey
+}
+
+// PublicJWK returns a JWK containing the public key.
+func (es *ECDSASigner) PublicJWK() *jwk.JWK {
+	return es.PubKeyJWK
 }
 
 // PublicKeyBytes returns bytes of the public key.

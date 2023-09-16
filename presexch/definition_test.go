@@ -22,24 +22,19 @@ import (
 	"github.com/PaesslerAG/jsonpath"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
-
 	lddocloader "github.com/trustbloc/did-go/doc/ld/documentloader"
 	ldprocessor "github.com/trustbloc/did-go/doc/ld/processor"
 	ldtestutil "github.com/trustbloc/did-go/doc/ld/testutil"
+	utiltime "github.com/trustbloc/did-go/doc/util/time"
 	"github.com/trustbloc/kms-go/crypto/primitive/bbs12381g2pub"
-	"github.com/trustbloc/kms-go/crypto/tinkcrypto"
+	"github.com/trustbloc/kms-go/doc/jose/jwk"
 	"github.com/trustbloc/kms-go/doc/util/fingerprint"
-	"github.com/trustbloc/kms-go/kms/localkms"
-	mockkms "github.com/trustbloc/kms-go/mock/kms"
-	"github.com/trustbloc/kms-go/secretlock/noop"
 	"github.com/trustbloc/kms-go/spi/kms"
 
-	utiltime "github.com/trustbloc/did-go/doc/util/time"
-	"github.com/trustbloc/vc-go/legacy/mock/storage"
+	"github.com/trustbloc/vc-go/internal/testutil/signatureutil"
 	. "github.com/trustbloc/vc-go/presexch"
 	"github.com/trustbloc/vc-go/signature/suite"
 	"github.com/trustbloc/vc-go/signature/suite/bbsblssignature2020"
-	sigutil "github.com/trustbloc/vc-go/signature/util"
 	"github.com/trustbloc/vc-go/signature/verifier"
 	"github.com/trustbloc/vc-go/verifiable"
 )
@@ -107,8 +102,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			// vc as jwt does not use proof, do not set it here.
 		}
 
-		ed25519Signer, err := newCryptoSigner(kms.ED25519Type)
-		require.NoError(t, err)
+		ed25519Signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
 
 		vc1JWT.JWT = createEdDSAJWS(t, vc1JWT, ed25519Signer, "76e12ec712ebc6f1c221ebfeb1f", true)
 
@@ -726,8 +720,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 		testVC := getTestVC()
 
-		ed25519Signer, err := newCryptoSigner(kms.ED25519Type)
-		require.NoError(t, err)
+		ed25519Signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
 
 		sdJwtVC := newSdJwtVC(t, testVC, ed25519Signer)
 
@@ -797,8 +790,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 		testVC := getTestVC()
 
-		ed25519Signer, err := newCryptoSigner(kms.ED25519Type)
-		require.NoError(t, err)
+		ed25519Signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
 
 		sdJwtVC := newSdJwtVC(t, testVC, ed25519Signer)
 
@@ -855,8 +847,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 		testVC := getTestVC()
 
-		ed25519Signer, err := newCryptoSigner(kms.ED25519Type)
-		require.NoError(t, err)
+		ed25519Signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
 
 		sdJwtVC := newSdJwtVC(t, testVC, ed25519Signer)
 
@@ -911,8 +902,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 		testVC := getTestVC()
 
-		ed25519Signer, err := newCryptoSigner(kms.ED25519Type)
-		require.NoError(t, err)
+		ed25519Signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
 
 		sdJwtVC := newSdJwtVC(t, testVC, ed25519Signer)
 
@@ -970,8 +960,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 		testVC := getTestVC()
 
-		ed25519Signer, err := newCryptoSigner(kms.ED25519Type)
-		require.NoError(t, err)
+		ed25519Signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
 
 		sdJwtVC := newSdJwtVC(t, testVC, ed25519Signer)
 
@@ -1008,8 +997,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 		testVC := getTestVC()
 
-		ed25519Signer, err := newCryptoSigner(kms.ED25519Type)
-		require.NoError(t, err)
+		ed25519Signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
 
 		sdJwtVC := newSdJwtVC(t, testVC, ed25519Signer)
 
@@ -1048,8 +1036,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 		testVC := getTestVC()
 
-		ed25519Signer, err := newCryptoSigner(kms.ED25519Type)
-		require.NoError(t, err)
+		ed25519Signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
 
 		sdJwtVC := newSdJwtVC(t, testVC, ed25519Signer)
 
@@ -1087,8 +1074,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 		testVC := getTestVC()
 
-		ed25519Signer, err := newCryptoSigner(kms.ED25519Type)
-		require.NoError(t, err)
+		ed25519Signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
 
 		sdJwtVC := newSdJwtVC(t, testVC, ed25519Signer)
 
@@ -1123,8 +1109,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 		testVC := getTestVC()
 
-		ed25519Signer, err := newCryptoSigner(kms.ED25519Type)
-		require.NoError(t, err)
+		ed25519Signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
 
 		sdJwtVC := newSdJwtVC(t, testVC, ed25519Signer)
 
@@ -2312,13 +2297,14 @@ func getTestVC() *verifiable.Credential {
 func newSdJwtVC(
 	t *testing.T,
 	vc *verifiable.Credential,
-	signer sigutil.Signer,
+	signer signatureutil.Signer,
 ) *verifiable.Credential {
 	t.Helper()
 
-	pubKey := signer.PublicKeyBytes()
+	pubKey := signer.PublicJWK()
 
-	issuer, verMethod := fingerprint.CreateDIDKeyByCode(fingerprint.ED25519PubKeyMultiCodec, pubKey)
+	issuer, verMethod, err := fingerprint.CreateDIDKeyByJwk(pubKey)
+	require.NoError(t, err)
 
 	vc.Issuer = verifiable.Issuer{ID: issuer}
 
@@ -2339,36 +2325,13 @@ func newSdJwtVC(
 	return parsed
 }
 
-func holderPublicKeyFetcher(pubKeyBytes []byte) verifiable.PublicKeyFetcher {
+func holderPublicKeyFetcher(pubKey *jwk.JWK) verifiable.PublicKeyFetcher {
 	return func(issuerID, keyID string) (*verifier.PublicKey, error) {
 		return &verifier.PublicKey{
-			Type:  kms.RSARS256,
-			Value: pubKeyBytes,
+			Type: kms.RSARS256,
+			JWK:  pubKey,
 		}, nil
 	}
-}
-
-func createKMS() (*localkms.LocalKMS, error) {
-	p, err := mockkms.NewProviderForKMS(storage.NewMockStoreProvider(), &noop.NoLock{})
-	if err != nil {
-		return nil, err
-	}
-
-	return localkms.New("local-lock://custom/master/key/", p)
-}
-
-func newCryptoSigner(keyType kms.KeyType) (sigutil.Signer, error) { // nolint:unparam
-	localKMS, err := createKMS()
-	if err != nil {
-		return nil, err
-	}
-
-	tinkCrypto, err := tinkcrypto.New()
-	if err != nil {
-		return nil, err
-	}
-
-	return sigutil.NewCryptoSigner(tinkCrypto, localKMS, keyType)
 }
 
 func checkSubmission(t *testing.T, vp *verifiable.Presentation, pd *PresentationDefinition) {

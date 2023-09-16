@@ -6,115 +6,46 @@ SPDX-License-Identifier: Apache-2.0
 package ed25519signature2020
 
 import (
-	"errors"
-	"fmt"
 	"testing"
 
-	"github.com/google/tink/go/keyset"
 	"github.com/stretchr/testify/require"
+	"github.com/trustbloc/vc-go/internal/testutil/kmscryptoutil"
+	"github.com/trustbloc/vc-go/signature/kmscrypto"
 
-	"github.com/trustbloc/kms-go/crypto/tinkcrypto"
-	"github.com/trustbloc/kms-go/kms/localkms"
-	mockkms "github.com/trustbloc/kms-go/mock/kms"
-	"github.com/trustbloc/kms-go/secretlock/noop"
 	kmsapi "github.com/trustbloc/kms-go/spi/kms"
 
-	"github.com/trustbloc/vc-go/legacy/mock/storage"
 	"github.com/trustbloc/vc-go/signature/suite"
 	sigverifier "github.com/trustbloc/vc-go/signature/verifier"
 )
 
 func TestNewCryptoSignerAndVerifier(t *testing.T) {
-	lKMS := createKMS(t)
+	kc := kmscryptoutil.LocalKMSCrypto(t)
 
-	kid, kh := createKeyHandle(lKMS, kmsapi.ED25519Type)
+	pk, err := kc.Create(kmsapi.ED25519Type)
+	require.NoError(t, err)
 
-	tinkCrypto, err := tinkcrypto.New()
-	if err != nil {
-		panic("failed to create tinkcrypto")
-	}
+	fks, err := kc.FixedKeySigner(pk)
+	require.NoError(t, err)
 
 	doc := []byte("test doc")
 
-	suiteSigner := suite.NewCryptoSigner(tinkCrypto, kh)
-	suiteVerifier := suite.NewCryptoVerifier(&Crypto{
-		Crypto:   tinkCrypto,
-		localKMS: lKMS,
-	})
-
-	ss := New(suite.WithSigner(suiteSigner), suite.WithVerifier(suiteVerifier))
+	ss := New(suite.WithSigner(
+		suite.NewCryptoWrapperSigner(fks)),
+		suite.WithVerifier(kmscrypto.NewPublicKeyVerifier(kc)),
+	)
 
 	docSig, err := ss.Sign(doc)
 	if err != nil {
 		panic("failed to create a signature")
 	}
 
-	pubKeyBytes, _, err := lKMS.ExportPubKeyBytes(kid)
-	if err != nil {
-		panic("failed to export public key bytes")
-	}
-
 	pubKey := &sigverifier.PublicKey{
-		Type:  kmsapi.ED25519,
-		Value: pubKeyBytes,
+		Type: kmsapi.ED25519,
+		JWK:  pk,
 	}
 
 	err = ss.Verify(pubKey, doc, docSig)
 	if err != nil {
 		panic("failed to verify signature")
-	}
-}
-
-// LocalCrypto defines a verifier which is based on Local KMS and Crypto
-// which uses keyset.Handle as input for verification.
-type Crypto struct {
-	*tinkcrypto.Crypto
-	localKMS *localkms.LocalKMS
-}
-
-func (t *Crypto) Verify(sig, msg []byte, kh interface{}) error {
-	pubKey, ok := kh.(*sigverifier.PublicKey)
-	if !ok {
-		return errors.New("bad key handle format")
-	}
-
-	kmsKeyType, err := mapKeyTypeToKMS(pubKey.Type)
-	if err != nil {
-		return err
-	}
-
-	handle, err := t.localKMS.PubKeyBytesToHandle(pubKey.Value, kmsKeyType)
-	if err != nil {
-		return err
-	}
-
-	return t.Crypto.Verify(sig, msg, handle)
-}
-
-func createKeyHandle(kms *localkms.LocalKMS, keyType kmsapi.KeyType) (string, *keyset.Handle) {
-	kid, kh, err := kms.Create(keyType)
-	if err != nil {
-		panic(err)
-	}
-
-	return kid, kh.(*keyset.Handle)
-}
-
-func createKMS(t *testing.T) *localkms.LocalKMS {
-	p, err := mockkms.NewProviderForKMS(storage.NewMockStoreProvider(), &noop.NoLock{})
-	require.NoError(t, err)
-
-	k, err := localkms.New("local-lock://custom/master/key/", p)
-	require.NoError(t, err)
-
-	return k
-}
-
-func mapKeyTypeToKMS(t string) (kmsapi.KeyType, error) {
-	switch t {
-	case kmsapi.ED25519, "Ed25519VerificationKey2020":
-		return kmsapi.ED25519Type, nil
-	default:
-		return "", fmt.Errorf("unsupported key type: %s", t)
 	}
 }

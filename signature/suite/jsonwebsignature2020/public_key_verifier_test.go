@@ -12,14 +12,9 @@ import (
 	"testing"
 
 	"github.com/btcsuite/btcd/btcec"
-	gojose "github.com/go-jose/go-jose/v3"
 	"github.com/stretchr/testify/require"
-
-	"github.com/trustbloc/kms-go/crypto/tinkcrypto"
-	"github.com/trustbloc/kms-go/doc/jose/jwk"
 	kmsapi "github.com/trustbloc/kms-go/spi/kms"
-
-	signature "github.com/trustbloc/vc-go/signature/util"
+	"github.com/trustbloc/vc-go/internal/testutil/signatureutil"
 	sigverifier "github.com/trustbloc/vc-go/signature/verifier"
 )
 
@@ -64,23 +59,14 @@ func TestPublicKeyVerifier_Verify_EC(t *testing.T) {
 		for _, test := range tests {
 			tc := test
 			t.Run(tc.curveName, func(t *testing.T) {
-				keyType, err := signature.MapECCurveToKeyType(tc.curve)
+				keyType, err := signatureutil.MapECCurveToKeyType(tc.curve)
 				require.NoError(t, err)
 
-				signer, err := newCryptoSigner(t, keyType)
-				require.NoError(t, err)
+				signer := signatureutil.CryptoSigner(t, keyType)
 
 				pubKey := &sigverifier.PublicKey{
-					Type:  "JsonWebKey2020",
-					Value: signer.PublicKeyBytes(),
-					JWK: &jwk.JWK{
-						JSONWebKey: gojose.JSONWebKey{
-							Key:       signer.PublicKey(),
-							Algorithm: tc.algorithm,
-						},
-						Crv: tc.curveName,
-						Kty: "EC",
-					},
+					Type: "JsonWebKey2020",
+					JWK:  signer.PublicJWK(),
 				}
 
 				msgSig, err := signer.Sign(msg)
@@ -95,8 +81,7 @@ func TestPublicKeyVerifier_Verify_EC(t *testing.T) {
 }
 
 func TestPublicKeyVerifier_Verify_Ed25519(t *testing.T) {
-	signer, err := newCryptoSigner(t, kmsapi.ED25519Type)
-	require.NoError(t, err)
+	signer := signatureutil.CryptoSigner(t, kmsapi.ED25519Type)
 
 	msg := []byte("test message")
 	msgSig, err := signer.Sign(msg)
@@ -104,11 +89,7 @@ func TestPublicKeyVerifier_Verify_Ed25519(t *testing.T) {
 
 	pubKey := &sigverifier.PublicKey{
 		Type: "JsonWebKey2020",
-		JWK: &jwk.JWK{
-			JSONWebKey: gojose.JSONWebKey{Key: signer.PublicKey()},
-			Kty:        "OKP",
-			Crv:        "Ed25519",
-		},
+		JWK:  signer.PublicJWK(),
 	}
 	v := NewPublicKeyVerifier()
 
@@ -117,8 +98,7 @@ func TestPublicKeyVerifier_Verify_Ed25519(t *testing.T) {
 }
 
 func TestPublicKeyVerifier_Verify_RSA(t *testing.T) {
-	signer, err := newCryptoSigner(t, kmsapi.RSAPS256Type)
-	require.NoError(t, err)
+	signer := signatureutil.CryptoSigner(t, kmsapi.RSAPS256Type)
 
 	msg := []byte("test message")
 
@@ -127,31 +107,11 @@ func TestPublicKeyVerifier_Verify_RSA(t *testing.T) {
 
 	pubKey := &sigverifier.PublicKey{
 		Type: "JsonWebKey2020",
-		JWK: &jwk.JWK{
-			JSONWebKey: gojose.JSONWebKey{
-				Algorithm: "PS256",
-			},
-			Kty: "RSA",
-		},
-		Value: signer.PublicKeyBytes(),
+		JWK:  signer.PublicJWK(),
 	}
 
 	v := NewPublicKeyVerifier()
 
 	err = v.Verify(pubKey, msg, msgSig)
 	require.NoError(t, err)
-}
-
-func newCryptoSigner(t *testing.T, keyType kmsapi.KeyType) (signature.Signer, error) {
-	localKMS, err := createKMS(t)
-	if err != nil {
-		return nil, err
-	}
-
-	tinkCrypto, err := tinkcrypto.New()
-	if err != nil {
-		return nil, err
-	}
-
-	return signature.NewCryptoSigner(tinkCrypto, localKMS, keyType)
 }

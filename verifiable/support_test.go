@@ -12,21 +12,15 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-
 	ldcontext "github.com/trustbloc/did-go/doc/ld/context"
 	lddocloader "github.com/trustbloc/did-go/doc/ld/documentloader"
 	jsonldsig "github.com/trustbloc/did-go/doc/ld/processor"
 	ldtestutil "github.com/trustbloc/did-go/doc/ld/testutil"
-	"github.com/trustbloc/kms-go/crypto/tinkcrypto"
-	"github.com/trustbloc/kms-go/kms/localkms"
-	mockkms "github.com/trustbloc/kms-go/mock/kms"
-	"github.com/trustbloc/kms-go/secretlock/noop"
 	kmsapi "github.com/trustbloc/kms-go/spi/kms"
 
-	"github.com/trustbloc/vc-go/legacy/mock/storage"
+	"github.com/trustbloc/vc-go/internal/testutil/signatureutil"
 	"github.com/trustbloc/vc-go/signature/suite"
 	"github.com/trustbloc/vc-go/signature/suite/ed25519signature2018"
-	sigutil "github.com/trustbloc/vc-go/signature/util"
 	"github.com/trustbloc/vc-go/signature/verifier"
 )
 
@@ -82,10 +76,7 @@ func createVCWithLinkedDataProof(t *testing.T) (*Credential, PublicKeyFetcher) {
 
 	created := time.Now()
 
-	signer, err := newCryptoSigner(kmsapi.ED25519Type)
-	if err != nil {
-		panic(err)
-	}
+	signer := signatureutil.CryptoSigner(t, kmsapi.ED25519Type)
 
 	err = vc.AddLinkedDataProof(&LinkedDataProofContext{
 		SignatureType:           "Ed25519Signature2018",
@@ -97,7 +88,7 @@ func createVCWithLinkedDataProof(t *testing.T) (*Credential, PublicKeyFetcher) {
 
 	require.NoError(t, err)
 
-	return vc, SingleKey(signer.PublicKeyBytes(), kmsapi.ED25519)
+	return vc, SingleJWK(signer.PublicJWK(), kmsapi.ED25519)
 }
 
 func createVCWithTwoLinkedDataProofs(t *testing.T) (*Credential, PublicKeyFetcher) {
@@ -111,10 +102,7 @@ func createVCWithTwoLinkedDataProofs(t *testing.T) (*Credential, PublicKeyFetche
 
 	created := time.Now()
 
-	signer1, err := newCryptoSigner(kmsapi.ED25519Type)
-	if err != nil {
-		panic(err)
-	}
+	signer1 := signatureutil.CryptoSigner(t, kmsapi.ED25519Type)
 
 	err = vc.AddLinkedDataProof(&LinkedDataProofContext{
 		SignatureType:           "Ed25519Signature2018",
@@ -126,10 +114,7 @@ func createVCWithTwoLinkedDataProofs(t *testing.T) (*Credential, PublicKeyFetche
 
 	require.NoError(t, err)
 
-	signer2, err := newCryptoSigner(kmsapi.ED25519Type)
-	if err != nil {
-		panic(err)
-	}
+	signer2 := signatureutil.CryptoSigner(t, kmsapi.ED25519Type)
 
 	err = vc.AddLinkedDataProof(&LinkedDataProofContext{
 		SignatureType:           "Ed25519Signature2018",
@@ -145,42 +130,19 @@ func createVCWithTwoLinkedDataProofs(t *testing.T) (*Credential, PublicKeyFetche
 		switch keyID {
 		case "#key1":
 			return &verifier.PublicKey{
-				Type:  "Ed25519Signature2018",
-				Value: signer1.PublicKeyBytes(),
+				Type: "Ed25519Signature2018",
+				JWK:  signer1.PublicJWK(),
 			}, nil
 
 		case "#key2":
 			return &verifier.PublicKey{
-				Type:  "Ed25519Signature2018",
-				Value: signer2.PublicKeyBytes(),
+				Type: "Ed25519Signature2018",
+				JWK:  signer2.PublicJWK(),
 			}, nil
 		}
 
 		panic("invalid keyID")
 	}
-}
-
-func createKMS() (*localkms.LocalKMS, error) {
-	p, err := mockkms.NewProviderForKMS(storage.NewMockStoreProvider(), &noop.NoLock{})
-	if err != nil {
-		return nil, err
-	}
-
-	return localkms.New("local-lock://custom/master/key/", p)
-}
-
-func newCryptoSigner(keyType kmsapi.KeyType) (sigutil.Signer, error) {
-	localKMS, err := createKMS()
-	if err != nil {
-		return nil, err
-	}
-
-	tinkCrypto, err := tinkcrypto.New()
-	if err != nil {
-		return nil, err
-	}
-
-	return sigutil.NewCryptoSigner(tinkCrypto, localKMS, keyType)
 }
 
 func createTestDocumentLoader(t *testing.T, extraContexts ...ldcontext.Document) *lddocloader.DocumentLoader {

@@ -17,19 +17,13 @@ import (
 	"github.com/stretchr/testify/require"
 	ldcontext "github.com/trustbloc/did-go/doc/ld/context"
 	ldtestutil "github.com/trustbloc/did-go/doc/ld/testutil"
-	"github.com/trustbloc/did-go/legacy/mock/storage"
+	afgotime "github.com/trustbloc/did-go/doc/util/time"
 	"github.com/trustbloc/did-go/method/key"
 	"github.com/trustbloc/did-go/vdr"
-	"github.com/trustbloc/kms-go/crypto/tinkcrypto"
 	"github.com/trustbloc/kms-go/doc/jose"
-	"github.com/trustbloc/kms-go/kms/localkms"
-	mockkms "github.com/trustbloc/kms-go/mock/kms"
-	"github.com/trustbloc/kms-go/secretlock/noop"
 	"github.com/trustbloc/kms-go/spi/kms"
-
-	afgotime "github.com/trustbloc/did-go/doc/util/time"
+	"github.com/trustbloc/vc-go/internal/testutil/signatureutil"
 	afgjwt "github.com/trustbloc/vc-go/jwt"
-	sigutil "github.com/trustbloc/vc-go/signature/util"
 	"github.com/trustbloc/vc-go/verifiable"
 )
 
@@ -182,11 +176,11 @@ func TestParseValidJWT(t *testing.T) {
 }
 
 func TestIsValidDomainCredentialJWT(t *testing.T) {
-	loader, err := ldtestutil.DocumentLoader(ldcontext.Document{
+	loader, e := ldtestutil.DocumentLoader(ldcontext.Document{
 		URL:     ContextV1,
 		Content: json.RawMessage(didCfgCtxV1),
 	})
-	require.NoError(t, err)
+	require.NoError(t, e)
 
 	var credOpts []verifiable.CredentialOpt
 
@@ -214,8 +208,7 @@ func TestIsValidDomainCredentialJWT(t *testing.T) {
 			Issuer:  verifiable.Issuer{ID: testDID},
 		}
 
-		ed25519Signer, err := newCryptoSigner(kms.ED25519Type)
-		require.NoError(t, err)
+		ed25519Signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
 
 		dlcJWT.JWT = createEdDSAJWS(t, dlcJWT, ed25519Signer, testKID, false)
 
@@ -455,14 +448,13 @@ func TestIsValidDomainCredentialJWT(t *testing.T) {
 			Issuer:  verifiable.Issuer{ID: testDID},
 		}
 
-		ed25519Signer, err := newCryptoSigner(kms.ED25519Type)
-		require.NoError(t, err)
+		ed25519Signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
 
 		dlcJWT.JWT = createEdDSAJWS(t, dlcJWT, ed25519Signer, testKID, false)
 
-		err = isValidDomainLinkageCredential(dlcJWT, testDID, testJWTDomain)
-		require.Error(t, err)
-		require.Contains(t, err.Error(),
+		e = isValidDomainLinkageCredential(dlcJWT, testDID, testJWTDomain)
+		require.Error(t, e)
+		require.Contains(t, e.Error(),
 			"sub MUST be equal to credentialSubject.id")
 	})
 
@@ -476,16 +468,15 @@ func TestIsValidDomainCredentialJWT(t *testing.T) {
 			Issuer:  verifiable.Issuer{ID: testDID},
 		}
 
-		ed25519Signer, err := newCryptoSigner(kms.ED25519Type)
-		require.NoError(t, err)
+		ed25519Signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
 
 		dlcJWT.JWT = createEdDSAJWS(t, dlcJWT, ed25519Signer, testKID, false)
 
 		dlcJWT.Subject = nil
 
-		err = isValidDomainLinkageCredential(dlcJWT, testDID, testJWTDomain)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "get VC subject id: subject id is not defined")
+		e = isValidDomainLinkageCredential(dlcJWT, testDID, testJWTDomain)
+		require.Error(t, e)
+		require.Contains(t, e.Error(), "get VC subject id: subject id is not defined")
 	})
 }
 
@@ -673,29 +664,6 @@ func createEdDSAJWS(t *testing.T, cred *verifiable.Credential, signer verifiable
 	require.NoError(t, err)
 
 	return vcJWT
-}
-
-func createKMS() (*localkms.LocalKMS, error) {
-	p, err := mockkms.NewProviderForKMS(storage.NewMockStoreProvider(), &noop.NoLock{})
-	if err != nil {
-		return nil, err
-	}
-
-	return localkms.New("local-lock://custom/master/key/", p)
-}
-
-func newCryptoSigner(keyType kms.KeyType) (sigutil.Signer, error) {
-	localKMS, err := createKMS()
-	if err != nil {
-		return nil, err
-	}
-
-	tinkCrypto, err := tinkcrypto.New()
-	if err != nil {
-		return nil, err
-	}
-
-	return sigutil.NewCryptoSigner(tinkCrypto, localKMS, keyType)
 }
 
 // nolint: lll,gochecknoglobals

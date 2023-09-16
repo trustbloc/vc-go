@@ -15,15 +15,15 @@ import (
 	"time"
 
 	jsonld "github.com/trustbloc/did-go/doc/ld/processor"
-	"github.com/trustbloc/kms-go/doc/jose/jwk/jwksupport"
 	"github.com/trustbloc/kms-go/spi/kms"
+	"github.com/trustbloc/vc-go/internal/testutil/kmscryptoutil"
+	sigutil "github.com/trustbloc/vc-go/internal/testutil/signatureutil"
 
 	utiltime "github.com/trustbloc/did-go/doc/util/time"
 	"github.com/trustbloc/vc-go/signature/suite"
 	"github.com/trustbloc/vc-go/signature/suite/bbsblssignature2020"
 	"github.com/trustbloc/vc-go/signature/suite/ed25519signature2018"
 	"github.com/trustbloc/vc-go/signature/suite/jsonwebsignature2020"
-	sigutil "github.com/trustbloc/vc-go/signature/util"
 	sigverifier "github.com/trustbloc/vc-go/signature/verifier"
 	"github.com/trustbloc/vc-go/verifiable"
 )
@@ -436,7 +436,12 @@ func ExampleCredential_AddLinkedDataProofMultiProofs() {
 		panic(err)
 	}
 
-	ecdsaSigner, err := sigutil.NewSigner(kms.ECDSASecp256k1TypeIEEEP1363)
+	kmsCrypto, err := kmscryptoutil.LocalKMSCryptoErr()
+	if err != nil {
+		panic(fmt.Errorf("failed to create kms and crypto: %w", err))
+	}
+
+	ecdsaSigner, err := sigutil.NewCryptoSigner(kmsCrypto, kms.ECDSASecp256k1TypeIEEEP1363)
 	if err != nil {
 		panic(err)
 	}
@@ -461,11 +466,6 @@ func ExampleCredential_AddLinkedDataProofMultiProofs() {
 	ed25519Suite := ed25519signature2018.New(suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier()))
 	jsonWebSignatureSuite := jsonwebsignature2020.New(suite.WithVerifier(jsonwebsignature2020.NewPublicKeyVerifier()))
 
-	j, err := jwksupport.JWKFromKey(ecdsaSigner.PublicKey())
-	if err != nil {
-		panic(err)
-	}
-
 	_, err = verifiable.ParseCredential(vcBytes,
 		verifiable.WithEmbeddedSignatureSuites(ed25519Suite, jsonWebSignatureSuite),
 		verifiable.WithPublicKeyFetcher(func(issuerID, keyID string) (*sigverifier.PublicKey, error) {
@@ -478,9 +478,8 @@ func ExampleCredential_AddLinkedDataProofMultiProofs() {
 
 			case "#key2":
 				return &sigverifier.PublicKey{
-					Type:  "JsonWebKey2020",
-					Value: ecdsaSigner.PublicKeyBytes(),
-					JWK:   j,
+					Type: "JsonWebKey2020",
+					JWK:  ecdsaSigner.PublicJWK(),
 				}, nil
 			}
 

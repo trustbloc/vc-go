@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	ldprocessor "github.com/trustbloc/did-go/doc/ld/processor"
 	"github.com/trustbloc/kms-go/spi/kms"
+	"github.com/trustbloc/vc-go/internal/testutil/signatureutil"
 
 	"github.com/trustbloc/vc-go/signature/suite"
 	"github.com/trustbloc/vc-go/signature/suite/ed25519signature2018"
@@ -21,8 +22,7 @@ import (
 func TestParsePresentationFromLinkedDataProof(t *testing.T) {
 	r := require.New(t)
 
-	signer, err := newCryptoSigner(kms.ED25519Type)
-	r.NoError(err)
+	signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
 
 	ss := ed25519signature2018.New(suite.WithSigner(signer),
 		suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier())) // todo use crypto verifier
@@ -45,7 +45,7 @@ func TestParsePresentationFromLinkedDataProof(t *testing.T) {
 
 	vcWithLdp, err := newTestPresentation(t, vcBytes,
 		WithPresEmbeddedSignatureSuites(ss),
-		WithPresPublicKeyFetcher(SingleKey(signer.PublicKeyBytes(), kms.ED25519)))
+		WithPresPublicKeyFetcher(SingleJWK(signer.PublicJWK(), kms.ED25519)))
 	r.NoError(err)
 
 	r.NoError(err)
@@ -60,8 +60,7 @@ func TestParsePresentationFromLinkedDataProof(t *testing.T) {
 func TestPresentation_AddLinkedDataProof(t *testing.T) {
 	r := require.New(t)
 
-	signer, err := newCryptoSigner(kms.ED25519Type)
-	r.NoError(err)
+	signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
 
 	ldpContext := &LinkedDataProofContext{
 		SignatureType:           "Ed25519Signature2018",
