@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"github.com/trustbloc/vc-go/internal/testutil/signatureutil"
 
 	"github.com/trustbloc/kms-go/spi/kms"
 
@@ -24,10 +25,9 @@ import (
 func TestParsePresentationFromJWS(t *testing.T) {
 	vpBytes := []byte(validPresentation)
 
-	holderSigner, err := newCryptoSigner(kms.RSARS256Type)
-	require.NoError(t, err)
+	holderSigner := signatureutil.CryptoSigner(t, kms.RSARS256Type)
 
-	keyFetcher := createPresKeyFetcher(holderSigner.PublicKeyBytes())
+	keyFetcher := SingleJWK(holderSigner.PublicJWK(), kms.RSARS256)
 
 	t.Run("Decoding presentation from JWS", func(t *testing.T) {
 		jws := createPresJWS(t, vpBytes, false, holderSigner)
@@ -64,12 +64,11 @@ func TestParsePresentationFromJWS(t *testing.T) {
 			jws,
 			// passing issuers's key, while expecting holder's one
 			WithPresPublicKeyFetcher(func(issuerID, keyID string) (*verifier.PublicKey, error) {
-				issuerSigner, err := newCryptoSigner(kms.RSARS256Type)
-				require.NoError(t, err)
+				issuerSigner := signatureutil.CryptoSigner(t, kms.RSARS256Type)
 
 				return &verifier.PublicKey{
-					Type:  kms.RSARS256,
-					Value: issuerSigner.PublicKeyBytes(),
+					Type: kms.RSARS256,
+					JWK:  issuerSigner.PublicJWK(),
 				}, nil
 			}))
 
@@ -103,8 +102,7 @@ func TestParsePresentationFromJWS(t *testing.T) {
 func TestParsePresentationFromJWS_EdDSA(t *testing.T) {
 	vpBytes := []byte(validPresentation)
 
-	signer, err := newCryptoSigner(kms.ED25519Type)
-	require.NoError(t, err)
+	signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
 
 	vp, err := newTestPresentation(t, vpBytes)
 	require.NoError(t, err)
@@ -119,7 +117,7 @@ func TestParsePresentationFromJWS_EdDSA(t *testing.T) {
 	// unmarshal presentation from JWS
 	vpFromJWS, err := newTestPresentation(t,
 		[]byte(vpJWSStr),
-		WithPresPublicKeyFetcher(SingleKey(signer.PublicKeyBytes(), kms.ED25519)))
+		WithPresPublicKeyFetcher(SingleJWK(signer.PublicJWK(), kms.ED25519)))
 	require.NoError(t, err)
 
 	require.Equal(t, vpJWSStr, vpFromJWS.JWT)
@@ -193,8 +191,7 @@ func TestParsePresentationWithVCJWT(t *testing.T) {
 	vcJWTClaims, err := vc.JWTClaims(true)
 	r.NoError(err)
 
-	issuerSigner, err := newCryptoSigner(kms.RSARS256Type)
-	r.NoError(err)
+	issuerSigner := signatureutil.CryptoSigner(t, kms.RSARS256Type)
 
 	vcJWS, err := vcJWTClaims.MarshalJWS(RS256, issuerSigner, "did:123#issuer-key")
 	r.NoError(err)
@@ -208,7 +205,7 @@ func TestParsePresentationWithVCJWT(t *testing.T) {
 		vp.ID = "urn:uuid:2978344f-8596-4c3a-a978-8fcaba3903c"
 		vp.Holder = "did:example:fbfeb1f712ebc6f1c276e12ec21"
 
-		holderSigner, err := newCryptoSigner(kms.ED25519Type)
+		holderSigner := signatureutil.CryptoSigner(t, kms.ED25519Type)
 		r.NoError(err)
 
 		jwtClaims, err := vp.JWTClaims([]string{}, true)
@@ -221,13 +218,13 @@ func TestParsePresentationWithVCJWT(t *testing.T) {
 			switch keyID {
 			case "holder-key":
 				return &verifier.PublicKey{
-					Type:  kms.ED25519,
-					Value: holderSigner.PublicKeyBytes(),
+					Type: kms.ED25519,
+					JWK:  holderSigner.PublicJWK(),
 				}, nil
 			case "issuer-key":
 				return &verifier.PublicKey{
-					Type:  kms.RSARS256,
-					Value: issuerSigner.PublicKeyBytes(),
+					Type: kms.RSARS256,
+					JWK:  issuerSigner.PublicJWK(),
 				}, nil
 			default:
 				return nil, errors.New("unexpected key")
@@ -255,7 +252,7 @@ func TestParsePresentationWithVCJWT(t *testing.T) {
 		vp.ID = "urn:uuid:5978344f-8596-4c3a-a978-8fcaba3903c"
 		vp.Holder = "did:example:abfeb1f712ebc6f1c276e12ec21"
 
-		holderSigner, err := newCryptoSigner(kms.ED25519Type)
+		holderSigner := signatureutil.CryptoSigner(t, kms.ED25519Type)
 		r.NoError(err)
 
 		jwtClaims, err := vp.JWTClaims([]string{}, true)
@@ -266,7 +263,7 @@ func TestParsePresentationWithVCJWT(t *testing.T) {
 
 		// Decode VP
 		vpDecoded, err := newTestPresentation(t, []byte(vpJWS), WithPresPublicKeyFetcher(
-			SingleKey(holderSigner.PublicKeyBytes(), kms.ED25519)))
+			SingleJWK(holderSigner.PublicJWK(), kms.ED25519)))
 		r.NoError(err)
 		vpCreds, err := vpDecoded.MarshalledCredentials()
 		r.NoError(err)
@@ -285,7 +282,7 @@ func TestParsePresentationWithVCJWT(t *testing.T) {
 		vp.ID = "urn:uuid:0978344f-8596-4c3a-a978-8fcaba3903c"
 		vp.Holder = "did:example:ebfeb2f712ebc6f1c276e12ec21"
 
-		holderSigner, err := newCryptoSigner(kms.ED25519Type)
+		holderSigner := signatureutil.CryptoSigner(t, kms.ED25519Type)
 		r.NoError(err)
 
 		jwtClaims, err := vp.JWTClaims([]string{}, true)
@@ -300,8 +297,8 @@ func TestParsePresentationWithVCJWT(t *testing.T) {
 				switch keyID {
 				case "holder-key":
 					return &verifier.PublicKey{
-						Type:  kms.ED25519,
-						Value: holderSigner.PublicKeyBytes(),
+						Type: kms.ED25519,
+						JWK:  holderSigner.PublicJWK(),
 					}, nil
 				case "issuer-key":
 					// here we return invalid public key
@@ -335,15 +332,6 @@ func createPresJWS(t *testing.T, vpBytes []byte, minimize bool, signer Signer) [
 	require.NoError(t, err)
 
 	return []byte(vpJWT)
-}
-
-func createPresKeyFetcher(pubKeyBytes []byte) func(issuerID string, keyID string) (*verifier.PublicKey, error) {
-	return func(issuerID, keyID string) (*verifier.PublicKey, error) {
-		return &verifier.PublicKey{
-			Type:  kms.RSARS256,
-			Value: pubKeyBytes,
-		}, nil
-	}
 }
 
 func createPresUnsecuredJWT(t *testing.T, cred []byte, minimize bool) []byte {

@@ -19,7 +19,7 @@ const (
 )
 
 // KeyManager manages keys and their storage for the aries framework.
-type KeyManager interface {
+type KeyManager interface { // TODO note: only used by deprecated function
 	// Get key handle for the given keyID
 	// Returns:
 	//  - handle instance (to private key)

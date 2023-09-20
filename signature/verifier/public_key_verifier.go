@@ -201,9 +201,18 @@ func NewRSAPS256SignatureVerifier() *RSAPS256SignatureVerifier {
 
 // Verify verifies the signature.
 func (sv RSAPS256SignatureVerifier) Verify(key *PublicKey, msg, signature []byte) error {
-	pubKey, err := x509.ParsePKCS1PublicKey(key.Value)
-	if err != nil {
-		return errors.New("rsa: invalid public key")
+	var (
+		pubKey *rsa.PublicKey
+		err    error
+	)
+
+	if key.JWK != nil {
+		pubKey = key.JWK.Key.(*rsa.PublicKey) // nolint: errcheck
+	} else {
+		pubKey, err = x509.ParsePKCS1PublicKey(key.Value)
+		if err != nil {
+			return errors.New("rsa: invalid public key")
+		}
 	}
 
 	hash := crypto.SHA256
@@ -241,9 +250,18 @@ func NewRSARS256SignatureVerifier() *RSARS256SignatureVerifier {
 
 // Verify verifies the signature.
 func (sv RSARS256SignatureVerifier) Verify(key *PublicKey, msg, signature []byte) error {
-	pubKeyRsa, err := x509.ParsePKCS1PublicKey(key.Value)
-	if err != nil {
-		return errors.New("not *rsa.VerificationMethod public key")
+	var (
+		pubKeyRsa *rsa.PublicKey
+		err       error
+	)
+
+	if key.JWK != nil {
+		pubKeyRsa = key.JWK.Public().Key.(*rsa.PublicKey) // nolint: errcheck
+	} else {
+		pubKeyRsa, err = x509.ParsePKCS1PublicKey(key.Value)
+		if err != nil {
+			return errors.New("rsa: invalid public key")
+		}
 	}
 
 	hash := crypto.SHA256.New()
@@ -307,6 +325,13 @@ func (sv *ECDSASignatureVerifier) Verify(pubKey *PublicKey, msg, signature []byt
 	r := big.NewInt(0).SetBytes(signature[:ec.keySize])
 	s := big.NewInt(0).SetBytes(signature[ec.keySize:])
 
+	// TODO: Asn.1 DER signatures can on occasion be the same length as a P1363 signature
+	//  I'm uncertain whether a P1363 signature can be generated which has bytes in
+	//  the right places to appear as if it's an ASN.1 signature, but we could always
+	//  try verification both ways. Whether there exists a P1363 signature that can
+	//  be parsed as Asn.1 DER and validated against a different key is uncertain.
+	//  Ideally, we enforce the use of either one or the other somehow, perhaps when
+	//  initialising the application.
 	if len(signature) > 2*ec.keySize {
 		var esig struct {
 			R, S *big.Int
@@ -443,6 +468,15 @@ type BBSG2SignatureVerifier struct {
 func (v *BBSG2SignatureVerifier) Verify(pubKeyValue *PublicKey, doc, signature []byte) error {
 	bbs := bbs12381g2pub.New()
 
+	if pubKeyValue.Value == nil && pubKeyValue.JWK != nil {
+		bbsKey, err := pubKeyValue.JWK.PublicKeyBytes()
+		if err != nil {
+			return err
+		}
+
+		pubKeyValue.Value = bbsKey
+	}
+
 	return bbs.Verify(splitMessageIntoLines(string(doc), false), signature, pubKeyValue.Value)
 }
 
@@ -466,6 +500,15 @@ type BBSG2SignatureProofVerifier struct {
 // Verify verifies the signature.
 func (v *BBSG2SignatureProofVerifier) Verify(pubKeyValue *PublicKey, doc, signature []byte) error {
 	bbs := bbs12381g2pub.New()
+
+	if pubKeyValue.Value == nil && pubKeyValue.JWK != nil {
+		bbsKey, err := pubKeyValue.JWK.PublicKeyBytes()
+		if err != nil {
+			return err
+		}
+
+		pubKeyValue.Value = bbsKey
+	}
 
 	return bbs.VerifyProof(splitMessageIntoLines(string(doc), true),
 		signature, v.nonce, pubKeyValue.Value)

@@ -17,6 +17,7 @@ import (
 	"github.com/go-jose/go-jose/v3/jwt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/trustbloc/vc-go/internal/testutil/signatureutil"
 
 	"github.com/trustbloc/kms-go/doc/jose"
 	"github.com/trustbloc/kms-go/spi/kms"
@@ -59,7 +60,7 @@ func TestParseSDJWT(t *testing.T) {
 		claims.VC["credentialSubject"].(map[string]interface{})["_sd_alg"] = claims.VC["_sd_alg"]
 		delete(claims.VC, "_sd_alg")
 
-		ed25519Signer, e := newCryptoSigner(kms.ED25519Type)
+		ed25519Signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
 		require.NoError(t, e)
 
 		vc.JWT, e = claims.MarshalJWS(EdDSA, ed25519Signer, issuerID+"#keys-1")
@@ -68,8 +69,11 @@ func TestParseSDJWT(t *testing.T) {
 		modifiedCred, e := vc.MarshalWithDisclosure(DiscloseAll())
 		require.NoError(t, e)
 
+		pub, e := ed25519Signer.PublicJWK().PublicKeyBytes()
+		require.NoError(t, e)
+
 		newVC, e := ParseCredential([]byte(modifiedCred),
-			WithPublicKeyFetcher(createDIDKeyFetcher(t, ed25519Signer.PublicKeyBytes(), issuerID)))
+			WithPublicKeyFetcher(createDIDKeyFetcher(t, pub, issuerID)))
 		require.NoError(t, e)
 		require.NotNil(t, newVC)
 	})
@@ -84,7 +88,7 @@ func TestParseSDJWT(t *testing.T) {
 		claims.VC["credentialSubject"].(map[string]interface{})["_sd_alg"] = claims.VC["_sd_alg"]
 		delete(claims.VC, "_sd_alg")
 
-		ed25519Signer, e := newCryptoSigner(kms.ED25519Type)
+		ed25519Signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
 		require.NoError(t, e)
 
 		vc.JWT, e = claims.MarshalJWS(EdDSA, ed25519Signer, issuerID+"#keys-1")
@@ -94,8 +98,11 @@ func TestParseSDJWT(t *testing.T) {
 		modifiedCred, e := vc.MarshalWithDisclosure(DiscloseAll(), MarshalWithSDJWTVersion(common.SDJWTVersionV5))
 		require.NoError(t, e)
 
+		pub, e := ed25519Signer.PublicJWK().PublicKeyBytes()
+		require.NoError(t, e)
+
 		newVC, e := ParseCredential([]byte(modifiedCred),
-			WithPublicKeyFetcher(createDIDKeyFetcher(t, ed25519Signer.PublicKeyBytes(), issuerID)))
+			WithPublicKeyFetcher(createDIDKeyFetcher(t, pub, issuerID)))
 		require.NoError(t, e)
 		require.NotNil(t, newVC)
 	})
@@ -340,7 +347,7 @@ func TestMakeSDJWT(t *testing.T) {
 			sdjwt, err := vc.MakeSDJWT(afgojwt.NewEd25519Signer(privKey), "did:example:abc123#key-1")
 			require.NoError(t, err)
 
-			_, err = ParseCredential([]byte(sdjwt), WithPublicKeyFetcher(holderPublicKeyFetcher(pubKey)))
+			_, err = ParseCredential([]byte(sdjwt), WithPublicKeyFetcher(SingleKey(pubKey, kms.ED25519)))
 			require.NoError(t, err)
 		})
 
@@ -359,7 +366,7 @@ func TestMakeSDJWT(t *testing.T) {
 			)
 			require.NoError(t, err)
 
-			_, err = ParseCredential([]byte(sdjwt), WithPublicKeyFetcher(holderPublicKeyFetcher(pubKey)))
+			_, err = ParseCredential([]byte(sdjwt), WithPublicKeyFetcher(SingleKey(pubKey, kms.ED25519)))
 			require.NoError(t, err)
 		})
 
@@ -368,7 +375,7 @@ func TestMakeSDJWT(t *testing.T) {
 				MakeSDJWTWithHash(crypto.SHA512))
 			require.NoError(t, err)
 
-			_, err = ParseCredential([]byte(sdjwt), WithPublicKeyFetcher(holderPublicKeyFetcher(pubKey)))
+			_, err = ParseCredential([]byte(sdjwt), WithPublicKeyFetcher(SingleKey(pubKey, kms.ED25519)))
 			require.NoError(t, err)
 		})
 	})
@@ -415,8 +422,7 @@ func TestOptions(t *testing.T) {
 }
 
 func TestCreateDisplayCredential(t *testing.T) {
-	ed25519Signer, e := newCryptoSigner(kms.ED25519Type)
-	require.NoError(t, e)
+	ed25519Signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
 
 	_, privKey, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)

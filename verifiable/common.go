@@ -21,11 +21,11 @@ import (
 	"strings"
 
 	"github.com/piprate/json-gold/ld"
-	"github.com/xeipuuv/gojsonschema"
-
 	"github.com/trustbloc/did-go/doc/did"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
+	"github.com/trustbloc/kms-go/doc/jose/jwk"
 	kmsapi "github.com/trustbloc/kms-go/spi/kms"
+	"github.com/xeipuuv/gojsonschema"
 
 	"github.com/trustbloc/vc-go/jwt/didsignjwt"
 	"github.com/trustbloc/vc-go/signature/verifier"
@@ -121,6 +121,16 @@ func SingleKey(pubKey []byte, pubKeyType string) PublicKeyFetcher {
 		return &verifier.PublicKey{
 			Type:  pubKeyType,
 			Value: pubKey,
+		}, nil
+	}
+}
+
+// SingleJWK defines the case where only one verification key is used, where it's a JWK.
+func SingleJWK(pubJWK *jwk.JWK, pubKeyType string) PublicKeyFetcher {
+	return func(_, _ string) (*verifier.PublicKey, error) {
+		return &verifier.PublicKey{
+			Type: pubKeyType,
+			JWK:  pubJWK,
 		}, nil
 	}
 }

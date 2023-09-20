@@ -11,11 +11,16 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+
+	"github.com/trustbloc/kms-go/doc/jose/jwk"
+	"github.com/trustbloc/kms-go/doc/jose/jwk/jwksupport"
 )
 
 const (
-	rs256Alg = "RS256"
-	ps256Alg = "PS256"
+	// RS256Alg jwa constant for RS256.
+	RS256Alg = "RS256"
+	// PS256Alg jwa constant for PS256.
+	PS256Alg = "PS256"
 )
 
 // NewRS256Signer creates a new RS256 signer with generated key.
@@ -25,16 +30,21 @@ func NewRS256Signer() (*RS256Signer, error) {
 		return nil, err
 	}
 
-	return newRS256Signer(privKey), nil
-}
-
-// GetRS256Signer creates a new RS256 signer with provided RSA private key.
-func GetRS256Signer(privKey *rsa.PrivateKey) *RS256Signer {
 	return newRS256Signer(privKey)
 }
 
-func newRS256Signer(privKey *rsa.PrivateKey) *RS256Signer {
-	return &RS256Signer{rsaSigner: *newRSASigner(privKey), alg: rs256Alg}
+// GetRS256Signer creates a new RS256 signer with provided RSA private key.
+func GetRS256Signer(privKey *rsa.PrivateKey) (*RS256Signer, error) {
+	return newRS256Signer(privKey)
+}
+
+func newRS256Signer(privKey *rsa.PrivateKey) (*RS256Signer, error) {
+	sig, err := newRSASigner(privKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return &RS256Signer{rsaSigner: *sig, alg: RS256Alg}, nil
 }
 
 // RS256Signer makes RS256 based signatures.
@@ -64,16 +74,21 @@ func NewPS256Signer() (*PS256Signer, error) {
 		return nil, err
 	}
 
-	return newPS256Signer(privKey), nil
-}
-
-// GetPS256Signer creates a new PS256 signer with provided RSA private key.
-func GetPS256Signer(privKey *rsa.PrivateKey) *PS256Signer {
 	return newPS256Signer(privKey)
 }
 
-func newPS256Signer(privKey *rsa.PrivateKey) *PS256Signer {
-	return &PS256Signer{rsaSigner: *newRSASigner(privKey), alg: ps256Alg}
+// GetPS256Signer creates a new PS256 signer with provided RSA private key.
+func GetPS256Signer(privKey *rsa.PrivateKey) (*PS256Signer, error) {
+	return newPS256Signer(privKey)
+}
+
+func newPS256Signer(privKey *rsa.PrivateKey) (*PS256Signer, error) {
+	sig, err := newRSASigner(privKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return &PS256Signer{rsaSigner: *sig, alg: PS256Alg}, nil
 }
 
 // PS256Signer makes PS256 based signatures.
@@ -100,24 +115,35 @@ func (s *PS256Signer) Alg() string {
 	return s.alg
 }
 
-func newRSASigner(privKey *rsa.PrivateKey) *rsaSigner {
+func newRSASigner(privKey *rsa.PrivateKey) (*rsaSigner, error) {
 	pubKey := &privKey.PublicKey
+
+	pubJWK, err := jwksupport.JWKFromKey(pubKey)
+	if err != nil {
+		return nil, err
+	}
 
 	return &rsaSigner{
 		privateKey:  privKey,
 		PubKey:      pubKey,
+		PubJWK:      pubJWK,
 		pubKeyBytes: x509.MarshalPKCS1PublicKey(pubKey),
-	}
+	}, nil
 }
 
 type rsaSigner struct {
 	privateKey  *rsa.PrivateKey
 	PubKey      *rsa.PublicKey
+	PubJWK      *jwk.JWK
 	pubKeyBytes []byte
 }
 
 func (s *rsaSigner) PublicKey() interface{} {
 	return s.PubKey
+}
+
+func (s *rsaSigner) PublicJWK() *jwk.JWK {
+	return s.PubJWK
 }
 
 func (s *rsaSigner) PublicKeyBytes() []byte {

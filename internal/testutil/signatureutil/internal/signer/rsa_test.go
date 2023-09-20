@@ -27,7 +27,8 @@ func TestGetRS256Signer(t *testing.T) {
 	privKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	require.NoError(t, err)
 
-	signer := GetRS256Signer(privKey)
+	signer, err := GetRS256Signer(privKey)
+	require.NoError(t, err)
 	require.NotNil(t, signer)
 	require.Equal(t, privKey, signer.privateKey)
 	require.Equal(t, &privKey.PublicKey, signer.PubKey)
@@ -55,7 +56,8 @@ func TestGetPS256Signer(t *testing.T) {
 	privKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	require.NoError(t, err)
 
-	signer := GetPS256Signer(privKey)
+	signer, err := GetPS256Signer(privKey)
+	require.NoError(t, err)
 	require.NotNil(t, signer)
 	require.Equal(t, privKey, signer.privateKey)
 	require.Equal(t, &privKey.PublicKey, signer.PubKey)

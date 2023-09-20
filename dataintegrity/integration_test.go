@@ -18,16 +18,11 @@ import (
 	"github.com/trustbloc/did-go/doc/ld/documentloader"
 	mockldstore "github.com/trustbloc/did-go/doc/ld/mock"
 	"github.com/trustbloc/did-go/doc/ld/store"
-	"github.com/trustbloc/kms-go/crypto/tinkcrypto"
-	"github.com/trustbloc/kms-go/doc/util/jwkkid"
-	"github.com/trustbloc/kms-go/kms/localkms"
-	mockkms "github.com/trustbloc/kms-go/mock/kms"
-	"github.com/trustbloc/kms-go/secretlock/noop"
 	kmsapi "github.com/trustbloc/kms-go/spi/kms"
 
 	"github.com/trustbloc/vc-go/dataintegrity/models"
 	"github.com/trustbloc/vc-go/dataintegrity/suite/ecdsa2019"
-	mockstorage "github.com/trustbloc/vc-go/legacy/mock/storage"
+	"github.com/trustbloc/vc-go/internal/testutil/kmscryptoutil"
 )
 
 var (
@@ -45,35 +40,21 @@ func TestIntegration(t *testing.T) {
 	docLoader, err := documentloader.NewDocumentLoader(createMockProvider())
 	require.NoError(t, err)
 
-	storeProv := mockstorage.NewMockStoreProvider()
-
-	kmsProv, err := mockkms.NewProviderForKMS(storeProv, &noop.NoLock{})
-	require.NoError(t, err)
-
-	kms, err := localkms.New("local-lock://custom/master/key/", kmsProv)
-	require.NoError(t, err)
-	cr, err := tinkcrypto.New()
-	require.NoError(t, err)
+	kmsCrypto := kmscryptoutil.LocalKMSCrypto(t)
 
 	signerInit := ecdsa2019.NewSignerInitializer(&ecdsa2019.SignerInitializerOptions{
 		LDDocumentLoader: docLoader,
-		SignerGetter:     ecdsa2019.WithLocalKMSSigner(kms, cr),
+		SignerGetter:     ecdsa2019.WithKMSCryptoWrapper(kmsCrypto),
 	})
 
 	verifierInit := ecdsa2019.NewVerifierInitializer(&ecdsa2019.VerifierInitializerOptions{
 		LDDocumentLoader: docLoader,
 	})
 
-	_, p256Bytes, err := kms.CreateAndExportPubKeyBytes(kmsapi.ECDSAP256IEEEP1363)
+	p256JWK, err := kmsCrypto.Create(kmsapi.ECDSAP256IEEEP1363)
 	require.NoError(t, err)
 
-	p256JWK, err := jwkkid.BuildJWK(p256Bytes, kmsapi.ECDSAP256IEEEP1363)
-	require.NoError(t, err)
-
-	_, p384Bytes, err := kms.CreateAndExportPubKeyBytes(kmsapi.ECDSAP384IEEEP1363)
-	require.NoError(t, err)
-
-	p384JWK, err := jwkkid.BuildJWK(p384Bytes, kmsapi.ECDSAP384IEEEP1363)
+	p384JWK, err := kmsCrypto.Create(kmsapi.ECDSAP384IEEEP1363)
 	require.NoError(t, err)
 
 	p256VM, err := did.NewVerificationMethodFromJWK(mockKID, "JsonWebKey2020", mockDID, p256JWK)

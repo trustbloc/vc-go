@@ -16,6 +16,7 @@ import (
 	ldprocessor "github.com/trustbloc/did-go/doc/ld/processor"
 	ldtestutil "github.com/trustbloc/did-go/doc/ld/testutil"
 	"github.com/trustbloc/kms-go/spi/kms"
+	"github.com/trustbloc/vc-go/internal/testutil/signatureutil"
 
 	"github.com/trustbloc/vc-go/signature/suite"
 	"github.com/trustbloc/vc-go/signature/suite/ed25519signature2018"
@@ -246,7 +247,7 @@ func TestParsePresentation(t *testing.T) {
 		vp, err := newTestPresentation(t, []byte(validPresentation))
 		require.NoError(t, err)
 
-		signer, err := newCryptoSigner(kms.ED25519Type)
+		signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
 		require.NoError(t, err)
 
 		ss := ed25519signature2018.New(suite.WithSigner(signer),
@@ -270,7 +271,7 @@ func TestParsePresentation(t *testing.T) {
 
 		vp, err = newTestPresentation(t, vpBytes,
 			WithPresStrictValidation(),
-			WithPresPublicKeyFetcher(SingleKey(signer.PublicKeyBytes(), kms.ED25519)))
+			WithPresPublicKeyFetcher(SingleJWK(signer.PublicJWK(), kms.ED25519)))
 		require.Error(t, err)
 		require.EqualError(t, err, "JSON-LD doc has different structure after compaction")
 		require.Nil(t, vp)
@@ -520,8 +521,7 @@ func TestNewPresentation(t *testing.T) {
 func TestPresentation_decodeCredentials(t *testing.T) {
 	r := require.New(t)
 
-	signer, err := newCryptoSigner(kms.ED25519Type)
-	r.NoError(err)
+	signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
 
 	vc, err := parseTestCredential(t, []byte(validCredential))
 	r.NoError(err)
@@ -535,7 +535,7 @@ func TestPresentation_decodeCredentials(t *testing.T) {
 	// single credential - JWS
 	opts := defaultPresentationOpts()
 	opts.jsonldCredentialOpts.jsonldDocumentLoader = createTestDocumentLoader(t)
-	opts.publicKeyFetcher = SingleKey(signer.PublicKeyBytes(), kms.ED25519)
+	opts.publicKeyFetcher = SingleJWK(signer.PublicJWK(), kms.ED25519)
 	dCreds, err := decodeCredentials(jws, opts)
 	r.NoError(err)
 	r.Len(dCreds, 1)

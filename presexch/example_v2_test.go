@@ -20,6 +20,8 @@ import (
 	ldtestutil "github.com/trustbloc/did-go/doc/ld/testutil"
 	"github.com/trustbloc/kms-go/crypto/primitive/bbs12381g2pub"
 	"github.com/trustbloc/kms-go/spi/kms"
+	"github.com/trustbloc/vc-go/internal/testutil/kmscryptoutil"
+	"github.com/trustbloc/vc-go/internal/testutil/signatureutil"
 
 	utiltime "github.com/trustbloc/did-go/doc/util/time"
 	. "github.com/trustbloc/vc-go/presexch"
@@ -861,7 +863,12 @@ func ExamplePresentationDefinition_CreateVP_limitedDisclosureSkipsNonSDVCs() {
 		}
 	}
 
-	signer, err := newCryptoSigner(kms.ECDSAP256TypeIEEEP1363)
+	kmsCrypto, err := kmscryptoutil.LocalKMSCryptoErr()
+	if err != nil {
+		panic(err)
+	}
+
+	signer, err := signatureutil.NewCryptoSigner(kmsCrypto, kms.ECDSAP256TypeIEEEP1363)
 	if err != nil {
 		panic(err)
 	}

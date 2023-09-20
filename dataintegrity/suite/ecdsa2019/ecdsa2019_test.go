@@ -25,6 +25,7 @@ import (
 	"github.com/trustbloc/kms-go/doc/jose/jwk/jwksupport"
 	mockcrypto "github.com/trustbloc/kms-go/mock/crypto"
 	mockkms "github.com/trustbloc/kms-go/mock/kms"
+	"github.com/trustbloc/vc-go/signature/kmscrypto"
 
 	"github.com/trustbloc/vc-go/dataintegrity/models"
 	"github.com/trustbloc/vc-go/dataintegrity/suite"
@@ -48,7 +49,10 @@ func TestNew(t *testing.T) {
 
 	cryp := &mockcrypto.Crypto{}
 	kms := &mockkms.KeyManager{}
-	signerGetter := WithLocalKMSSigner(kms, cryp)
+
+	kc := kmscrypto.NewKMSCryptoSigner(kms, cryp)
+
+	signerGetter := WithKMSCryptoWrapper(kc)
 
 	t.Run("signer success", func(t *testing.T) {
 		sigInit := NewSignerInitializer(&SignerInitializerOptions{
@@ -137,7 +141,7 @@ func successCase(t *testing.T) *testCase {
 func testSign(t *testing.T, tc *testCase) {
 	sigInit := NewSignerInitializer(&SignerInitializerOptions{
 		LDDocumentLoader: tc.docLoader,
-		SignerGetter:     WithLocalKMSSigner(tc.kms, tc.crypto),
+		SignerGetter:     WithKMSCryptoWrapper(kmscrypto.NewKMSCryptoSigner(tc.kms, tc.crypto)),
 	})
 
 	signer, err := sigInit.Signer()
@@ -215,19 +219,6 @@ func TestSuite_CreateProof(t *testing.T) {
 	})
 
 	t.Run("failure", func(t *testing.T) {
-		t.Run("compute KMS KID", func(t *testing.T) {
-			tc := successCase(t)
-
-			badKey, vm := getVMWithJWK(t)
-
-			badKey.Key = fooBar
-
-			tc.proofOpts.VerificationMethod = vm
-			tc.errStr = "computing thumbprint for kms kid"
-
-			testSign(t, tc)
-		})
-
 		t.Run("kms key handle error", func(t *testing.T) {
 			tc := successCase(t)
 

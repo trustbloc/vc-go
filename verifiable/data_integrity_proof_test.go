@@ -13,12 +13,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/did-go/doc/did"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
-	"github.com/trustbloc/kms-go/crypto/tinkcrypto"
-	"github.com/trustbloc/kms-go/doc/util/jwkkid"
 	kmsapi "github.com/trustbloc/kms-go/spi/kms"
-
 	"github.com/trustbloc/vc-go/dataintegrity"
 	"github.com/trustbloc/vc-go/dataintegrity/suite/ecdsa2019"
+	"github.com/trustbloc/vc-go/internal/testutil/kmscryptoutil"
 )
 
 func Test_DataIntegrity_SignVerify(t *testing.T) {
@@ -47,18 +45,11 @@ func Test_DataIntegrity_SignVerify(t *testing.T) {
 }
 `
 
-	kms, err := createKMS()
-	require.NoError(t, err)
-
-	cr, err := tinkcrypto.New()
-	require.NoError(t, err)
+	kmsCrypto := kmscryptoutil.LocalKMSCrypto(t)
 
 	docLoader := createTestDocumentLoader(t)
 
-	_, keyBytes, err := kms.CreateAndExportPubKeyBytes(kmsapi.ECDSAP256IEEEP1363)
-	require.NoError(t, err)
-
-	key, err := jwkkid.BuildJWK(keyBytes, kmsapi.ECDSAP256IEEEP1363)
+	key, err := kmsCrypto.Create(kmsapi.ECDSAP256IEEEP1363)
 	require.NoError(t, err)
 
 	const signingDID = "did:foo:bar"
@@ -73,7 +64,7 @@ func Test_DataIntegrity_SignVerify(t *testing.T) {
 	})
 
 	signerSuite := ecdsa2019.NewSignerInitializer(&ecdsa2019.SignerInitializerOptions{
-		SignerGetter:     ecdsa2019.WithLocalKMSSigner(kms, cr),
+		SignerGetter:     ecdsa2019.WithKMSCryptoWrapper(kmsCrypto),
 		LDDocumentLoader: docLoader,
 	})
 

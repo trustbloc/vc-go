@@ -10,21 +10,14 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-
-	"github.com/trustbloc/kms-go/crypto/tinkcrypto"
-	"github.com/trustbloc/kms-go/kms/localkms"
-	mockkms "github.com/trustbloc/kms-go/mock/kms"
-	"github.com/trustbloc/kms-go/secretlock/noop"
 	kmsapi "github.com/trustbloc/kms-go/spi/kms"
+	"github.com/trustbloc/vc-go/internal/testutil/signatureutil"
 
-	"github.com/trustbloc/vc-go/legacy/mock/storage"
-	signature "github.com/trustbloc/vc-go/signature/util"
 	"github.com/trustbloc/vc-go/signature/verifier"
 )
 
 func TestPublicKeyVerifier_Verify(t *testing.T) {
-	signer, err := newCryptoSigner(kmsapi.ED25519Type)
-	require.NoError(t, err)
+	signer := signatureutil.CryptoSigner(t, kmsapi.ED25519Type)
 
 	msg := []byte("test message")
 
@@ -32,30 +25,12 @@ func TestPublicKeyVerifier_Verify(t *testing.T) {
 	require.NoError(t, err)
 
 	pubKey := &verifier.PublicKey{
-		Type:  kmsapi.ED25519,
-		Value: signer.PublicKeyBytes(),
+		Type: kmsapi.ED25519,
+		JWK:  signer.PublicJWK(),
 	}
+
 	v := NewPublicKeyVerifier()
 
 	err = v.Verify(pubKey, msg, msgSig)
 	require.NoError(t, err)
-}
-
-func newCryptoSigner(keyType kmsapi.KeyType) (signature.Signer, error) {
-	p, err := mockkms.NewProviderForKMS(storage.NewMockStoreProvider(), &noop.NoLock{})
-	if err != nil {
-		return nil, err
-	}
-
-	localKMS, err := localkms.New("local-lock://custom/master/key/", p)
-	if err != nil {
-		return nil, err
-	}
-
-	tinkCrypto, err := tinkcrypto.New()
-	if err != nil {
-		return nil, err
-	}
-
-	return signature.NewCryptoSigner(tinkCrypto, localKMS, keyType)
 }

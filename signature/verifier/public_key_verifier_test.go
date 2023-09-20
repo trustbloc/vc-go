@@ -18,16 +18,10 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	gojose "github.com/go-jose/go-jose/v3"
 	"github.com/stretchr/testify/require"
-
-	"github.com/trustbloc/kms-go/crypto/tinkcrypto"
 	"github.com/trustbloc/kms-go/doc/jose/jwk"
-	"github.com/trustbloc/kms-go/kms/localkms"
-	mockkms "github.com/trustbloc/kms-go/mock/kms"
-	"github.com/trustbloc/kms-go/secretlock/noop"
 	kmsapi "github.com/trustbloc/kms-go/spi/kms"
 
-	mockstore "github.com/trustbloc/vc-go/legacy/mock/storage"
-	"github.com/trustbloc/vc-go/signature/util"
+	"github.com/trustbloc/vc-go/internal/testutil/signatureutil"
 )
 
 func TestNewPublicKeyVerifier(t *testing.T) {
@@ -158,16 +152,15 @@ func TestNewEd25519SignatureVerifier(t *testing.T) {
 	v := NewEd25519SignatureVerifier()
 	require.NotNil(t, v)
 
-	signer, err := newCryptoSigner(kmsapi.ED25519Type)
-	require.NoError(t, err)
+	signer := signatureutil.CryptoSigner(t, kmsapi.ED25519Type)
 
 	msg := []byte("test message")
 	msgSig, err := signer.Sign(msg)
 	require.NoError(t, err)
 
 	pubKey := &PublicKey{
-		Type:  kmsapi.ED25519,
-		Value: signer.PublicKeyBytes(),
+		Type: kmsapi.ED25519,
+		JWK:  signer.PublicJWK(),
 	}
 
 	err = v.Verify(pubKey, msg, msgSig)
@@ -181,6 +174,20 @@ func TestNewEd25519SignatureVerifier(t *testing.T) {
 	require.Error(t, err)
 	require.EqualError(t, err, "ed25519: invalid key")
 
+	// invalid JWK value
+	err = v.Verify(&PublicKey{
+		Type: kmsapi.ED25519,
+		JWK: &jwk.JWK{
+			JSONWebKey: gojose.JSONWebKey{
+				Key: "foo",
+			},
+			Kty: "OKP",
+			Crv: "Ed25519",
+		},
+	}, msg, msgSig)
+	require.Error(t, err)
+	require.EqualError(t, err, "public key not ed25519.VerificationMethod")
+
 	// invalid signature
 	err = v.Verify(pubKey, msg, []byte("invalid signature"))
 	require.Error(t, err)
@@ -191,8 +198,7 @@ func TestNewRSAPS256SignatureVerifier(t *testing.T) {
 	v := NewRSAPS256SignatureVerifier()
 	require.NotNil(t, v)
 
-	signer, err := newCryptoSigner(kmsapi.RSAPS256Type)
-	require.NoError(t, err)
+	signer := signatureutil.CryptoSigner(t, kmsapi.RSAPS256Type)
 
 	msg := []byte("test message")
 
@@ -201,13 +207,7 @@ func TestNewRSAPS256SignatureVerifier(t *testing.T) {
 
 	pubKey := &PublicKey{
 		Type: "JwsVerificationKey2020",
-		JWK: &jwk.JWK{
-			JSONWebKey: gojose.JSONWebKey{
-				Algorithm: "PS256",
-			},
-			Kty: "RSA",
-		},
-		Value: signer.PublicKeyBytes(),
+		JWK:  signer.PublicJWK(),
 	}
 
 	err = v.Verify(pubKey, msg, msgSig)
@@ -220,6 +220,7 @@ func TestNewRSAPS256SignatureVerifier(t *testing.T) {
 
 	// invalid public key
 	pubKey.Value = []byte("invalid-key")
+	pubKey.JWK = nil
 	err = v.Verify(pubKey, msg, msgSig)
 	require.Error(t, err)
 	require.EqualError(t, err, "rsa: invalid public key")
@@ -229,8 +230,7 @@ func TestNewRSARS256SignatureVerifier(t *testing.T) {
 	v := NewRSARS256SignatureVerifier()
 	require.NotNil(t, v)
 
-	signer, err := newCryptoSigner(kmsapi.RSARS256Type)
-	require.NoError(t, err)
+	signer := signatureutil.CryptoSigner(t, kmsapi.RSARS256Type)
 
 	msg := []byte("test message")
 
@@ -239,13 +239,7 @@ func TestNewRSARS256SignatureVerifier(t *testing.T) {
 
 	pubKey := &PublicKey{
 		Type: "JsonWebKey2020",
-		JWK: &jwk.JWK{
-			JSONWebKey: gojose.JSONWebKey{
-				Algorithm: "RS256",
-			},
-			Kty: "RSA",
-		},
-		Value: signer.PublicKeyBytes(),
+		JWK:  signer.PublicJWK(),
 	}
 
 	err = v.Verify(pubKey, msg, msgSig)
@@ -258,9 +252,10 @@ func TestNewRSARS256SignatureVerifier(t *testing.T) {
 
 	// invalid public key
 	pubKey.Value = []byte("invalid-key")
+	pubKey.JWK = nil
 	err = v.Verify(pubKey, msg, msgSig)
 	require.Error(t, err)
-	require.EqualError(t, err, "not *rsa.VerificationMethod public key")
+	require.EqualError(t, err, "rsa: invalid public key")
 }
 
 func TestNewECDSAES256SignatureVerifier(t *testing.T) {
@@ -309,23 +304,15 @@ func TestNewECDSAES256SignatureVerifier(t *testing.T) {
 		for _, test := range tests {
 			tc := test
 			t.Run(tc.curveName, func(t *testing.T) {
-				keyType, err := util.MapECCurveToKeyType(tc.curve)
+				keyType, err := signatureutil.MapECCurveToKeyType(tc.curve)
 				require.NoError(t, err)
 
-				signer, err := newCryptoSigner(keyType)
+				signer := signatureutil.CryptoSigner(t, keyType)
 				require.NoError(t, err)
 
 				pubKey := &PublicKey{
-					Type:  "JwsVerificationKey2020",
-					Value: signer.PublicKeyBytes(),
-					JWK: &jwk.JWK{
-						JSONWebKey: gojose.JSONWebKey{
-							Algorithm: tc.algorithm,
-							Key:       signer.PublicKey(),
-						},
-						Crv: tc.curveName,
-						Kty: "EC",
-					},
+					Type: "JwsVerificationKey2020",
+					JWK:  signer.PublicJWK(),
 				}
 
 				msgSig, err := signer.Sign(msg)
@@ -340,15 +327,18 @@ func TestNewECDSAES256SignatureVerifier(t *testing.T) {
 	v := NewECDSAES256SignatureVerifier()
 	require.NotNil(t, v)
 
-	signer, err := newCryptoSigner(kmsapi.ECDSAP256TypeIEEEP1363)
-	require.NoError(t, err)
+	signer := signatureutil.CryptoSigner(t, kmsapi.ECDSAP256TypeIEEEP1363)
+
 	msgSig, err := signer.Sign(msg)
 	require.NoError(t, err)
 
 	t.Run("verify with public key bytes", func(t *testing.T) {
+		jwkBytes, e := signer.PublicJWK().PublicKeyBytes()
+		require.NoError(t, e)
+
 		verifyError := v.Verify(&PublicKey{
 			Type:  "JwsVerificationKey2020",
-			Value: signer.PublicKeyBytes(),
+			Value: jwkBytes,
 		}, msg, msgSig)
 
 		require.NoError(t, verifyError)
@@ -368,8 +358,7 @@ func TestNewECDSAES256SignatureVerifier(t *testing.T) {
 		ed25519Key := &ed25519.PublicKey{}
 
 		verifyError := v.Verify(&PublicKey{
-			Type:  "JwsVerificationKey2020",
-			Value: signer.PublicKeyBytes(),
+			Type: "JwsVerificationKey2020",
 			JWK: &jwk.JWK{
 				JSONWebKey: gojose.JSONWebKey{
 					Algorithm: "ES256",
@@ -385,17 +374,8 @@ func TestNewECDSAES256SignatureVerifier(t *testing.T) {
 
 	t.Run("invalid signature", func(t *testing.T) {
 		pubKey := &PublicKey{
-			Type:  "JwsVerificationKey2020",
-			Value: signer.PublicKeyBytes(),
-
-			JWK: &jwk.JWK{
-				JSONWebKey: gojose.JSONWebKey{
-					Algorithm: "ES256",
-					Key:       signer.PublicKey(),
-				},
-				Crv: "P-256",
-				Kty: "EC",
-			},
+			Type: "JwsVerificationKey2020",
+			JWK:  signer.PublicJWK(),
 		}
 
 		verifyError := v.Verify(pubKey, msg, []byte("signature of invalid size"))
@@ -583,23 +563,4 @@ type testSignatureVerifier struct {
 
 func (v testSignatureVerifier) Verify(*PublicKey, []byte, []byte) error {
 	return v.verifyResult
-}
-
-func newCryptoSigner(keyType kmsapi.KeyType) (util.Signer, error) {
-	p, err := mockkms.NewProviderForKMS(mockstore.NewMockStoreProvider(), &noop.NoLock{})
-	if err != nil {
-		return nil, err
-	}
-
-	localKMS, err := localkms.New("local-lock://custom/main/key/", p)
-	if err != nil {
-		return nil, err
-	}
-
-	tinkCrypto, err := tinkcrypto.New()
-	if err != nil {
-		return nil, err
-	}
-
-	return util.NewCryptoSigner(tinkCrypto, localKMS, keyType)
 }

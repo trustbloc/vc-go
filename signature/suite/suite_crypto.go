@@ -8,17 +8,25 @@ package suite
 
 import (
 	"github.com/trustbloc/kms-go/spi/crypto"
-
 	"github.com/trustbloc/vc-go/signature/api"
+	"github.com/trustbloc/vc-go/signature/kmscrypto"
 )
 
 // CryptoSigner defines signer based on crypto.
 type CryptoSigner struct {
-	cr crypto.Crypto
-	kh interface{}
+	cr  crypto.Crypto
+	kh  interface{}
+	fks kmscrypto.FixedKeySigner
+}
+
+// NewCryptoWrapperSigner creates a new CryptoSigner using a kmscrypto wrapper.
+func NewCryptoWrapperSigner(keySigner kmscrypto.FixedKeySigner) *CryptoSigner {
+	return &CryptoSigner{fks: keySigner}
 }
 
 // NewCryptoSigner creates a new CryptoSigner.
+//
+// Deprecated: use NewCryptoWrapperSigner instead.
 func NewCryptoSigner(cr crypto.Crypto, kh interface{}) *CryptoSigner {
 	return &CryptoSigner{
 		cr: cr,
@@ -28,6 +36,10 @@ func NewCryptoSigner(cr crypto.Crypto, kh interface{}) *CryptoSigner {
 
 // Sign will sign document and return signature.
 func (s *CryptoSigner) Sign(msg []byte) ([]byte, error) {
+	if s.fks != nil {
+		return s.fks.Sign(msg)
+	}
+
 	return s.cr.Sign(msg, s.kh)
 }
 
@@ -38,17 +50,17 @@ func (s *CryptoSigner) Alg() string {
 
 // CryptoVerifier defines signature verifier based on crypto.
 type CryptoVerifier struct {
-	cr crypto.Crypto
+	kc kmscrypto.KMSCryptoVerifier
 }
 
 // NewCryptoVerifier creates a new CryptoVerifier.
-func NewCryptoVerifier(cr crypto.Crypto) *CryptoVerifier {
+func NewCryptoVerifier(kmsCrypto kmscrypto.KMSCryptoVerifier) kmscrypto.PublicKeyVerifier {
 	return &CryptoVerifier{
-		cr: cr,
+		kc: kmsCrypto,
 	}
 }
 
 // Verify will verify a signature.
 func (v *CryptoVerifier) Verify(kh *api.PublicKey, msg, signature []byte) error {
-	return v.cr.Verify(signature, msg, kh)
+	return v.kc.Verify(signature, msg, kh.JWK)
 }

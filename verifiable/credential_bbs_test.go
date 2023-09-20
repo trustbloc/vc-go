@@ -15,6 +15,7 @@ import (
 	jsonld "github.com/trustbloc/did-go/doc/ld/processor"
 	"github.com/trustbloc/kms-go/crypto/primitive/bbs12381g2pub"
 	"github.com/trustbloc/kms-go/spi/kms"
+	"github.com/trustbloc/vc-go/internal/testutil/signatureutil"
 
 	"github.com/trustbloc/vc-go/signature/suite"
 	"github.com/trustbloc/vc-go/signature/suite/bbsblssignature2020"
@@ -232,8 +233,7 @@ func signVCWithBBS(t *testing.T, privKey *bbs12381g2pub.PrivateKey, pubKeyBytes 
 func signVCWithEd25519(t *testing.T, vc *Credential) {
 	t.Helper()
 
-	signer, err := newCryptoSigner(kms.ED25519Type)
-	require.NoError(t, err)
+	signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
 
 	sigSuite := ed25519signature2018.New(
 		suite.WithSigner(signer),
@@ -246,6 +246,6 @@ func signVCWithEd25519(t *testing.T, vc *Credential) {
 		VerificationMethod:      "did:example:123456#key1",
 	}
 
-	err = vc.AddLinkedDataProof(ldpContext, jsonld.WithDocumentLoader(createTestDocumentLoader(t)))
+	err := vc.AddLinkedDataProof(ldpContext, jsonld.WithDocumentLoader(createTestDocumentLoader(t)))
 	require.NoError(t, err)
 }

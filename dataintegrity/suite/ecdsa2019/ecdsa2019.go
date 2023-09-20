@@ -20,6 +20,7 @@ import (
 	"github.com/piprate/json-gold/ld"
 	"github.com/trustbloc/did-go/doc/ld/processor"
 	"github.com/trustbloc/kms-go/doc/jose/jwk"
+	"github.com/trustbloc/vc-go/signature/kmscrypto"
 
 	"github.com/trustbloc/vc-go/dataintegrity/models"
 	"github.com/trustbloc/vc-go/dataintegrity/suite"
@@ -46,29 +47,37 @@ func WithStaticSigner(signer Signer) SignerGetter {
 	}
 }
 
+// WithKMSCryptoWrapper provides a SignerGetter using the kmscrypto wrapper.
+//
+// This SignerGetter assumes that the public key JWKs provided were received
+// from the same kmscrypto.KMSCrypto implementation.
+func WithKMSCryptoWrapper(kmsCrypto kmscrypto.KMSCryptoSigner) SignerGetter {
+	return func(pub *jwk.JWK) (Signer, error) {
+		return kmsCrypto.FixedKeySigner(pub)
+	}
+}
+
 // WithLocalKMSSigner returns a SignerGetter that will sign using the given localkms, using the private key matching
 // the given public key.
+//
+// Deprecated: use WithKMSCryptoWrapper instead.
 func WithLocalKMSSigner(kms models.KeyManager, kmsSigner KMSSigner) SignerGetter {
+	kcs := kmscrypto.NewKMSCryptoSigner(kms, kmsSigner)
+
 	return func(pub *jwk.JWK) (Signer, error) {
 		kid, err := kmsKID(pub)
 		if err != nil {
 			return nil, err
 		}
 
-		kh, err := kms.Get(kid)
-		if err != nil {
-			return nil, err
-		}
+		pub.KeyID = kid
 
-		return &wrapSigner{
-			kmsSigner: kmsSigner,
-			kh:        kh,
-		}, nil
+		return kcs.FixedKeySigner(pub)
 	}
 }
 
 // A KMSSigner is able to sign messages.
-type KMSSigner interface {
+type KMSSigner interface { // TODO note: only used by deprecated function
 	// Sign will sign msg using a matching signature primitive in kh key handle of a private key
 	// returns:
 	// 		signature in []byte
@@ -337,16 +346,6 @@ func kmsKID(key *jwk.JWK) (string, error) {
 	}
 
 	return base64.RawURLEncoding.EncodeToString(tp), nil
-}
-
-type wrapSigner struct {
-	kmsSigner KMSSigner
-	kh        interface{}
-}
-
-// Sign signs using wrapped kms and key handle.
-func (s *wrapSigner) Sign(msg []byte) ([]byte, error) {
-	return s.kmsSigner.Sign(msg, s.kh)
 }
 
 func sign(sigBase []byte, key *jwk.JWK, signerGetter SignerGetter) ([]byte, error) {

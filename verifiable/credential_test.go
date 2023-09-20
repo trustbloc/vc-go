@@ -20,6 +20,7 @@ import (
 	jsonld "github.com/trustbloc/did-go/doc/ld/processor"
 	"github.com/trustbloc/kms-go/doc/jose"
 	"github.com/trustbloc/kms-go/spi/kms"
+	"github.com/trustbloc/vc-go/internal/testutil/signatureutil"
 	"github.com/xeipuuv/gojsonschema"
 	"golang.org/x/exp/slices"
 
@@ -1612,8 +1613,7 @@ func TestContextToSerialize(t *testing.T) {
 }
 
 func Test_JWTVCToJSON(t *testing.T) {
-	signer, err := newCryptoSigner(kms.ED25519Type)
-	require.NoError(t, err)
+	signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
 
 	vcSource, err := parseTestCredential(t, []byte(validCredential))
 	require.NoError(t, err)
@@ -1961,8 +1961,7 @@ func TestCredential_raw(t *testing.T) {
 }
 
 func TestParseCredentialWithDisabledProofCheck(t *testing.T) {
-	signer, err := newCryptoSigner(kms.ED25519Type)
-	require.NoError(t, err)
+	signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
 
 	t.Run("ParseUnverifiedCredential() for JWS", func(t *testing.T) {
 		// Prepare JWS.
