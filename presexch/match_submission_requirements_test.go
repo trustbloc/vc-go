@@ -16,8 +16,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"github.com/trustbloc/bbs-signature-go/bbs12381g2pub"
 	ldprocessor "github.com/trustbloc/did-go/doc/ld/processor"
-	"github.com/trustbloc/kms-go/crypto/primitive/bbs12381g2pub"
 
 	utiltime "github.com/trustbloc/did-go/doc/util/time"
 	"github.com/trustbloc/vc-go/presexch"

@@ -13,9 +13,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 	kmsapi "github.com/trustbloc/kms-go/spi/kms"
+	"github.com/trustbloc/kms-go/wrapper"
+
 	"github.com/trustbloc/vc-go/internal/testutil/kmscryptoutil"
 	"github.com/trustbloc/vc-go/internal/testutil/signatureutil/internal/signer"
-	"github.com/trustbloc/vc-go/signature/kmscrypto"
 )
 
 // TODO: neither NewCryptoSigner or NewSigner is used by wallet-sdk or vcs. This
@@ -31,7 +32,7 @@ func CryptoSigner(t *testing.T, keyType kmsapi.KeyType) Signer {
 }
 
 // NewCryptoSigner creates a new signer based on crypto if possible.
-func NewCryptoSigner(kmsCrypto kmscrypto.KMSCrypto, keyType kmsapi.KeyType) (Signer, error) {
+func NewCryptoSigner(kmsCrypto wrapper.KMSCrypto, keyType kmsapi.KeyType) (Signer, error) {
 	var alg string
 
 	// Note: signer.CryptoSigner doesn't support secp256k1 or rsa, as kms-go

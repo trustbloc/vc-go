@@ -13,8 +13,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	mockwrapper "github.com/trustbloc/kms-go/mock/wrapper"
 	kmsapi "github.com/trustbloc/kms-go/spi/kms"
-	mockkmscrypto "github.com/trustbloc/vc-go/internal/mock/kmscrypto"
+
 	"github.com/trustbloc/vc-go/internal/testutil/kmscryptoutil"
 	. "github.com/trustbloc/vc-go/internal/testutil/signatureutil/internal/signer"
 )
@@ -67,7 +68,7 @@ func TestNewCryptoSigner(t *testing.T) {
 	}
 
 	t.Run("error corner cases", func(t *testing.T) {
-		mockKC := &mockkmscrypto.MockKMSCrypto{
+		mockKC := &mockwrapper.MockKMSCrypto{
 			CreateErr: errors.New("key creation error"),
 		}
 		signer, err := NewCryptoSigner(mockKC, kmsapi.ED25519Type, "")

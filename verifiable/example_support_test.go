@@ -11,9 +11,9 @@ import (
 	"encoding/json"
 	"strings"
 
+	"github.com/trustbloc/bbs-signature-go/bbs12381g2pub"
 	lddocloader "github.com/trustbloc/did-go/doc/ld/documentloader"
 	ldtestutil "github.com/trustbloc/did-go/doc/ld/testutil"
-	"github.com/trustbloc/kms-go/crypto/primitive/bbs12381g2pub"
 
 	"github.com/trustbloc/vc-go/verifiable"
 )

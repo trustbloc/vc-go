@@ -19,7 +19,7 @@ import (
 	"github.com/trustbloc/kms-go/doc/jose/jwk/jwksupport"
 	"github.com/trustbloc/kms-go/doc/util/jwkkid"
 	"github.com/trustbloc/kms-go/doc/util/kmssigner"
-	"github.com/trustbloc/vc-go/signature/kmscrypto"
+	"github.com/trustbloc/kms-go/wrapper"
 
 	"github.com/trustbloc/vc-go/jwt"
 )
@@ -65,7 +65,7 @@ type SignerGetter func(vm *did.VerificationMethod) (Signer, error)
 //
 // Deprecated: use UseKMSCryptoWrapperSigner instead.
 func UseDefaultSigner(r keyReader, s cryptoSigner) SignerGetter {
-	kcs := kmscrypto.NewKMSCryptoSigner(r, s)
+	kcs := wrapper.NewKMSCryptoSigner(r, s)
 
 	return UseKMSCryptoWrapperSigner(kcs)
 }
@@ -74,7 +74,7 @@ func UseDefaultSigner(r keyReader, s cryptoSigner) SignerGetter {
 //
 // Note: this API assumes that the KMS KID is the same as is used by localkms,
 // allowing it to be determined based on the public key.
-func UseKMSCryptoWrapperSigner(crypto kmscrypto.KMSCryptoSigner) SignerGetter {
+func UseKMSCryptoWrapperSigner(crypto wrapper.KMSCryptoSigner) SignerGetter {
 	return func(vm *did.VerificationMethod) (Signer, error) {
 		var pubJWK *jwk.JWK
 
