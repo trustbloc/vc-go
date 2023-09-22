@@ -14,12 +14,12 @@ import (
 	mockkms "github.com/trustbloc/kms-go/mock/kms"
 	"github.com/trustbloc/kms-go/secretlock/noop"
 	"github.com/trustbloc/kms-go/spi/kms"
+	"github.com/trustbloc/kms-go/wrapper"
 	mockstorage "github.com/trustbloc/vc-go/legacy/mock/storage"
-	"github.com/trustbloc/vc-go/signature/kmscrypto"
 )
 
 // LocalKMSCrypto creates a kmscrypto.KMSCrypto instance that uses localkms and tinkcrypto.
-func LocalKMSCrypto(t *testing.T) kmscrypto.KMSCrypto {
+func LocalKMSCrypto(t *testing.T) wrapper.KMSCrypto {
 	kc, err := LocalKMSCryptoErr()
 	require.NoError(t, err)
 
@@ -28,7 +28,7 @@ func LocalKMSCrypto(t *testing.T) kmscrypto.KMSCrypto {
 
 // LocalKMSCryptoErr creates a kmscrypto.KMSCrypto instance that uses localkms and tinkcrypto.
 // This API returns error instead of expecting a test manager.
-func LocalKMSCryptoErr() (kmscrypto.KMSCrypto, error) {
+func LocalKMSCryptoErr() (wrapper.KMSCrypto, error) {
 	storeProv := mockstorage.NewMockStoreProvider()
 
 	kmsProv, err := mockkms.NewProviderForKMS(storeProv, &noop.NoLock{})
@@ -46,7 +46,7 @@ func LocalKMSCryptoErr() (kmscrypto.KMSCrypto, error) {
 		return nil, err
 	}
 
-	return kmscrypto.NewKMSCrypto(kms, cr), nil
+	return wrapper.NewKMSCrypto(kms, cr), nil
 }
 
 // PubKeyBytesToJWK converts the given public key to a JWK.

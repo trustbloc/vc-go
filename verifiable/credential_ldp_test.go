@@ -20,9 +20,9 @@ import (
 	"github.com/trustbloc/vc-go/internal/testutil/kmscryptoutil"
 	"github.com/trustbloc/vc-go/internal/testutil/signatureutil"
 
+	"github.com/trustbloc/bbs-signature-go/bbs12381g2pub"
 	ldcontext "github.com/trustbloc/did-go/doc/ld/context"
 	jsonldsig "github.com/trustbloc/did-go/doc/ld/processor"
-	"github.com/trustbloc/kms-go/crypto/primitive/bbs12381g2pub"
 	"github.com/trustbloc/kms-go/doc/jose/jwk/jwksupport"
 	"github.com/trustbloc/kms-go/spi/kms"
 

@@ -13,7 +13,6 @@ require (
 	github.com/btcsuite/btcd v0.22.3
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/go-jose/go-jose/v3 v3.0.1-0.20221117193127-916db76e8214
-	github.com/google/tink/go v1.7.0
 	github.com/google/uuid v1.3.0
 	github.com/kawamuray/jsonpath v0.0.0-20201211160320-7483bafabd7e
 	github.com/mitchellh/mapstructure v1.5.0
@@ -23,8 +22,9 @@ require (
 	github.com/stretchr/testify v1.8.2
 	github.com/tidwall/gjson v1.14.3
 	github.com/tidwall/sjson v1.1.4
+	github.com/trustbloc/bbs-signature-go v1.0.0
 	github.com/trustbloc/did-go v1.0.1
-	github.com/trustbloc/kms-go v1.0.0
+	github.com/trustbloc/kms-go v1.0.1-0.20230922134356-24e819a06a30
 	github.com/xeipuuv/gojsonschema v1.2.0
 	golang.org/x/crypto v0.1.0
 	golang.org/x/exp v0.0.0-20230817173708-d852ddb80c63
@@ -39,8 +39,8 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
+	github.com/google/tink/go v1.7.0 // indirect
 	github.com/hyperledger/fabric-amcl v0.0.0-20230602173724-9e02669dceb2 // indirect
-	github.com/hyperledger/ursa-wrapper-go v0.3.1 // indirect
 	github.com/kilic/bls12-381 v0.1.1-0.20210503002446-7b7597926c69 // indirect
 	github.com/mmcloughlin/addchain v0.4.0 // indirect
 	github.com/mr-tron/base58 v1.2.0 // indirect

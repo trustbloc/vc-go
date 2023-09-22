@@ -20,7 +20,7 @@ import (
 	"github.com/piprate/json-gold/ld"
 	"github.com/trustbloc/did-go/doc/ld/processor"
 	"github.com/trustbloc/kms-go/doc/jose/jwk"
-	"github.com/trustbloc/vc-go/signature/kmscrypto"
+	"github.com/trustbloc/kms-go/wrapper"
 
 	"github.com/trustbloc/vc-go/dataintegrity/models"
 	"github.com/trustbloc/vc-go/dataintegrity/suite"
@@ -51,7 +51,7 @@ func WithStaticSigner(signer Signer) SignerGetter {
 //
 // This SignerGetter assumes that the public key JWKs provided were received
 // from the same kmscrypto.KMSCrypto implementation.
-func WithKMSCryptoWrapper(kmsCrypto kmscrypto.KMSCryptoSigner) SignerGetter {
+func WithKMSCryptoWrapper(kmsCrypto wrapper.KMSCryptoSigner) SignerGetter {
 	return func(pub *jwk.JWK) (Signer, error) {
 		return kmsCrypto.FixedKeySigner(pub)
 	}
@@ -62,7 +62,7 @@ func WithKMSCryptoWrapper(kmsCrypto kmscrypto.KMSCryptoSigner) SignerGetter {
 //
 // Deprecated: use WithKMSCryptoWrapper instead.
 func WithLocalKMSSigner(kms models.KeyManager, kmsSigner KMSSigner) SignerGetter {
-	kcs := kmscrypto.NewKMSCryptoSigner(kms, kmsSigner)
+	kcs := wrapper.NewKMSCryptoSigner(kms, kmsSigner)
 
 	return func(pub *jwk.JWK) (Signer, error) {
 		kid, err := kmsKID(pub)

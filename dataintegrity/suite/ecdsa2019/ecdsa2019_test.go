@@ -25,7 +25,7 @@ import (
 	"github.com/trustbloc/kms-go/doc/jose/jwk/jwksupport"
 	mockcrypto "github.com/trustbloc/kms-go/mock/crypto"
 	mockkms "github.com/trustbloc/kms-go/mock/kms"
-	"github.com/trustbloc/vc-go/signature/kmscrypto"
+	"github.com/trustbloc/kms-go/wrapper"
 
 	"github.com/trustbloc/vc-go/dataintegrity/models"
 	"github.com/trustbloc/vc-go/dataintegrity/suite"
@@ -50,7 +50,7 @@ func TestNew(t *testing.T) {
 	cryp := &mockcrypto.Crypto{}
 	kms := &mockkms.KeyManager{}
 
-	kc := kmscrypto.NewKMSCryptoSigner(kms, cryp)
+	kc := wrapper.NewKMSCryptoSigner(kms, cryp)
 
 	signerGetter := WithKMSCryptoWrapper(kc)
 
@@ -141,7 +141,7 @@ func successCase(t *testing.T) *testCase {
 func testSign(t *testing.T, tc *testCase) {
 	sigInit := NewSignerInitializer(&SignerInitializerOptions{
 		LDDocumentLoader: tc.docLoader,
-		SignerGetter:     WithKMSCryptoWrapper(kmscrypto.NewKMSCryptoSigner(tc.kms, tc.crypto)),
+		SignerGetter:     WithKMSCryptoWrapper(wrapper.NewKMSCryptoSigner(tc.kms, tc.crypto)),
 	})
 
 	signer, err := sigInit.Signer()

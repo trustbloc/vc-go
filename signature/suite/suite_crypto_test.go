@@ -11,12 +11,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/trustbloc/vc-go/internal/mock/kmscrypto"
+	mockwrapper "github.com/trustbloc/kms-go/mock/wrapper"
 	"github.com/trustbloc/vc-go/signature/api"
 )
 
 func TestNewCryptoSigner(t *testing.T) {
-	cryptoSigner := NewCryptoWrapperSigner(&kmscrypto.MockFixedKeyCrypto{
+	cryptoSigner := NewCryptoWrapperSigner(&mockwrapper.MockFixedKeyCrypto{
 		SignVal: []byte("signature"),
 	})
 	require.NotNil(t, cryptoSigner)
@@ -27,7 +27,7 @@ func TestNewCryptoSigner(t *testing.T) {
 }
 
 func TestNewCryptoVerifier(t *testing.T) {
-	kc := &kmscrypto.MockKMSCrypto{
+	kc := &mockwrapper.MockKMSCrypto{
 		VerifyErr: errors.New("verify error"),
 	}
 
