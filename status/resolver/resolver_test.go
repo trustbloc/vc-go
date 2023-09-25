@@ -33,13 +33,13 @@ const (
 )
 
 func TestResolve(t *testing.T) { //nolint:maintidx
-	srcVC := &verifiable.Credential{
-		Context:      []string{verifiable.ContextURI},
-		Types:        []string{verifiable.VCType},
-		ID:           uuid.NewString(),
-		Schemas:      []verifiable.TypedID{},
-		CustomFields: verifiable.CustomFields{},
-	}
+	srcVC, err := verifiable.CreateCredential(verifiable.CredentialContents{
+		Context: []string{verifiable.ContextURI},
+		Types:   []string{verifiable.VCType},
+		ID:      uuid.NewString(),
+		Schemas: []verifiable.TypedID{},
+	}, verifiable.CustomFields{})
+	require.NoError(t, err)
 
 	srcVCBytes, e := srcVC.MarshalJSON()
 	require.NoError(t, e)

@@ -7,7 +7,6 @@ package signer
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -66,27 +65,10 @@ func New(signatureSuites ...SignatureSuite) *DocumentSigner {
 // Sign  will sign JSON LD document.
 func (signer *DocumentSigner) Sign(
 	context *Context,
-	jsonLdDoc []byte,
+	jsonLdObject map[string]interface{},
 	opts ...processor.Opts,
-) ([]byte, error) {
-	var jsonLdObject map[string]interface{}
-
-	err := json.Unmarshal(jsonLdDoc, &jsonLdObject)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal json ld document: %w", err)
-	}
-
-	err = signer.signObject(context, jsonLdObject, opts)
-	if err != nil {
-		return nil, err
-	}
-
-	signedDoc, err := json.Marshal(jsonLdObject)
-	if err != nil {
-		return nil, err
-	}
-
-	return signedDoc, nil
+) error {
+	return signer.signObject(context, jsonLdObject, opts)
 }
 
 // signObject is a helper method that operates on JSON LD objects.

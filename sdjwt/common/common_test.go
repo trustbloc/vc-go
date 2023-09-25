@@ -561,21 +561,21 @@ func TestGetCryptoHash(t *testing.T) {
 	r := require.New(t)
 
 	t.Run("success", func(t *testing.T) {
-		hash, err := GetCryptoHash("sha-256")
+		hash, err := ParseCryptoHashAlg("sha-256")
 		r.NoError(err)
 		r.Equal(crypto.SHA256, hash)
 
-		hash, err = GetCryptoHash("sha-384")
+		hash, err = ParseCryptoHashAlg("sha-384")
 		r.NoError(err)
 		r.Equal(crypto.SHA384, hash)
 
-		hash, err = GetCryptoHash("sha-512")
+		hash, err = ParseCryptoHashAlg("sha-512")
 		r.NoError(err)
 		r.Equal(crypto.SHA512, hash)
 	})
 
 	t.Run("error - not supported", func(t *testing.T) {
-		hash, err := GetCryptoHash("invalid")
+		hash, err := ParseCryptoHashAlg("invalid")
 		r.Error(err)
 		r.Equal(crypto.Hash(0), hash)
 		r.Contains(err.Error(), "_sd_alg 'invalid' not supported")
@@ -985,6 +985,23 @@ func TestGetDisclosureDigests(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestFormatCryptoHashAlg(t *testing.T) {
+	alg, err := FormatCryptoHashAlg(crypto.SHA256)
+	require.NoError(t, err)
+	require.Equal(t, "sha-256", alg)
+
+	alg, err = FormatCryptoHashAlg(crypto.SHA384)
+	require.NoError(t, err)
+	require.Equal(t, "sha-384", alg)
+
+	alg, err = FormatCryptoHashAlg(crypto.SHA512)
+	require.NoError(t, err)
+	require.Equal(t, "sha-512", alg)
+
+	_, err = FormatCryptoHashAlg(crypto.MD5)
+	require.Error(t, err)
 }
 
 func printObject(t *testing.T, name string, obj interface{}) {

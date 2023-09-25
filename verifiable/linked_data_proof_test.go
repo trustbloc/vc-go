@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	ldprocessor "github.com/trustbloc/did-go/doc/ld/processor"
 	"github.com/trustbloc/kms-go/spi/kms"
+
 	"github.com/trustbloc/vc-go/internal/testutil/signatureutil"
 
 	"github.com/trustbloc/vc-go/signature/suite"
@@ -103,7 +104,7 @@ func TestLinkedDataProofSignerAndVerifier(t *testing.T) {
 			WithEmbeddedSignatureSuites(verifierSuite),
 			WithPublicKeyFetcher(SingleJWK(ed25519Signer.PublicJWK(), kms.ED25519)))
 		require.NoError(t, err)
-		require.Equal(t, vcWithEd25519Proof, vcDecoded)
+		require.Equal(t, vcWithEd25519Proof.ToRawJSON(), vcDecoded.ToRawJSON())
 	})
 
 	t.Run("Several signature suites", func(t *testing.T) {
@@ -119,7 +120,7 @@ func TestLinkedDataProofSignerAndVerifier(t *testing.T) {
 			WithEmbeddedSignatureSuites(verifierSuites...),
 			WithPublicKeyFetcher(SingleJWK(ed25519Signer.PublicJWK(), kms.ED25519)))
 		require.NoError(t, err)
-		require.Equal(t, vcWithEd25519Proof, vcDecoded)
+		require.Equal(t, vcWithEd25519Proof.ToRawJSON(), vcDecoded.ToRawJSON())
 
 		vcDecoded, err = parseTestCredential(t, vcWithSecp256k1ProofBytes,
 			WithEmbeddedSignatureSuites(verifierSuites...),
@@ -130,7 +131,7 @@ func TestLinkedDataProofSignerAndVerifier(t *testing.T) {
 				}, nil
 			}))
 		require.NoError(t, err)
-		require.Equal(t, vcWithSecp256k1Proof, vcDecoded)
+		require.Equal(t, vcWithSecp256k1Proof.ToRawJSON(), vcDecoded.ToRawJSON())
 	})
 
 	t.Run("no signature suite defined", func(t *testing.T) {
@@ -163,7 +164,7 @@ func prepareVCWithEd25519LDP(t *testing.T, vcJSON string, signer Signer) *Creden
 	}, ldprocessor.WithDocumentLoader(createTestDocumentLoader(t)))
 	require.NoError(t, err)
 
-	require.Len(t, vc.Proofs, 1)
+	require.Len(t, vc.Proofs(), 1)
 
 	return vc
 }
@@ -185,7 +186,7 @@ func prepareVCWithSecp256k1LDP(t *testing.T, vcJSON string, signer Signer) *Cred
 	}, ldprocessor.WithDocumentLoader(createTestDocumentLoader(t)))
 	require.NoError(t, err)
 
-	require.Len(t, vc.Proofs, 1)
+	require.Len(t, vc.Proofs(), 1)
 
 	return vc
 }

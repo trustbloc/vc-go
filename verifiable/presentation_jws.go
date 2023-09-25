@@ -7,7 +7,8 @@ package verifiable
 
 // MarshalJWS serializes JWT presentation claims into signed form (JWS).
 func (jpc *JWTPresClaims) MarshalJWS(signatureAlg JWSAlgorithm, signer Signer, keyID string) (string, error) {
-	return marshalJWS(jpc, signatureAlg, signer, keyID)
+	strJWT, _, err := marshalJWS(jpc, signatureAlg, signer, keyID)
+	return strJWT, err
 }
 
 func unmarshalPresJWSClaims(vpJWT string, checkProof bool, fetcher PublicKeyFetcher) (*JWTPresClaims, error) {
@@ -21,7 +22,7 @@ func unmarshalPresJWSClaims(vpJWT string, checkProof bool, fetcher PublicKeyFetc
 	return &claims, err
 }
 
-func decodeVPFromJWS(vpJWT string, checkProof bool, fetcher PublicKeyFetcher) ([]byte, *rawPresentation, error) {
+func decodeVPFromJWS(vpJWT string, checkProof bool, fetcher PublicKeyFetcher) ([]byte, rawPresentation, error) {
 	return decodePresJWT(vpJWT, func(vpJWT string) (*JWTPresClaims, error) {
 		return unmarshalPresJWSClaims(vpJWT, checkProof, fetcher)
 	})

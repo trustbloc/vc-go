@@ -23,10 +23,8 @@ import (
 	"github.com/xeipuuv/gojsonschema"
 
 	"github.com/trustbloc/vc-go/presexch/internal/requirementlogic"
+	jsonutil "github.com/trustbloc/vc-go/util/json"
 
-	"github.com/trustbloc/kms-go/doc/jose"
-
-	"github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/sdjwt/common"
 	"github.com/trustbloc/vc-go/verifiable"
 )
@@ -781,14 +779,11 @@ func (pd *PresentationDefinition) filterCredentialsThatMatchDescriptor(creds []*
 	vpFormat := ""
 	filtered := creds
 
-	var err error
 	if format.notNil() {
-		vpFormat, filtered, err = filterFormat(format, filtered)
-		if err != nil {
-			return "", nil, err
-		}
+		vpFormat, filtered = filterFormat(format, filtered)
 	}
 
+	var err error
 	// Validate schema only for v1
 	if descriptor.Schema != nil {
 		filtered, err = filterSchema(descriptor.Schema, filtered, documentLoader)
@@ -854,9 +849,13 @@ func getSubjectIDs(subject interface{}) []string { // nolint: gocyclo
 	return nil
 }
 
-func subjectIsIssuer(credential *verifiable.Credential) bool {
-	for _, ID := range getSubjectIDs(credential.Subject) {
-		if ID != "" && ID == credential.Issuer.ID {
+func subjectIsIssuer(contents *verifiable.CredentialContents) bool {
+	if contents.Issuer == nil {
+		return false
+	}
+
+	for _, ID := range getSubjectIDs(contents.Subject) {
+		if ID != "" && ID == contents.Issuer.ID {
 			return true
 		}
 	}
@@ -879,7 +878,9 @@ func filterConstraints(constraints *Constraints, creds []*verifiable.Credential)
 	}
 
 	for _, credential := range creds {
-		if constraints.SubjectIsIssuer.isRequired() && !subjectIsIssuer(credential) {
+		credentialContents := credential.Contents()
+
+		if constraints.SubjectIsIssuer.isRequired() && !subjectIsIssuer(&credentialContents) {
 			continue
 		}
 
@@ -887,27 +888,19 @@ func filterConstraints(constraints *Constraints, creds []*verifiable.Credential)
 
 		var err error
 
-		credJWT := credential.JWT
-
 		credentialWithFieldValues := credential
 
-		if isSDJWTCredential(credential) {
+		if isSDJWTCredential(&credentialContents) {
 			credentialWithFieldValues, err = credential.CreateDisplayCredential(verifiable.DisplayAllDisclosures())
 			if err != nil {
 				continue
 			}
 		}
 
-		// if credential.JWT is set, credential will marshal to a JSON string.
-		// temporarily clear credential.JWT to avoid this.
-		credentialWithFieldValues.JWT = ""
-
-		credentialSrc, err := json.Marshal(credentialWithFieldValues)
+		credentialSrc, err := credentialWithFieldValues.MarshalAsJSONLD()
 		if err != nil {
 			continue
 		}
-
-		credentialWithFieldValues.JWT = credJWT
 
 		var credentialMap map[string]interface{}
 
@@ -954,11 +947,13 @@ func limitDisclosure(filterResults []constraintsFilterResult,
 
 	for _, filtered := range filterResults {
 		credential := filtered.credential
+		credentialContents := credential.Contents()
+
 		constraints := filtered.constraints
 		credentialSrc := filtered.credentialSrc
 
 		if constraints == nil {
-			result = append(result, &credWrapper{uniqueID: credential.ID, vc: credential})
+			result = append(result, &credWrapper{uniqueID: credentialContents.ID, vc: credential})
 			continue
 		}
 
@@ -971,14 +966,16 @@ func limitDisclosure(filterResults []constraintsFilterResult,
 		}
 
 		if constraints.LimitDisclosure.isRequired() &&
-			!(predicate || supportsSelectiveDisclosure(credential) || subjectIsIssuer(credential)) {
+			!(predicate || supportsSelectiveDisclosure(credential) || subjectIsIssuer(&credentialContents)) {
 			continue
 		}
 
-		uniqueCredID := credential.ID
+		uniqueCredID := credentialContents.ID
 
 		// Non-SDJWT case.
-		if (constraints.LimitDisclosure.isRequired() || predicate) && !isSDJWTCredential(credential) { //nolint:nestif
+		//nolint:nestif
+		if (constraints.LimitDisclosure.isRequired() || predicate) &&
+			!isSDJWTCredential(&credentialContents) {
 			template := credentialSrc
 
 			if constraints.LimitDisclosure.isRequired() {
@@ -987,20 +984,22 @@ func limitDisclosure(filterResults []constraintsFilterResult,
 					err      error
 				)
 
-				for _, ctx := range credential.Context {
+				for _, ctx := range credentialContents.Context {
 					contexts = append(contexts, ctx)
 				}
 
-				contexts = append(contexts, credential.CustomContext...)
+				contexts = append(contexts, credentialContents.CustomContext...)
 
-				template, err = json.Marshal(map[string]interface{}{
-					"id":                credential.ID,
-					"type":              credential.Types,
-					"@context":          contexts,
-					"issuer":            credential.Issuer,
-					"credentialSubject": toSubject(credential.Subject),
-					"issuanceDate":      credential.Issued,
-				})
+				templateObj := jsonutil.Select(credential.ToRawJSON(),
+					"id",
+					"type",
+					"@context",
+					"issuer",
+					"issuanceDate")
+
+				templateObj["credentialSubject"] = copyOnlySubjectIDs(credentialContents.Subject)
+
+				template, err = json.Marshal(templateObj)
 				if err != nil {
 					return nil, err
 				}
@@ -1008,7 +1007,7 @@ func limitDisclosure(filterResults []constraintsFilterResult,
 
 			var err error
 
-			isJWTVC := credential.JWT != ""
+			isJWTVC := credential.IsJWT()
 
 			credential, err = createNewCredential(constraints, credentialSrc, template, credential, opts...)
 			if err != nil {
@@ -1016,34 +1015,30 @@ func limitDisclosure(filterResults []constraintsFilterResult,
 			}
 
 			if isJWTVC {
-				var jwtClaims *verifiable.JWTCredClaims
+				var unsecuredJWTVC *verifiable.Credential
 
-				jwtClaims, err = credential.JWTClaims(false)
+				unsecuredJWTVC, err = credential.CreateUnsecuredJWTVC(false)
 				if err != nil {
-					return nil, fmt.Errorf("limitDisclosure JWTClaims: %w", err)
+					return nil, fmt.Errorf("limitDisclosure create unsecured jwt vc: %w", err)
 				}
 
-				var jwtVC string
-				jwtVC, err = jwtClaims.MarshalUnsecuredJWT()
-
-				if err != nil {
-					return nil, fmt.Errorf("limitDisclosure MarshalUnsecuredJWT: %w", err)
-				}
-
-				credential.JWT = jwtVC
+				credential = unsecuredJWTVC
 			}
 
-			uniqueCredID = tmpID(credential.ID)
+			uniqueCredID = tmpID(credentialContents.ID)
 		}
 
 		// SDJWT case.
-		if constraints.LimitDisclosure.isRequired() && isSDJWTCredential(credential) {
+		if constraints.LimitDisclosure.isRequired() && isSDJWTCredential(&credentialContents) {
 			limitedDisclosures, err := getLimitedDisclosures(constraints, credentialSrc, credential)
 			if err != nil {
 				return nil, err
 			}
 
-			credential.SDJWTDisclosures = limitedDisclosures
+			err = credential.SetSDJWTDisclosures(limitedDisclosures)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		result = append(result, &credWrapper{uniqueID: uniqueCredID, vc: credential})
@@ -1054,21 +1049,12 @@ func limitDisclosure(filterResults []constraintsFilterResult,
 
 // nolint: gocyclo,funlen,gocognit
 func getLimitedDisclosures(constraints *Constraints, displaySrc []byte, credential *verifiable.Credential) ([]*common.DisclosureClaim, error) { // nolint:lll
-	hash, err := common.GetCryptoHash(credential.SDJWTHashAlg)
+	credentialContents := credential.Contents()
+
+	credentialSrc, err := credential.MarshalAsJSONLD()
 	if err != nil {
 		return nil, err
 	}
-
-	vcJWT := credential.JWT
-	credential.JWT = ""
-
-	credentialSrc, err := json.Marshal(credential)
-	if err != nil {
-		return nil, err
-	}
-
-	// revert JWT to original value
-	credential.JWT = vcJWT
 
 	var limitedDisclosures []*common.DisclosureClaim
 
@@ -1096,9 +1082,9 @@ func getLimitedDisclosures(constraints *Constraints, displaySrc []byte, credenti
 				return nil, err
 			}
 
-			for _, dc := range credential.SDJWTDisclosures {
+			for _, dc := range credential.SDJWTDisclosures() {
 				if dc.Name == key {
-					digest, err := common.GetHash(hash, dc.Disclosure)
+					digest, err := common.GetHash(*credentialContents.SDJWTHashAlg, dc.Disclosure)
 					if err != nil {
 						return nil, err
 					}
@@ -1134,13 +1120,22 @@ func frameCreds(frame map[string]interface{}, creds []*verifiable.Credential,
 	return result, nil
 }
 
-func toSubject(subject interface{}) interface{} {
-	sub, ok := subject.([]verifiable.Subject)
-	if ok && len(sub) == 1 {
-		return verifiable.Subject{ID: sub[0].ID}
+func copyOnlySubjectIDs(subject []verifiable.Subject) interface{} {
+	if len(subject) == 1 {
+		if len(subject[0].CustomFields) == 0 {
+			return subject[0].ID
+		}
+
+		return verifiable.SubjectToJSON(verifiable.Subject{ID: subject[0].ID})
 	}
 
-	return subject
+	var withOnlyIDs []interface{}
+
+	for _, s := range subject {
+		withOnlyIDs = append(withOnlyIDs, verifiable.SubjectToJSON(verifiable.Subject{ID: s.ID}))
+	}
+
+	return withOnlyIDs
 }
 
 func tmpID(id string) string {
@@ -1318,7 +1313,7 @@ func hasBBS(vc *verifiable.Credential) bool {
 }
 
 func hasProofWithType(vc *verifiable.Credential, proofType string) bool {
-	for _, proof := range vc.Proofs {
+	for _, proof := range vc.Proofs() {
 		if proof["type"] == proofType {
 			return true
 		}
@@ -1327,12 +1322,13 @@ func hasProofWithType(vc *verifiable.Credential, proofType string) bool {
 	return false
 }
 
-func isSDJWTCredential(credential *verifiable.Credential) bool {
-	return credential.SDJWTHashAlg != ""
+func isSDJWTCredential(contents *verifiable.CredentialContents) bool {
+	return contents.SDJWTHashAlg != nil
 }
 
 func supportsSelectiveDisclosure(credential *verifiable.Credential) bool {
-	return isSDJWTCredential(credential) || hasBBS(credential)
+	cc := credential.Contents()
+	return isSDJWTCredential(&cc) || hasBBS(credential)
 }
 
 func filterField(f *Field, credential map[string]interface{}) error {
@@ -1448,7 +1444,7 @@ func merge(
 			}
 
 			vcFormat := FormatLDPVC
-			if credential.JWT != "" {
+			if credential.IsJWT() {
 				vcFormat = FormatJWTVC
 			}
 
@@ -1485,7 +1481,7 @@ func (a byID) Less(i, j int) bool { return a[i].ID < a[j].ID }
 func (a byID) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 
 //nolint:funlen,gocyclo
-func filterFormat(format *Format, credentials []*verifiable.Credential) (string, []*verifiable.Credential, error) {
+func filterFormat(format *Format, credentials []*verifiable.Credential) (string, []*verifiable.Credential) {
 	var ldpCreds, ldpvcCreds, ldpvpCreds, jwtCreds, jwtvcCreds, jwtvpCreds []*verifiable.Credential
 
 	for _, credential := range credentials {
@@ -1506,13 +1502,8 @@ func filterFormat(format *Format, credentials []*verifiable.Credential) (string,
 			hasAlg bool
 		)
 
-		if credential.JWT != "" {
-			pJWT, _, err := jwt.Parse(credential.JWT, jwt.WithSignatureVerifier(&noVerifier{}))
-			if err != nil {
-				return "", nil, fmt.Errorf("unmarshal credential error: %w", err)
-			}
-
-			alg, hasAlg = pJWT.Headers.Algorithm()
+		if credential.IsJWT() {
+			alg, hasAlg = credential.JWTHeaders().Algorithm()
 		}
 
 		if hasAlg && algMatch(alg, format.Jwt) {
@@ -1529,38 +1520,30 @@ func filterFormat(format *Format, credentials []*verifiable.Credential) (string,
 	}
 
 	if len(ldpCreds) > 0 {
-		return FormatLDP, ldpCreds, nil
+		return FormatLDP, ldpCreds
 	}
 
 	if len(ldpvcCreds) > 0 {
-		return FormatLDPVC, ldpvcCreds, nil
+		return FormatLDPVC, ldpvcCreds
 	}
 
 	if len(ldpvpCreds) > 0 {
-		return FormatLDPVP, ldpvpCreds, nil
+		return FormatLDPVP, ldpvpCreds
 	}
 
 	if len(jwtCreds) > 0 {
-		return FormatJWT, jwtCreds, nil
+		return FormatJWT, jwtCreds
 	}
 
 	if len(jwtvcCreds) > 0 {
-		return FormatJWTVC, jwtvcCreds, nil
+		return FormatJWTVC, jwtvcCreds
 	}
 
 	if len(jwtvpCreds) > 0 {
-		return FormatJWTVP, jwtvpCreds, nil
+		return FormatJWTVP, jwtvpCreds
 	}
 
-	return "", nil, nil
-}
-
-// noVerifier is used when no JWT signature verification is needed.
-// To be used with precaution.
-type noVerifier struct{}
-
-func (v noVerifier) Verify(_ jose.Headers, _, _, _ []byte) error {
-	return nil
+	return "", nil
 }
 
 func algMatch(credAlg string, jwtType *JwtType) bool {
@@ -1600,8 +1583,9 @@ func filterSchema(schemas []*Schema, credentials []*verifiable.Credential,
 
 	for _, credential := range credentials {
 		schemaSatisfied := map[string]struct{}{}
+		credentialContents := credential.Contents()
 
-		for _, ctx := range credential.Context {
+		for _, ctx := range credentialContents.Context {
 			ctxObj, ok := contexts[ctx]
 			if !ok {
 				context, err := getContext(ctx, documentLoader)
@@ -1613,7 +1597,7 @@ func filterSchema(schemas []*Schema, credentials []*verifiable.Credential,
 				ctxObj = context
 			}
 
-			for _, typ := range credential.Types {
+			for _, typ := range credentialContents.Types {
 				ids, err := typeFoundInContext(typ, ctxObj)
 				if err != nil {
 					continue

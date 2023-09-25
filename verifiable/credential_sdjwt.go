@@ -16,7 +16,6 @@ import (
 	"github.com/trustbloc/vc-go/sdjwt/common"
 	"github.com/trustbloc/vc-go/sdjwt/holder"
 	"github.com/trustbloc/vc-go/sdjwt/issuer"
-	json2 "github.com/trustbloc/vc-go/util/json"
 )
 
 type marshalDisclosureOpts struct {
@@ -94,11 +93,13 @@ func MarshalWithSDJWTVersion(version common.SDJWTVersion) MarshalDisclosureOptio
 // MarshalWithDisclosure marshals a SD-JWT credential in combined format for presentation, including precisely
 // the disclosures indicated by provided options, and optionally a holder binding if given the requisite option.
 func (vc *Credential) MarshalWithDisclosure(opts ...MarshalDisclosureOption) (string, error) {
+	jwsEnvelope := vc.JWTEnvelope
+
 	// Take default SD JWT version
 	sdJWTVersion := common.SDJWTVersionDefault
-	if vc.SDJWTVersion != 0 {
+	if jwsEnvelope != nil && jwsEnvelope.SDJWTVersion != 0 {
 		// If SD JWT version present in VC - use it as default.
-		sdJWTVersion = vc.SDJWTVersion
+		sdJWTVersion = vc.JWTEnvelope.SDJWTVersion
 	}
 
 	options := &marshalDisclosureOpts{
@@ -113,7 +114,7 @@ func (vc *Credential) MarshalWithDisclosure(opts ...MarshalDisclosureOption) (st
 		return "", fmt.Errorf("incompatible options provided")
 	}
 
-	if vc.JWT != "" && vc.SDJWTHashAlg != "" {
+	if jwsEnvelope != nil && vc.credentialContents.SDJWTHashAlg != nil {
 		// If VC already in SD JWT format.
 		return filterSDJWTVC(vc, options)
 	}
@@ -127,15 +128,20 @@ func (vc *Credential) MarshalWithDisclosure(opts ...MarshalDisclosureOption) (st
 }
 
 func filterSDJWTVC(vc *Credential, options *marshalDisclosureOpts) (string, error) {
-	disclosureCodes, err := filteredDisclosureCodes(vc.SDJWTDisclosures, options)
+	jwsEnvelope := vc.JWTEnvelope
+	if jwsEnvelope == nil {
+		return "", fmt.Errorf("non jws credentials not supporting sdjwt filtering")
+	}
+
+	disclosureCodes, err := filteredDisclosureCodes(jwsEnvelope.SDJWTDisclosures, options)
 	if err != nil {
 		return "", err
 	}
 
 	cf := common.CombinedFormatForPresentation{
-		SDJWT:              vc.JWT,
+		SDJWT:              jwsEnvelope.JWT,
 		Disclosures:        disclosureCodes,
-		HolderVerification: vc.SDHolderBinding,
+		HolderVerification: jwsEnvelope.SDHolderBinding,
 	}
 
 	if options.holderBinding != nil {
@@ -341,6 +347,7 @@ func (vc *Credential) MakeSDJWT(
 	return sdjwtSerialized, nil
 }
 
+// TODO: SDJWTVersionV5 support looks a little bit bugged. Review it.
 func makeSDJWT( //nolint:funlen,gocyclo
 	vc *Credential,
 	signer jose.Signer,
@@ -349,9 +356,9 @@ func makeSDJWT( //nolint:funlen,gocyclo
 ) (*issuer.SelectiveDisclosureJWT, error) {
 	// Take default SD JWT version
 	sdJWTVersion := common.SDJWTVersionDefault
-	if vc.SDJWTVersion != 0 {
+	if vc.JWTEnvelope != nil && vc.JWTEnvelope.SDJWTVersion != 0 {
 		// If SD JWT version present in VC - use it as default.
-		sdJWTVersion = vc.SDJWTVersion
+		sdJWTVersion = vc.JWTEnvelope.SDJWTVersion
 	}
 
 	opts := &MakeSDJWTOpts{
@@ -471,18 +478,18 @@ func (vc *Credential) CreateDisplayCredential( // nolint:funlen,gocyclo
 		return nil, fmt.Errorf("incompatible options provided")
 	}
 
-	if vc.SDJWTHashAlg == "" || vc.JWT == "" {
+	if vc.credentialContents.SDJWTHashAlg == nil || vc.JWTEnvelope == nil {
 		return vc, nil
 	}
 
-	_, credClaims, err := unmarshalJWSClaims(vc.JWT, false, nil)
+	_, credClaims, err := unmarshalJWSClaims(vc.JWTEnvelope.JWT, false, nil)
 	if err != nil {
 		return nil, fmt.Errorf("unmarshal VC JWT claims: %w", err)
 	}
 
 	credClaims.refineFromJWTClaims()
 
-	useDisclosures := filterDisclosureList(vc.SDJWTDisclosures, options)
+	useDisclosures := filterDisclosureList(vc.JWTEnvelope.SDJWTDisclosures, options)
 
 	newVCObj, err := common.GetDisclosedClaims(useDisclosures, credClaims.VC)
 	if err != nil {
@@ -493,17 +500,19 @@ func (vc *Credential) CreateDisplayCredential( // nolint:funlen,gocyclo
 		clearEmpty(subj)
 	}
 
-	vcBytes, err := json.Marshal(&newVCObj)
+	// Delete proofs from display credential.
+	delete(newVCObj, jsonFldLDProof)
+
+	vcc, err := parseCredentialContents(newVCObj, false)
 	if err != nil {
 		return nil, fmt.Errorf("marshalling vc object to JSON: %w", err)
 	}
 
-	newVC, err := populateCredential(vcBytes, nil, 0)
-	if err != nil {
-		return nil, fmt.Errorf("parsing new VC from JSON: %w", err)
-	}
-
-	return newVC, nil
+	//TODO: maybe we need to return only CredentialContents not all credential?
+	return &Credential{
+		credentialJSON:     newVCObj,
+		credentialContents: *vcc,
+	}, nil
 }
 
 // CreateDisplayCredentialMap creates, for SD-JWT credentials, a Credential whose selective-disclosure subject fields
@@ -526,23 +535,18 @@ func (vc *Credential) CreateDisplayCredentialMap( // nolint:funlen,gocyclo
 		return nil, fmt.Errorf("incompatible options provided")
 	}
 
-	if vc.SDJWTHashAlg == "" || vc.JWT == "" {
-		bytes, err := vc.MarshalJSON()
-		if err != nil {
-			return nil, err
-		}
-
-		return json2.ToMap(bytes)
+	if vc.credentialContents.SDJWTHashAlg == nil || vc.JWTEnvelope == nil {
+		return vc.credentialJSON, nil
 	}
 
-	_, credClaims, err := unmarshalJWSClaims(vc.JWT, false, nil)
+	_, credClaims, err := unmarshalJWSClaims(vc.JWTEnvelope.JWT, false, nil)
 	if err != nil {
 		return nil, fmt.Errorf("unmarshal VC JWT claims: %w", err)
 	}
 
 	credClaims.refineFromJWTClaims()
 
-	useDisclosures := filterDisclosureList(vc.SDJWTDisclosures, options)
+	useDisclosures := filterDisclosureList(vc.JWTEnvelope.SDJWTDisclosures, options)
 
 	newVCObj, err := common.GetDisclosedClaims(useDisclosures, credClaims.VC)
 	if err != nil {

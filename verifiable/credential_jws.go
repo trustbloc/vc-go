@@ -10,8 +10,15 @@ import (
 )
 
 // MarshalJWS serializes JWT into signed form (JWS).
-func (jcc *JWTCredClaims) MarshalJWS(signatureAlg JWSAlgorithm, signer Signer, keyID string) (string, error) {
+func (jcc *JWTCredClaims) MarshalJWS(signatureAlg JWSAlgorithm, signer Signer,
+	keyID string) (string, jose.Headers, error) {
 	return marshalJWS(jcc, signatureAlg, signer, keyID)
+}
+
+// MarshalJWSString serializes JWT into signed form (JWS).
+func (jcc *JWTCredClaims) MarshalJWSString(signatureAlg JWSAlgorithm, signer Signer, keyID string) (string, error) {
+	strJWT, _, err := marshalJWS(jcc, signatureAlg, signer, keyID)
+	return strJWT, err
 }
 
 func unmarshalJWSClaims(

@@ -16,6 +16,7 @@ import (
 	ldprocessor "github.com/trustbloc/did-go/doc/ld/processor"
 	ldtestutil "github.com/trustbloc/did-go/doc/ld/testutil"
 	"github.com/trustbloc/kms-go/spi/kms"
+
 	"github.com/trustbloc/vc-go/internal/testutil/signatureutil"
 
 	"github.com/trustbloc/vc-go/signature/suite"
@@ -49,6 +50,39 @@ const validPresentation = `
       "proof": {
         "type": "RsaSignature2018"
       }
+    }
+  ],
+  "holder": "did:example:ebfeb1f712ebc6f1c276e12ec21"
+}
+`
+
+const notStrictPresentation = `
+{
+  "@context": [
+    "https://www.w3.org/2018/credentials/v1",
+    "https://www.w3.org/2018/credentials/examples/v1",
+    "https://trustbloc.github.io/context/vc/examples-v1.jsonld"
+  ],
+  "id": "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c5",
+  "type": "VerifiablePresentation",
+  "verifiableCredential": [
+    {
+      "@context": [
+        "https://www.w3.org/2018/credentials/v1",
+        "https://www.w3.org/2018/credentials/examples/v1"
+      ],
+      "id": "http://example.edu/credentials/58473",
+      "type": ["VerifiableCredential", "UniversityDegreeCredential"],
+      "issuer": "https://example.edu/issuers/14",
+      "issuanceDate": "2010-01-01T19:23:24Z",
+      "credentialSubject": {
+        "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+        "alumniOf": "Example University"
+      },
+      "proof": {
+        "type": "RsaSignature2018"
+      },
+      "foo3" : "bar3"
     }
   ],
   "holder": "did:example:ebfeb1f712ebc6f1c276e12ec21"
@@ -176,7 +210,7 @@ func TestParsePresentation(t *testing.T) {
 		rp, err := vp.raw()
 		require.NoError(t, err)
 
-		require.IsType(t, nil, rp.Credential)
+		require.IsType(t, nil, rp[vpFldCredential])
 	})
 
 	t.Run("creates a new Verifiable Presentation with custom/additional fields", func(t *testing.T) {
@@ -278,21 +312,7 @@ func TestParsePresentation(t *testing.T) {
 	})
 
 	t.Run("strict VP validation fails because of invalid field in VC of VP", func(t *testing.T) {
-		vp, err := newTestPresentation(t, []byte(validPresentation))
-		require.NoError(t, err)
-
-		vc := vp.Credentials()[0]
-		require.NotNil(t, vc)
-
-		vcMap, ok := vc.(map[string]interface{})
-		require.True(t, ok)
-
-		vcMap["foo3"] = "bar3"
-
-		vpBytes, err := json.Marshal(vp)
-		require.NoError(t, err)
-
-		vp, err = newTestPresentation(t, vpBytes, WithPresStrictValidation())
+		vp, err := newTestPresentation(t, []byte(notStrictPresentation), WithPresStrictValidation())
 		require.Error(t, err)
 		require.EqualError(t, err, "JSON-LD doc has different structure after compaction")
 		require.Nil(t, vp)
@@ -316,13 +336,74 @@ func TestParsePresentation(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, vp)
 	})
+
+	t.Run("Failures", func(t *testing.T) {
+		protoVP, errP := newTestPresentation(t, []byte(presentationWithoutCredentials), WithPresStrictValidation())
+		require.NoError(t, errP)
+		require.NotNil(t, protoVP)
+
+		t.Run("invalid type", func(t *testing.T) {
+			raw, err := protoVP.raw()
+			require.NoError(t, err)
+
+			raw["type"] = map[string]string{}
+
+			_, err = newPresentation(raw, &presentationOpts{})
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "presentation types")
+		})
+
+		t.Run("invalid @context", func(t *testing.T) {
+			raw, err := protoVP.raw()
+			require.NoError(t, err)
+
+			raw["@context"] = map[string]string{}
+
+			_, err = newPresentation(raw, &presentationOpts{})
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "presentation contexts")
+		})
+
+		t.Run("invalid proof", func(t *testing.T) {
+			raw, err := protoVP.raw()
+			require.NoError(t, err)
+
+			raw["proof"] = map[string]string{}
+
+			_, err = newPresentation(raw, &presentationOpts{})
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "presentation proof")
+		})
+
+		t.Run("invalid id", func(t *testing.T) {
+			raw, err := protoVP.raw()
+			require.NoError(t, err)
+
+			raw["id"] = map[string]string{}
+
+			_, err = newPresentation(raw, &presentationOpts{})
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "presentation id")
+		})
+
+		t.Run("invalid holder", func(t *testing.T) {
+			raw, err := protoVP.raw()
+			require.NoError(t, err)
+
+			raw["holder"] = map[string]string{}
+
+			_, err = newPresentation(raw, &presentationOpts{})
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "presentation holder")
+		})
+	})
 }
 
 func TestValidateVP_Context(t *testing.T) {
 	t.Run("rejects verifiable presentation with empty context", func(t *testing.T) {
-		raw := &rawPresentation{}
+		var raw rawPresentation
 		require.NoError(t, json.Unmarshal([]byte(validPresentation), &raw))
-		raw.Context = nil
+		delete(raw, vpFldContext)
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
 		vp, err := newTestPresentation(t, bytes)
@@ -332,9 +413,9 @@ func TestValidateVP_Context(t *testing.T) {
 	})
 
 	t.Run("rejects verifiable presentation with invalid context", func(t *testing.T) {
-		raw := &rawPresentation{}
+		var raw rawPresentation
 		require.NoError(t, json.Unmarshal([]byte(validPresentation), &raw))
-		raw.Context = []string{
+		raw[vpFldContext] = []string{
 			"https://www.w3.org/2018/credentials/v2",
 			"https://www.w3.org/2018/credentials/examples/v1",
 		}
@@ -347,9 +428,9 @@ func TestValidateVP_Context(t *testing.T) {
 	})
 
 	t.Run("generate verifiable presentation with valid string context", func(t *testing.T) {
-		raw := &rawPresentation{}
+		var raw rawPresentation
 		require.NoError(t, json.Unmarshal([]byte(validPresentation), &raw))
-		raw.Context = "https://www.w3.org/2018/credentials/v1"
+		raw[vpFldContext] = "https://www.w3.org/2018/credentials/v1"
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
 		vp, err := newTestPresentation(t, bytes)
@@ -358,9 +439,9 @@ func TestValidateVP_Context(t *testing.T) {
 	})
 
 	t.Run("rejects verifiable presentation with invalid string context", func(t *testing.T) {
-		raw := &rawPresentation{}
+		var raw rawPresentation
 		require.NoError(t, json.Unmarshal([]byte(validPresentation), &raw))
-		raw.Context = "https://www.w3.org/2018/credentials/v2"
+		raw[vpFldContext] = "https://www.w3.org/2018/credentials/v2"
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
 		vp, err := newTestPresentation(t, bytes)
@@ -372,9 +453,9 @@ func TestValidateVP_Context(t *testing.T) {
 
 func TestValidateVP_ID(t *testing.T) {
 	t.Run("accept verifiable presentation with string ID", func(t *testing.T) {
-		raw := &rawPresentation{}
+		var raw rawPresentation
 		require.NoError(t, json.Unmarshal([]byte(validPresentation), &raw))
-		raw.ID = "id"
+		raw[vpFldID] = "id"
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
 		_, err = newTestPresentation(t, bytes)
@@ -384,9 +465,9 @@ func TestValidateVP_ID(t *testing.T) {
 
 func TestValidateVP_Type(t *testing.T) {
 	t.Run("accepts verifiable presentation with single VerifiablePresentation type", func(t *testing.T) {
-		raw := &rawPresentation{}
+		var raw rawPresentation
 		require.NoError(t, json.Unmarshal([]byte(validPresentation), &raw))
-		raw.Type = "VerifiablePresentation"
+		raw[vpFldType] = "VerifiablePresentation"
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
 		_, err = newTestPresentation(t, bytes)
@@ -395,9 +476,9 @@ func TestValidateVP_Type(t *testing.T) {
 
 	t.Run("accepts verifiable presentation with multiple types where VerifiablePresentation is a first type",
 		func(t *testing.T) {
-			raw := &rawPresentation{}
+			var raw rawPresentation
 			require.NoError(t, json.Unmarshal([]byte(validPresentation), &raw))
-			raw.Type = []string{"VerifiablePresentation", "CredentialManagerPresentation"}
+			raw[vpFldType] = []string{"VerifiablePresentation", "CredentialManagerPresentation"}
 			bytes, err := json.Marshal(raw)
 			require.NoError(t, err)
 			_, err = newTestPresentation(t, bytes)
@@ -406,9 +487,9 @@ func TestValidateVP_Type(t *testing.T) {
 
 	t.Run("accepts verifiable presentation with multiple types where VerifiablePresentation is not a first type",
 		func(t *testing.T) {
-			raw := &rawPresentation{}
+			var raw rawPresentation
 			require.NoError(t, json.Unmarshal([]byte(validPresentation), &raw))
-			raw.Type = []string{"CredentialManagerPresentation", "VerifiablePresentation"}
+			raw[vpFldType] = []string{"CredentialManagerPresentation", "VerifiablePresentation"}
 			bytes, err := json.Marshal(raw)
 			require.NoError(t, err)
 			_, err = newTestPresentation(t, bytes)
@@ -416,9 +497,9 @@ func TestValidateVP_Type(t *testing.T) {
 		})
 
 	t.Run("rejects verifiable presentation with no type defined", func(t *testing.T) {
-		raw := &rawPresentation{}
+		var raw rawPresentation
 		require.NoError(t, json.Unmarshal([]byte(validPresentation), &raw))
-		raw.Type = nil
+		delete(raw, vpFldType)
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
 		vp, err := newTestPresentation(t, bytes)
@@ -428,9 +509,9 @@ func TestValidateVP_Type(t *testing.T) {
 	})
 
 	t.Run("rejects verifiable presentation where single type is not VerifiablePresentation", func(t *testing.T) {
-		raw := &rawPresentation{}
+		var raw rawPresentation
 		require.NoError(t, json.Unmarshal([]byte(validPresentation), &raw))
-		raw.Type = "CredentialManagerPresentation"
+		raw[vpFldType] = "CredentialManagerPresentation"
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
 		vp, err := newTestPresentation(t, bytes)
@@ -442,9 +523,9 @@ func TestValidateVP_Type(t *testing.T) {
 
 func TestValidateVP_Holder(t *testing.T) {
 	t.Run("rejects verifiable presentation with non-url holder", func(t *testing.T) {
-		raw := &rawPresentation{}
+		var raw rawPresentation
 		require.NoError(t, json.Unmarshal([]byte(validPresentation), &raw))
-		raw.Holder = "not valid presentation Holder URL"
+		raw[vpFldHolder] = "not valid presentation Holder URL"
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
 		vp, err := newTestPresentation(t, bytes)
@@ -491,31 +572,14 @@ func TestNewPresentation(t *testing.T) {
 	r.Len(vp.credentials, 2)
 
 	// Pass VC marshalled into unsecured JWT
-	jwtClaims, err := vc.JWTClaims(true)
-	r.NoError(err)
-
-	jwt, err := jwtClaims.MarshalUnsecuredJWT()
-	r.NoError(err)
-
-	vp, err = NewPresentation(WithJWTCredentials(jwt))
-	r.NoError(err)
-	r.Len(vp.credentials, 1)
-	// VC JWT is NOT converted to vc struct, it's kept as is
-	r.Equal(jwt, vp.credentials[0])
 
 	// set multiple credentials
-	vp, err = NewPresentation(WithCredentials(vc, vc), WithJWTCredentials(jwt), WithCredentials(vc))
+	vp, err = NewPresentation(WithCredentials(vc, vc), WithCredentials(vc))
 	r.NoError(err)
-	r.Len(vp.credentials, 4)
+	r.Len(vp.credentials, 3)
 	r.Equal(vc, vp.credentials[0])
 	r.Equal(vc, vp.credentials[1])
-	r.Equal(jwt, vp.credentials[2])
-	r.Equal(vc, vp.credentials[3])
-
-	// Error - pass unsupported type
-	_, err = NewPresentation(WithJWTCredentials("notajwt"))
-	r.Error(err)
-	r.EqualError(err, "credential is not base64url encoded JWT")
+	r.Equal(vc, vp.credentials[2])
 }
 
 func TestPresentation_decodeCredentials(t *testing.T) {
@@ -529,7 +593,7 @@ func TestPresentation_decodeCredentials(t *testing.T) {
 	jwtClaims, err := vc.JWTClaims(false)
 	r.NoError(err)
 
-	jws, err := jwtClaims.MarshalJWS(EdDSA, signer, "did:123#k1")
+	jws, err := jwtClaims.MarshalJWSString(EdDSA, signer, "did:123#k1")
 	r.NoError(err)
 
 	// single credential - JWS

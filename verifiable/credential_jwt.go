@@ -80,56 +80,51 @@ func (jcc *JWTCredClaims) UnmarshalJSON(data []byte) error {
 // newJWTCredClaims creates JWT Claims of VC with an option to minimize certain fields of VC
 // which is put into "vc" claim.
 func newJWTCredClaims(vc *Credential, minimizeVC bool) (*JWTCredClaims, error) {
-	subjectID, err := SubjectID(vc.Subject)
+	vcc := &vc.credentialContents
+
+	subjectID, err := SubjectID(vcc.Subject)
 	if err != nil {
 		return nil, fmt.Errorf("get VC subject id: %w", err)
 	}
 
 	// currently jwt encoding supports only single subject (by the spec)
 	jwtClaims := &jwt.Claims{
-		Issuer:    vc.Issuer.ID,                           // iss
-		NotBefore: josejwt.NewNumericDate(vc.Issued.Time), // nbf
-		ID:        vc.ID,                                  // jti
-		Subject:   subjectID,                              // sub
+		Issuer:    vcc.Issuer.ID,                           // iss
+		NotBefore: josejwt.NewNumericDate(vcc.Issued.Time), // nbf
+		ID:        vcc.ID,                                  // jti
+		Subject:   subjectID,                               // sub
 	}
 
-	if vc.Expired != nil {
-		jwtClaims.Expiry = josejwt.NewNumericDate(vc.Expired.Time) // exp
+	if vcc.Expired != nil {
+		jwtClaims.Expiry = josejwt.NewNumericDate(vcc.Expired.Time) // exp
 	}
 
-	if vc.Issued != nil {
-		jwtClaims.IssuedAt = josejwt.NewNumericDate(vc.Issued.Time)
+	if vcc.Issued != nil {
+		jwtClaims.IssuedAt = josejwt.NewNumericDate(vcc.Issued.Time)
 	}
 
-	var raw *rawCredential
+	credentialJSONCopy := jsonutil.ShallowCopyObj(vc.credentialJSON)
 
 	if minimizeVC {
-		vcCopy := *vc
-		vcCopy.Expired = nil
-		vcCopy.Issuer.ID = ""
-		vcCopy.Issued = nil
-		vcCopy.ID = ""
+		delete(credentialJSONCopy, jsonFldExpired)
+		delete(credentialJSONCopy, jsonFldIssued)
+		delete(credentialJSONCopy, jsonFldID)
 
-		raw, err = vcCopy.raw()
-	} else {
-		raw, err = vc.raw()
-	}
+		issuer, err := parseIssuer(credentialJSONCopy[jsonFldIssuer])
+		if err != nil {
+			return nil, err
+		}
 
-	if err != nil {
-		return nil, err
-	}
+		if issuer != nil {
+			issuer.ID = ""
 
-	// If a Credential was parsed from JWT, we don't want the original JWT included when marshaling back to JWT claims.
-	raw.JWT = ""
-
-	vcMap, err := jsonutil.MergeCustomFields(raw, raw.CustomFields)
-	if err != nil {
-		return nil, err
+			credentialJSONCopy[jsonFldIssuer] = serializeIssuer(*issuer)
+		}
 	}
 
 	credClaims := &JWTCredClaims{
 		Claims: jwtClaims,
-		VC:     vcMap,
+		VC:     credentialJSONCopy,
 	}
 
 	return credClaims, nil

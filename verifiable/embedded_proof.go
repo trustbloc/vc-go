@@ -60,7 +60,7 @@ type embeddedProofCheckOpts struct {
 	jsonldCredentialOpts
 }
 
-func checkEmbeddedProof(docBytes []byte, opts *embeddedProofCheckOpts) error { // nolint:gocyclo
+func checkEmbeddedProofBytes(docBytes []byte, opts *embeddedProofCheckOpts) error { // nolint:gocyclo
 	if opts.disabledProofCheck {
 		return nil
 	}
@@ -73,6 +73,10 @@ func checkEmbeddedProof(docBytes []byte, opts *embeddedProofCheckOpts) error { /
 
 	delete(jsonldDoc, "jwt")
 
+	return checkEmbeddedProof(jsonldDoc, opts)
+}
+
+func checkEmbeddedProof(jsonldDoc map[string]interface{}, opts *embeddedProofCheckOpts) error { // nolint:gocyclo
 	proofElement, ok := jsonldDoc["proof"]
 	if !ok || proofElement == nil {
 		// do not make a check if there is no proof defined as proof presence is not mandatory
@@ -92,6 +96,8 @@ func checkEmbeddedProof(docBytes []byte, opts *embeddedProofCheckOpts) error { /
 	if len(proofs) > 0 {
 		typeStr, ok := proofs[0]["type"]
 		if ok && typeStr == models.DataIntegrityProof {
+			var docBytes []byte
+
 			docBytes, err = json.Marshal(jsonldDoc)
 			if err != nil {
 				return err

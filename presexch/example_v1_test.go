@@ -16,6 +16,7 @@ import (
 	ldtestutil "github.com/trustbloc/did-go/doc/ld/testutil"
 
 	utiltime "github.com/trustbloc/did-go/doc/util/time"
+
 	. "github.com/trustbloc/vc-go/presexch"
 	"github.com/trustbloc/vc-go/verifiable"
 )
@@ -53,25 +54,25 @@ func ExamplePresentationDefinition_CreateVP_v1() {
 		panic(err)
 	}
 
-	vp, err := pd.CreateVP([]*verifiable.Credential{
+	vp, err := pd.CreateVP(createExampleCredentials([]credentialProto{
 		{
 			ID:      "http://example.edu/credentials/777",
 			Context: []string{verifiable.ContextURI},
 			Types:   []string{verifiable.VCType},
-			Issuer: verifiable.Issuer{
+			Issuer: &verifiable.Issuer{
 				ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
 			},
 			Issued: &utiltime.TimeWrapper{
 				Time: time.Time{},
 			},
-			Subject: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+			Subject: []verifiable.Subject{{ID: "did:example:76e12ec712ebc6f1c221ebfeb1f"}},
 			CustomFields: map[string]interface{}{
 				"first_name": "Jesse",
 				"last_name":  "Pinkman",
 				"age":        21,
 			},
 		},
-	}, loader, verifiable.WithJSONLDDocumentLoader(loader))
+	}), loader, verifiable.WithJSONLDDocumentLoader(loader))
 	if err != nil {
 		panic(err)
 	}
@@ -162,18 +163,18 @@ func ExamplePresentationDefinition_CreateVP_v1_With_LDP_FormatAndProof() {
 		panic(err)
 	}
 
-	vp, err := pd.CreateVP([]*verifiable.Credential{
+	vp, err := pd.CreateVP(createExampleCredentials([]credentialProto{
 		{
 			ID:      "http://example.edu/credentials/777",
 			Context: []string{verifiable.ContextURI},
 			Types:   []string{verifiable.VCType},
-			Issuer: verifiable.Issuer{
+			Issuer: &verifiable.Issuer{
 				ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
 			},
 			Issued: &utiltime.TimeWrapper{
 				Time: time.Time{},
 			},
-			Subject: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+			Subject: []verifiable.Subject{{ID: "did:example:76e12ec712ebc6f1c221ebfeb1f"}},
 			CustomFields: map[string]interface{}{
 				"first_name": "Jesse",
 				"last_name":  "Pinkman",
@@ -181,7 +182,7 @@ func ExamplePresentationDefinition_CreateVP_v1_With_LDP_FormatAndProof() {
 			},
 			Proofs: []verifiable.Proof{{"type": "JsonWebSignature2020"}},
 		},
-	}, loader, verifiable.WithJSONLDDocumentLoader(loader))
+	}), loader, verifiable.WithJSONLDDocumentLoader(loader))
 	if err != nil {
 		panic(err)
 	}
@@ -272,18 +273,18 @@ func ExamplePresentationDefinition_CreateVP_v1_With_LDPVC_FormatAndProof() {
 		panic(err)
 	}
 
-	vp, err := pd.CreateVP([]*verifiable.Credential{
+	vp, err := pd.CreateVP(createExampleCredentials([]credentialProto{
 		{
 			ID:      "http://example.edu/credentials/777",
 			Context: []string{verifiable.ContextURI},
 			Types:   []string{verifiable.VCType},
-			Issuer: verifiable.Issuer{
+			Issuer: &verifiable.Issuer{
 				ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
 			},
 			Issued: &utiltime.TimeWrapper{
 				Time: time.Time{},
 			},
-			Subject: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+			Subject: []verifiable.Subject{{ID: "did:example:76e12ec712ebc6f1c221ebfeb1f"}},
 			CustomFields: map[string]interface{}{
 				"first_name": "Jesse",
 				"last_name":  "Pinkman",
@@ -291,7 +292,7 @@ func ExamplePresentationDefinition_CreateVP_v1_With_LDPVC_FormatAndProof() {
 			},
 			Proofs: []verifiable.Proof{{"type": "JsonWebSignature2020"}},
 		},
-	}, loader, verifiable.WithJSONLDDocumentLoader(loader))
+	}), loader, verifiable.WithJSONLDDocumentLoader(loader))
 	if err != nil {
 		panic(err)
 	}
@@ -390,18 +391,18 @@ func ExamplePresentationDefinition_CreateVP_multipleMatches() {
 		panic(err)
 	}
 
-	vp, err := pd.CreateVP([]*verifiable.Credential{
+	vp, err := pd.CreateVP(createExampleCredentials([]credentialProto{
 		{
 			ID:      "http://example.edu/credentials/777",
 			Context: []string{verifiable.ContextURI},
 			Types:   []string{verifiable.VCType},
-			Issuer: verifiable.Issuer{
+			Issuer: &verifiable.Issuer{
 				ID: "did:example:777",
 			},
 			Issued: &utiltime.TimeWrapper{
 				Time: time.Time{},
 			},
-			Subject: "did:example:777",
+			Subject: []verifiable.Subject{{ID: "did:example:777"}},
 			CustomFields: map[string]interface{}{
 				"first_name": "Andrew",
 				"last_name":  "Hanks",
@@ -412,20 +413,20 @@ func ExamplePresentationDefinition_CreateVP_multipleMatches() {
 			ID:      "http://example.edu/credentials/888",
 			Context: []string{verifiable.ContextURI},
 			Types:   []string{verifiable.VCType},
-			Issuer: verifiable.Issuer{
+			Issuer: &verifiable.Issuer{
 				ID: "did:example:888",
 			},
 			Issued: &utiltime.TimeWrapper{
 				Time: time.Time{},
 			},
-			Subject: "did:example:888",
+			Subject: []verifiable.Subject{{ID: "did:example:888"}},
 			CustomFields: map[string]interface{}{
 				"first_name": "Jesse",
 				"last_name":  "Pinkman",
 				"age":        21,
 			},
 		},
-	}, loader, verifiable.WithJSONLDDocumentLoader(loader))
+	}), loader, verifiable.WithJSONLDDocumentLoader(loader))
 	if err != nil {
 		panic(err)
 	}
@@ -502,7 +503,9 @@ func ExamplePresentationDefinition_CreateVP_multipleMatches() {
 	//				"https://www.w3.org/2018/credentials/v1"
 	//			],
 	//			"age": 25,
-	//			"credentialSubject": "did:example:777",
+	//			"credentialSubject": {
+	//				"id": "did:example:777"
+	//			},
 	//			"first_name": "Andrew",
 	//			"id": "http://example.edu/credentials/777",
 	//			"issuanceDate": "0001-01-01T00:00:00Z",
@@ -515,7 +518,9 @@ func ExamplePresentationDefinition_CreateVP_multipleMatches() {
 	//				"https://www.w3.org/2018/credentials/v1"
 	//			],
 	//			"age": 21,
-	//			"credentialSubject": "did:example:888",
+	//			"credentialSubject": {
+	//				"id": "did:example:888"
+	//			},
 	//			"first_name": "Jesse",
 	//			"id": "http://example.edu/credentials/888",
 	//			"issuanceDate": "0001-01-01T00:00:00Z",
@@ -572,18 +577,18 @@ func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
 		panic(err)
 	}
 
-	vp, err := pd.CreateVP([]*verifiable.Credential{
+	vp, err := pd.CreateVP(createExampleCredentials([]credentialProto{
 		{
 			ID:      "http://example.edu/credentials/777",
 			Context: []string{verifiable.ContextURI},
 			Types:   []string{verifiable.VCType},
-			Issuer: verifiable.Issuer{
+			Issuer: &verifiable.Issuer{
 				ID: "did:example:777",
 			},
 			Issued: &utiltime.TimeWrapper{
 				Time: time.Time{},
 			},
-			Subject: "did:example:777",
+			Subject: []verifiable.Subject{{ID: "did:example:777"}},
 			CustomFields: map[string]interface{}{
 				"first_name": "Andrew",
 				"last_name":  "Hanks",
@@ -594,20 +599,20 @@ func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
 			ID:      "http://example.edu/credentials/888",
 			Context: []string{verifiable.ContextURI},
 			Types:   []string{verifiable.VCType},
-			Issuer: verifiable.Issuer{
+			Issuer: &verifiable.Issuer{
 				ID: "did:example:888",
 			},
 			Issued: &utiltime.TimeWrapper{
 				Time: time.Time{},
 			},
-			Subject: "did:example:888",
+			Subject: []verifiable.Subject{{ID: "did:example:888"}},
 			CustomFields: map[string]interface{}{
 				"first_name": "Jesse",
 				"last_name":  "Pinkman",
 				"age":        21,
 			},
 		},
-	}, loader, verifiable.WithJSONLDDocumentLoader(loader))
+	}), loader, verifiable.WithJSONLDDocumentLoader(loader))
 	if err != nil {
 		panic(err)
 	}
@@ -622,7 +627,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
 
 	fmt.Println(string(vpBytes))
 	// Output:
-	// {
+	//{
 	//	"@context": [
 	//		"https://www.w3.org/2018/credentials/v1",
 	//		"https://identity.foundation/presentation-exchange/submission/v1"
@@ -684,7 +689,9 @@ func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
 	//				"https://www.w3.org/2018/credentials/v1"
 	//			],
 	//			"age": 25,
-	//			"credentialSubject": "did:example:777",
+	//			"credentialSubject": {
+	//				"id": "did:example:777"
+	//			},
 	//			"first_name": "Andrew",
 	//			"id": "http://example.edu/credentials/777",
 	//			"issuanceDate": "0001-01-01T00:00:00Z",
@@ -697,7 +704,9 @@ func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
 	//				"https://www.w3.org/2018/credentials/v1"
 	//			],
 	//			"age": 21,
-	//			"credentialSubject": "did:example:888",
+	//			"credentialSubject": {
+	//				"id": "did:example:888"
+	//			},
 	//			"first_name": "Jesse",
 	//			"id": "http://example.edu/credentials/888",
 	//			"issuanceDate": "0001-01-01T00:00:00Z",
@@ -728,7 +737,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
 	//			"type": "VerifiableCredential"
 	//		}
 	//	]
-	// }
+	//}
 }
 
 func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosure() {
@@ -816,18 +825,18 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 		panic(err)
 	}
 
-	vp, err := pd.CreateVP([]*verifiable.Credential{
+	vp, err := pd.CreateVP(createExampleCredentials([]credentialProto{
 		{
 			ID:      "http://example.edu/credentials/777",
 			Context: []string{verifiable.ContextURI},
 			Types:   []string{verifiable.VCType},
-			Issuer: verifiable.Issuer{
+			Issuer: &verifiable.Issuer{
 				ID: "did:example:777",
 			},
 			Issued: &utiltime.TimeWrapper{
 				Time: time.Time{},
 			},
-			Subject: "did:example:777",
+			Subject: []verifiable.Subject{{ID: "did:example:777"}},
 			CustomFields: map[string]interface{}{
 				"first_name": "Andrew",
 				"last_name":  "Hanks",
@@ -839,13 +848,13 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 			ID:      "http://example.edu/credentials/888",
 			Context: []string{verifiable.ContextURI},
 			Types:   []string{verifiable.VCType},
-			Issuer: verifiable.Issuer{
+			Issuer: &verifiable.Issuer{
 				ID: "did:example:888",
 			},
 			Issued: &utiltime.TimeWrapper{
 				Time: time.Time{},
 			},
-			Subject: "did:example:888",
+			Subject: []verifiable.Subject{{ID: "did:example:888"}},
 			CustomFields: map[string]interface{}{
 				"first_name": "Jesse",
 				"last_name":  "Pinkman",
@@ -853,7 +862,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 				"age":        21,
 			},
 		},
-	}, loader, verifiable.WithJSONLDDocumentLoader(loader))
+	}), loader, verifiable.WithJSONLDDocumentLoader(loader))
 	if err != nil {
 		panic(err)
 	}
@@ -866,6 +875,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 		panic(err)
 	}
 
+	//TODO: check why presentation some times serialize subjects as string, according to spec they should be objects
 	fmt.Println(string(vpBytes))
 	// Output:
 	// {
@@ -920,7 +930,9 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 	//				"https://www.w3.org/2018/credentials/v1"
 	//			],
 	//			"age": 25,
-	//			"credentialSubject": "did:example:777",
+	//			"credentialSubject": {
+	//				"id": "did:example:777"
+	//			},
 	//			"first_name": "Andrew",
 	//			"id": "http://example.edu/credentials/777",
 	//			"image": "http://image.com/user777",
@@ -934,7 +946,9 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 	//				"https://www.w3.org/2018/credentials/v1"
 	//			],
 	//			"age": 21,
-	//			"credentialSubject": "did:example:888",
+	//			"credentialSubject": {
+	//				"id": "did:example:888"
+	//			},
 	//			"first_name": "Jesse",
 	//			"id": "http://example.edu/credentials/888",
 	//			"issuanceDate": "0001-01-01T00:00:00Z",
@@ -1044,18 +1058,18 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 		panic(err)
 	}
 
-	vp, err := pd.CreateVP([]*verifiable.Credential{
+	vp, err := pd.CreateVP(createExampleCredentials([]credentialProto{
 		{
 			ID:      "http://example.edu/credentials/777",
 			Context: []string{verifiable.ContextURI},
 			Types:   []string{verifiable.VCType},
-			Issuer: verifiable.Issuer{
+			Issuer: &verifiable.Issuer{
 				ID: "did:example:777",
 			},
 			Issued: &utiltime.TimeWrapper{
 				Time: time.Time{},
 			},
-			Subject: "did:example:777",
+			Subject: []verifiable.Subject{{ID: "did:example:777"}},
 			CustomFields: map[string]interface{}{
 				"first_name": "Andrew",
 				"last_name":  "Hanks",
@@ -1067,13 +1081,13 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 			ID:      "http://example.edu/credentials/888",
 			Context: []string{"https://www.w3.org/2018/credentials/v1"},
 			Types:   []string{"VerifiableCredential"},
-			Issuer: verifiable.Issuer{
+			Issuer: &verifiable.Issuer{
 				ID: "did:example:888",
 			},
 			Issued: &utiltime.TimeWrapper{
 				Time: time.Time{},
 			},
-			Subject: "did:example:888",
+			Subject: []verifiable.Subject{{ID: "did:example:888"}},
 			CustomFields: map[string]interface{}{
 				"first_name": "Jesse",
 				"last_name":  "Pinkman",
@@ -1081,7 +1095,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 				"age":        21,
 			},
 		},
-	}, loader, verifiable.WithJSONLDDocumentLoader(loader))
+	}), loader, verifiable.WithJSONLDDocumentLoader(loader))
 	if err != nil {
 		panic(err)
 	}
@@ -1148,7 +1162,9 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 	//				"https://www.w3.org/2018/credentials/v1"
 	//			],
 	//			"age": 25,
-	//			"credentialSubject": "did:example:777",
+	//			"credentialSubject": {
+	//				"id": "did:example:777"
+	//			},
 	//			"first_name": "Andrew",
 	//			"id": "http://example.edu/credentials/777",
 	//			"image": "http://image.com/user777",
@@ -1162,7 +1178,9 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 	//				"https://www.w3.org/2018/credentials/v1"
 	//			],
 	//			"age": 21,
-	//			"credentialSubject": "did:example:888",
+	//			"credentialSubject": {
+	//				"id": "did:example:888"
+	//			},
 	//			"first_name": "Jesse",
 	//			"id": "http://example.edu/credentials/888",
 	//			"issuanceDate": "0001-01-01T00:00:00Z",
@@ -1319,18 +1337,18 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements2() {
 		panic(err)
 	}
 
-	vp, err := pd.CreateVP([]*verifiable.Credential{
+	vp, err := pd.CreateVP(createExampleCredentials([]credentialProto{
 		{
 			ID:      "http://example.dmv/credentials/777",
 			Context: []string{verifiable.ContextURI},
 			Types:   []string{verifiable.VCType},
-			Issuer: verifiable.Issuer{
+			Issuer: &verifiable.Issuer{
 				ID: "did:example:777",
 			},
 			Issued: &utiltime.TimeWrapper{
 				Time: time.Time{},
 			},
-			Subject: "did:example:777",
+			Subject: []verifiable.Subject{{ID: "did:example:777"}},
 			CustomFields: map[string]interface{}{
 				"first_name": "Andrew",
 				"last_name":  "Hanks",
@@ -1342,13 +1360,13 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements2() {
 			ID:      "https://example.gov/credentials/888",
 			Context: []string{"https://www.w3.org/2018/credentials/v1"},
 			Types:   []string{"VerifiableCredential", "GovSecureEmployeeCredential"},
-			Issuer: verifiable.Issuer{
+			Issuer: &verifiable.Issuer{
 				ID: "did:example:888",
 			},
 			Issued: &utiltime.TimeWrapper{
 				Time: time.Time{},
 			},
-			Subject: &verifiable.Subject{
+			Subject: []verifiable.Subject{{
 				ID: "did:example:888",
 				CustomFields: map[string]interface{}{
 					"clearance_level": []string{"Public", "Low-Security", "Facility-Supervised"},
@@ -1358,19 +1376,19 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements2() {
 						"international_default": "S2-Signoff",
 					},
 				},
-			},
+			}},
 		},
 		{
 			ID:      "https://example.faa/credentials/123",
 			Context: []string{"https://www.w3.org/2018/credentials/v1"},
 			Types:   []string{"VerifiableCredential", "FlightCertificationCredential"},
-			Issuer: verifiable.Issuer{
+			Issuer: &verifiable.Issuer{
 				ID: "did:example:123",
 			},
 			Issued: &utiltime.TimeWrapper{
 				Time: time.Time{},
 			},
-			Subject: &verifiable.Subject{
+			Subject: []verifiable.Subject{{
 				ID: "did:example:123",
 				CustomFields: map[string]interface{}{
 					"pilot_id":                "4358793",
@@ -1378,19 +1396,19 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements2() {
 					"licensed_vehicles":       []string{"hang_glider", "kite", "Cessna 152"},
 					"expiry":                  "2027-12-30",
 				},
-			},
+			}},
 		},
 		{
 			ID:      "https://example.business/credentials/employee/12345",
 			Context: []string{"https://www.w3.org/2018/credentials/v1"},
 			Types:   []string{"VerifiableCredential", "EmployeeCredential"},
-			Issuer: verifiable.Issuer{
+			Issuer: &verifiable.Issuer{
 				ID: "did:example:12345",
 			},
 			Issued: &utiltime.TimeWrapper{
 				Time: time.Time{},
 			},
-			Subject: &verifiable.Subject{
+			Subject: []verifiable.Subject{{
 				ID: "did:example:12345",
 				CustomFields: map[string]interface{}{
 					"employed_since": "2021-07-06",
@@ -1398,20 +1416,20 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements2() {
 					"role":           "Management Consultant",
 					"reference":      "did:example:10101",
 					"pilot_id":       "4358793",
-				},
+				}},
 			},
 		},
 		{
 			ID:      "https://example.co.website/credentials/employee/7",
 			Context: []string{"https://www.w3.org/2018/credentials/v1"},
 			Types:   []string{"VerifiableCredential", "EmployeeCredential"},
-			Issuer: verifiable.Issuer{
+			Issuer: &verifiable.Issuer{
 				ID: "did:example:7",
 			},
 			Issued: &utiltime.TimeWrapper{
 				Time: time.Time{},
 			},
-			Subject: &verifiable.Subject{
+			Subject: []verifiable.Subject{{
 				ID: "did:example:7",
 				CustomFields: map[string]interface{}{
 					"employed_since": "2017-01-01",
@@ -1420,10 +1438,10 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements2() {
 					"employer":       "Chucky Pilot's Bar & Grill",
 					"pilot_points":   172,
 					"pilot_id":       "Bravo-7",
-				},
+				}},
 			},
 		},
-	}, loader, verifiable.WithJSONLDDocumentLoader(loader))
+	}), loader, verifiable.WithJSONLDDocumentLoader(loader))
 	if err != nil {
 		panic(err)
 	}
@@ -1500,7 +1518,9 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements2() {
 	//				"https://www.w3.org/2018/credentials/v1"
 	//			],
 	//			"DOB": "5/18/86",
-	//			"credentialSubject": "did:example:777",
+	//			"credentialSubject": {
+	//				"id": "did:example:777"
+	//			},
 	//			"first_name": "Andrew",
 	//			"id": "http://example.dmv/credentials/777",
 	//			"issuanceDate": "0001-01-01T00:00:00Z",
@@ -1663,7 +1683,7 @@ func ExamplePresentationDefinition_Match() {
 		receivedCred := matched[descriptor.ID]
 		fmt.Printf(
 			"verifier received the '%s' credential for the input descriptor id '%s'\n",
-			receivedCred.Credential.Context[1], descriptor.ID)
+			receivedCred.Credential.Contents().Context[1], descriptor.ID)
 	}
 
 	// Output:
@@ -1718,18 +1738,36 @@ const exampleJSONLDContext = `{
 }`
 
 func fetchVC(ctx, types []string) *verifiable.Credential {
-	vc := &verifiable.Credential{
+	vc, err := createCredential(credentialProto{
 		Context: append([]string{verifiable.ContextURI}, ctx...),
 		Types:   append([]string{verifiable.VCType}, types...),
 		ID:      "http://test.credential.com/123",
-		Issuer:  verifiable.Issuer{ID: "http://test.issuer.com"},
+		Issuer:  &verifiable.Issuer{ID: "http://test.issuer.com"},
 		Issued: &utiltime.TimeWrapper{
 			Time: time.Now(),
 		},
-		Subject: map[string]interface{}{
-			"id": uuid.New().String(),
-		},
+		Subject: []verifiable.Subject{{
+			ID: uuid.New().String(),
+		}},
+	})
+	if err != nil {
+		panic(fmt.Errorf("create credential: %w", err))
 	}
 
 	return vc
+}
+
+func createExampleCredentials(protos []credentialProto) []*verifiable.Credential {
+	var creds []*verifiable.Credential
+
+	for _, proto := range protos {
+		vc, err := createCredential(proto)
+		if err != nil {
+			panic(fmt.Errorf("create credential: %w", err))
+		}
+
+		creds = append(creds, vc)
+	}
+
+	return creds
 }

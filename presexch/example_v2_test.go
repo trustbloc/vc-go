@@ -20,10 +20,12 @@ import (
 	ldprocessor "github.com/trustbloc/did-go/doc/ld/processor"
 	ldtestutil "github.com/trustbloc/did-go/doc/ld/testutil"
 	"github.com/trustbloc/kms-go/spi/kms"
+
 	"github.com/trustbloc/vc-go/internal/testutil/kmscryptoutil"
 	"github.com/trustbloc/vc-go/internal/testutil/signatureutil"
 
 	utiltime "github.com/trustbloc/did-go/doc/util/time"
+
 	. "github.com/trustbloc/vc-go/presexch"
 	"github.com/trustbloc/vc-go/sdjwt/common"
 	"github.com/trustbloc/vc-go/signature/suite"
@@ -69,12 +71,12 @@ func ExamplePresentationDefinition_CreateVP_v2() {
 		panic(err)
 	}
 
-	vp, err := pd.CreateVP([]*verifiable.Credential{
+	vp, err := pd.CreateVP(createExampleCredentials([]credentialProto{
 		{
 			ID:      "http://example.edu/credentials/777",
 			Context: []string{verifiable.ContextURI},
 			Types:   []string{verifiable.VCType},
-			Issuer: verifiable.Issuer{
+			Issuer: &verifiable.Issuer{
 				ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
 			},
 			Issued: &utiltime.TimeWrapper{
@@ -85,14 +87,14 @@ func ExamplePresentationDefinition_CreateVP_v2() {
 				Type: "JsonSchemaValidator2018",
 			}},
 
-			Subject: map[string]interface{}{
+			Subject: parseSubject(map[string]interface{}{
 				"id":         "did:example:ebfeb1f712ebc6f1c276e12ec21",
 				"first_name": "Jesse",
 				"last_name":  "Pinkman",
 				"age":        21,
-			},
+			}),
 		},
-	}, loader, verifiable.WithJSONLDDocumentLoader(loader))
+	}), loader, verifiable.WithJSONLDDocumentLoader(loader))
 	if err != nil {
 		panic(err)
 	}
@@ -140,9 +142,7 @@ func ExamplePresentationDefinition_CreateVP_v2() {
 	//			],
 	//			"credentialSubject": {
 	//				"age": true,
-	//				"first_name": "Jesse",
-	//				"id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
-	//				"last_name": "Pinkman"
+	//				"id": "did:example:ebfeb1f712ebc6f1c276e12ec21"
 	//			},
 	//			"id": "http://example.edu/credentials/777",
 	//			"issuanceDate": "0001-01-01T00:00:00Z",
@@ -195,12 +195,12 @@ func ExamplePresentationDefinition_CreateVP_with_LdpVC_Format() {
 		panic(err)
 	}
 
-	vp, err := pd.CreateVP([]*verifiable.Credential{
+	vp, err := pd.CreateVP(createExampleCredentials([]credentialProto{
 		{
 			ID:      "http://example.edu/credentials/777",
 			Context: []string{verifiable.ContextURI},
 			Types:   []string{verifiable.VCType},
-			Issuer: verifiable.Issuer{
+			Issuer: &verifiable.Issuer{
 				ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
 			},
 			Issued: &utiltime.TimeWrapper{
@@ -211,17 +211,17 @@ func ExamplePresentationDefinition_CreateVP_with_LdpVC_Format() {
 				Type: "JsonSchemaValidator2018",
 			}},
 
-			Subject: map[string]interface{}{
+			Subject: parseSubject(map[string]interface{}{
 				"id":         "did:example:ebfeb1f712ebc6f1c276e12ec21",
 				"first_name": "Jesse",
 				"last_name":  "Pinkman",
 				"age":        21,
-			},
+			}),
 			Proofs: []verifiable.Proof{
 				{"type": "Ed25519Signature2018"},
 			},
 		},
-	}, loader, verifiable.WithJSONLDDocumentLoader(loader))
+	}), loader, verifiable.WithJSONLDDocumentLoader(loader))
 	if err != nil {
 		panic(err)
 	}
@@ -269,9 +269,7 @@ func ExamplePresentationDefinition_CreateVP_with_LdpVC_Format() {
 	//			],
 	//			"credentialSubject": {
 	//				"age": true,
-	//				"first_name": "Jesse",
-	//				"id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
-	//				"last_name": "Pinkman"
+	//				"id": "did:example:ebfeb1f712ebc6f1c276e12ec21"
 	//			},
 	//			"id": "http://example.edu/credentials/777",
 	//			"issuanceDate": "0001-01-01T00:00:00Z",
@@ -324,12 +322,12 @@ func ExamplePresentationDefinition_CreateVP_with_Ldp_Format() {
 		panic(err)
 	}
 
-	vp, err := pd.CreateVP([]*verifiable.Credential{
+	vp, err := pd.CreateVP(createExampleCredentials([]credentialProto{
 		{
 			ID:      "http://example.edu/credentials/777",
 			Context: []string{verifiable.ContextURI},
 			Types:   []string{verifiable.VCType},
-			Issuer: verifiable.Issuer{
+			Issuer: &verifiable.Issuer{
 				ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
 			},
 			Issued: &utiltime.TimeWrapper{
@@ -340,17 +338,17 @@ func ExamplePresentationDefinition_CreateVP_with_Ldp_Format() {
 				Type: "JsonSchemaValidator2018",
 			}},
 
-			Subject: map[string]interface{}{
+			Subject: parseSubject(map[string]interface{}{
 				"id":         "did:example:ebfeb1f712ebc6f1c276e12ec21",
 				"first_name": "Jesse",
 				"last_name":  "Pinkman",
 				"age":        21,
-			},
+			}),
 			Proofs: []verifiable.Proof{
 				{"type": "Ed25519Signature2018"},
 			},
 		},
-	}, loader, verifiable.WithJSONLDDocumentLoader(loader))
+	}), loader, verifiable.WithJSONLDDocumentLoader(loader))
 	if err != nil {
 		panic(err)
 	}
@@ -398,9 +396,7 @@ func ExamplePresentationDefinition_CreateVP_with_Ldp_Format() {
 	//			],
 	//			"credentialSubject": {
 	//				"age": true,
-	//				"first_name": "Jesse",
-	//				"id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
-	//				"last_name": "Pinkman"
+	//				"id": "did:example:ebfeb1f712ebc6f1c276e12ec21"
 	//			},
 	//			"id": "http://example.edu/credentials/777",
 	//			"issuanceDate": "0001-01-01T00:00:00Z",
@@ -453,12 +449,12 @@ func ExamplePresentationDefinition_CreateVP_withFormatInInputDescriptor() {
 		panic(err)
 	}
 
-	vp, err := pd.CreateVP([]*verifiable.Credential{
+	vp, err := pd.CreateVP(createExampleCredentials([]credentialProto{
 		{
 			ID:      "http://example.edu/credentials/777",
 			Context: []string{verifiable.ContextURI},
 			Types:   []string{verifiable.VCType},
-			Issuer: verifiable.Issuer{
+			Issuer: &verifiable.Issuer{
 				ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
 			},
 			Issued: &utiltime.TimeWrapper{
@@ -469,17 +465,17 @@ func ExamplePresentationDefinition_CreateVP_withFormatInInputDescriptor() {
 				Type: "JsonSchemaValidator2018",
 			}},
 
-			Subject: map[string]interface{}{
+			Subject: parseSubject(map[string]interface{}{
 				"id":         "did:example:ebfeb1f712ebc6f1c276e12ec21",
 				"first_name": "Jesse",
 				"last_name":  "Pinkman",
 				"age":        21,
-			},
+			}),
 			Proofs: []verifiable.Proof{
 				{"type": "Ed25519Signature2018"},
 			},
 		},
-	}, loader, verifiable.WithJSONLDDocumentLoader(loader))
+	}), loader, verifiable.WithJSONLDDocumentLoader(loader))
 	if err != nil {
 		panic(err)
 	}
@@ -527,9 +523,7 @@ func ExamplePresentationDefinition_CreateVP_withFormatInInputDescriptor() {
 	//			],
 	//			"credentialSubject": {
 	//				"age": true,
-	//				"first_name": "Jesse",
-	//				"id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
-	//				"last_name": "Pinkman"
+	//				"id": "did:example:ebfeb1f712ebc6f1c276e12ec21"
 	//			},
 	//			"id": "http://example.edu/credentials/777",
 	//			"issuanceDate": "0001-01-01T00:00:00Z",
@@ -582,12 +576,12 @@ func TestExamplePresentationDefinition_CreateVPWithFormat_NoMatch(t *testing.T) 
 		panic(err)
 	}
 
-	_, err = pd.CreateVP([]*verifiable.Credential{
+	_, err = pd.CreateVP(createExampleCredentials([]credentialProto{
 		{
 			ID:      "http://example.edu/credentials/777",
 			Context: []string{verifiable.ContextURI},
 			Types:   []string{verifiable.VCType},
-			Issuer: verifiable.Issuer{
+			Issuer: &verifiable.Issuer{
 				ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
 			},
 			Issued: &utiltime.TimeWrapper{
@@ -598,17 +592,17 @@ func TestExamplePresentationDefinition_CreateVPWithFormat_NoMatch(t *testing.T) 
 				Type: "JsonSchemaValidator2018",
 			}},
 
-			Subject: map[string]interface{}{
+			Subject: parseSubject(map[string]interface{}{
 				"id":         "did:example:ebfeb1f712ebc6f1c276e12ec21",
 				"first_name": "Jesse",
 				"last_name":  "Pinkman",
 				"age":        21,
-			},
+			}),
 			Proofs: []verifiable.Proof{
 				{"type": "JsonWebSignature2020"},
 			},
 		},
-	}, loader, verifiable.WithJSONLDDocumentLoader(loader))
+	}), loader, verifiable.WithJSONLDDocumentLoader(loader))
 
 	require.EqualError(t, err, "credentials do not satisfy requirements")
 }
@@ -732,8 +726,8 @@ func ExamplePresentationDefinition_CreateVP_withFrame() {
 
 	vp.ID = dummy
 	vp.CustomFields["presentation_submission"].(*PresentationSubmission).ID = dummy
-	vp.Credentials()[0].(*verifiable.Credential).Proofs[0]["created"] = dummy
-	vp.Credentials()[0].(*verifiable.Credential).Proofs[0]["proofValue"] = dummy
+	vp.Credentials()[0].Proofs()[0]["created"] = dummy
+	vp.Credentials()[0].Proofs()[0]["proofValue"] = dummy
 
 	vpBytes, err := json.MarshalIndent(vp, "", "\t")
 	if err != nil {
@@ -839,11 +833,11 @@ func ExamplePresentationDefinition_CreateVP_limitedDisclosureSkipsNonSDVCs() {
 	}
 
 	makeVC := func(id string) *verifiable.Credential {
-		return &verifiable.Credential{
+		vc, makeErr := verifiable.CreateCredential(verifiable.CredentialContents{
 			ID:      id,
 			Context: []string{verifiable.ContextURI},
 			Types:   []string{verifiable.VCType},
-			Issuer: verifiable.Issuer{
+			Issuer: &verifiable.Issuer{
 				ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
 			},
 			Issued: &utiltime.TimeWrapper{
@@ -854,13 +848,18 @@ func ExamplePresentationDefinition_CreateVP_limitedDisclosureSkipsNonSDVCs() {
 				Type: "JsonSchemaValidator2018",
 			}},
 
-			Subject: map[string]interface{}{
+			Subject: parseSubject(map[string]interface{}{
 				"id":         "did:example:ebfeb1f712ebc6f1c276e12ec21",
 				"first_name": "Jesse",
 				"last_name":  "Pinkman",
 				"warn_alert": "mauve",
-			},
+			}),
+		}, nil)
+		if makeErr != nil {
+			panic(fmt.Errorf("make vc :%w", makeErr))
 		}
+
+		return vc
 	}
 
 	kmsCrypto, err := kmscryptoutil.LocalKMSCryptoErr()
@@ -880,7 +879,7 @@ func ExamplePresentationDefinition_CreateVP_limitedDisclosureSkipsNonSDVCs() {
 		panic(err)
 	}
 
-	credJWT, err := claims.MarshalJWS(verifiable.ECDSASecp256r1, signer, "#key-1")
+	credJWT, err := claims.MarshalJWSString(verifiable.ECDSASecp256r1, signer, "#key-1")
 	if err != nil {
 		panic(err)
 	}
@@ -914,20 +913,17 @@ func ExamplePresentationDefinition_CreateVP_limitedDisclosureSkipsNonSDVCs() {
 	vp.ID = dummy
 	vp.CustomFields["presentation_submission"].(*PresentationSubmission).ID = dummy
 
-	presentedVC, ok := vp.Credentials()[0].(*verifiable.Credential)
-	if !ok {
-		panic("expected value of type *verifiable.Credential")
-	}
+	presentedVC := vp.Credentials()[0]
 
-	vp.Credentials()[0] = "DUMMY"
-
-	presentedVC.JWT = ""
-	presentedVC.SDJWTHashAlg = ""
-	presentedVC.Subject.([]verifiable.Subject)[0].CustomFields["_sd"] = []interface{}{"DUMMY", "DUMMY", "DUMMY"}
-
-	vcBytes, err := json.MarshalIndent(presentedVC, "", "\t")
+	vcBytes, err := json.MarshalIndent(presentedVC.ToRawJSON(), "", "\t")
 	if err != nil {
 		panic(err)
+	}
+
+	vcStr := string(vcBytes)
+
+	for _, sd := range presentedVC.Contents().Subject[0].CustomFields["_sd"].([]interface{}) {
+		vcStr = strings.ReplaceAll(vcStr, sd.(string), "DUMMY")
 	}
 
 	vpBytes, err := json.MarshalIndent(vp, "", "\t")
@@ -935,11 +931,18 @@ func ExamplePresentationDefinition_CreateVP_limitedDisclosureSkipsNonSDVCs() {
 		panic(err)
 	}
 
-	fmt.Println(string(vpBytes))
-	fmt.Println(string(vcBytes))
-	fmt.Println(prettifyDisclosures(presentedVC.SDJWTDisclosures))
+	presentedJWT, err := presentedVC.ToJWTString()
+	if err != nil {
+		panic(err)
+	}
+
+	vpStr := strings.ReplaceAll(string(vpBytes), presentedJWT, "DUMMY")
+
+	fmt.Println(vpStr)
+	fmt.Println(vcStr)
+	fmt.Println(prettifyDisclosures(presentedVC.SDJWTDisclosures()))
 	// Output:
-	// {
+	//{
 	//	"@context": [
 	//		"https://www.w3.org/2018/credentials/v1",
 	//		"https://identity.foundation/presentation-exchange/submission/v1"
@@ -968,17 +971,16 @@ func ExamplePresentationDefinition_CreateVP_limitedDisclosureSkipsNonSDVCs() {
 	//	"verifiableCredential": [
 	//		"DUMMY"
 	//	]
-	// }
-	// {
+	//}
+	//{
 	//	"@context": [
 	//		"https://www.w3.org/2018/credentials/v1"
 	//	],
-	//	"credentialSchema": [
-	//		{
-	//			"id": "hub://did:foo:123/Collections/schema.us.gov/passport.json",
-	//			"type": "JsonSchemaValidator2018"
-	//		}
-	//	],
+	//	"_sd_alg": "sha-256",
+	//	"credentialSchema": {
+	//		"id": "hub://did:foo:123/Collections/schema.us.gov/passport.json",
+	//		"type": "JsonSchemaValidator2018"
+	//	},
 	//	"credentialSubject": {
 	//		"_sd": [
 	//			"DUMMY",
@@ -1026,4 +1028,13 @@ func signVCWithBBS(privKey *bbs12381g2pub.PrivateKey, vc *verifiable.Credential,
 	if err != nil {
 		panic(err)
 	}
+}
+
+func parseSubject(raw map[string]interface{}) []verifiable.Subject {
+	subject, err := verifiable.SubjectFromJSON(raw)
+	if err != nil {
+		panic(fmt.Errorf("subject parsing %w", err))
+	}
+
+	return []verifiable.Subject{subject}
 }

@@ -78,6 +78,9 @@ func TestPresentation_AddLinkedDataProof(t *testing.T) {
 		err = vp.AddLinkedDataProof(ldpContext, ldprocessor.WithDocumentLoader(createTestDocumentLoader(t)))
 		r.NoError(err)
 
+		err = vp.AddLinkedDataProof(ldpContext, ldprocessor.WithDocumentLoader(createTestDocumentLoader(t)))
+		r.NoError(err)
+
 		vpJSON, err := vp.MarshalJSON()
 		r.NoError(err)
 
@@ -88,7 +91,7 @@ func TestPresentation_AddLinkedDataProof(t *testing.T) {
 		vpProof := vpMap["proof"]
 		vpProofs, ok := vpProof.([]interface{})
 		r.True(ok)
-		r.Len(vpProofs, 2)
+		r.Len(vpProofs, 3)
 		newVPProof, ok := vpProofs[1].(map[string]interface{})
 		r.True(ok)
 		r.Contains(newVPProof, "created")

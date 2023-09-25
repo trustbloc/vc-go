@@ -30,14 +30,14 @@ var validCredential string //nolint:gochecknoglobals
 //go:embed testdata/credential_without_issuancedate.jsonld
 var credentialWithoutIssuanceDate string //nolint:gochecknoglobals
 
-func (rc *rawCredential) stringJSON(t *testing.T) string {
-	bytes, err := json.Marshal(rc)
+func (vc *Credential) stringJSON(t *testing.T) string {
+	bytes, err := json.Marshal(vc)
 	require.NoError(t, err)
 
 	return string(bytes)
 }
 
-func (vc *Credential) stringJSON(t *testing.T) string {
+func jsonObjectToString(t *testing.T, vc JSONObject) string {
 	bytes, err := json.Marshal(vc)
 	require.NoError(t, err)
 
@@ -49,13 +49,6 @@ func (vc *Credential) byteJSON(t *testing.T) []byte {
 	require.NoError(t, err)
 
 	return bytes
-}
-
-func (rp *rawPresentation) stringJSON(t *testing.T) string {
-	bytes, err := json.Marshal(rp)
-	require.NoError(t, err)
-
-	return string(bytes)
 }
 
 func (vp *Presentation) stringJSON(t *testing.T) string {

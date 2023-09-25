@@ -207,11 +207,11 @@ func GetCryptoHashFromClaims(claims map[string]interface{}) (crypto.Hash, error)
 	}
 
 	// check that _sd_alg value is understood and the hash algorithm is deemed secure.
-	return GetCryptoHash(sdAlg)
+	return ParseCryptoHashAlg(sdAlg)
 }
 
-// GetCryptoHash returns crypto hash from SD algorithm.
-func GetCryptoHash(sdAlg string) (crypto.Hash, error) {
+// ParseCryptoHashAlg returns crypto hash from SD algorithm.
+func ParseCryptoHashAlg(sdAlg string) (crypto.Hash, error) {
 	var err error
 
 	var cryptoHash crypto.Hash
@@ -231,6 +231,20 @@ func GetCryptoHash(sdAlg string) (crypto.Hash, error) {
 	}
 
 	return cryptoHash, err
+}
+
+// FormatCryptoHashAlg returns algorithm name.
+func FormatCryptoHashAlg(sdAlg crypto.Hash) (string, error) {
+	switch sdAlg {
+	case crypto.SHA256:
+		fallthrough
+	case crypto.SHA384:
+		fallthrough
+	case crypto.SHA512:
+		return strings.ToLower(sdAlg.String()), nil
+	}
+
+	return "", fmt.Errorf("'%s' not supported", sdAlg)
 }
 
 // GetSDAlg returns SD algorithm from claims.

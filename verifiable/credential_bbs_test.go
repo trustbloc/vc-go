@@ -76,7 +76,7 @@ func TestCredential_GenerateBBSSelectiveDisclosure(t *testing.T) {
 
 	vc, err := parseTestCredential(t, []byte(vcJSON))
 	require.NoError(t, err)
-	require.Len(t, vc.Proofs, 0)
+	require.Len(t, vc.Proofs(), 0)
 
 	signVCWithBBS(t, privKey, pubKeyBytes, vc)
 	signVCWithEd25519(t, vc)
@@ -114,7 +114,7 @@ func TestCredential_GenerateBBSSelectiveDisclosure(t *testing.T) {
 	vcWithSelectiveDisclosure, err := vc.GenerateBBSSelectiveDisclosure(revealDoc, nonce, vcOptions...)
 	require.NoError(t, err)
 	require.NotNil(t, vcWithSelectiveDisclosure)
-	require.Len(t, vcWithSelectiveDisclosure.Proofs, 1)
+	require.Len(t, vcWithSelectiveDisclosure.Proofs(), 1)
 
 	vcSelectiveDisclosureBytes, err := json.Marshal(vcWithSelectiveDisclosure)
 	require.NoError(t, err)
@@ -190,7 +190,7 @@ func TestCredential_GenerateBBSSelectiveDisclosure(t *testing.T) {
 	})
 
 	t.Run("VC with no embedded proof", func(t *testing.T) {
-		vc.Proofs = nil
+		vc.ResetProofs(nil)
 		vcWithSelectiveDisclosure, err = vc.GenerateBBSSelectiveDisclosure(revealDoc, nonce, vcOptions...)
 		require.Error(t, err)
 		require.EqualError(t, err, "expected at least one proof present")

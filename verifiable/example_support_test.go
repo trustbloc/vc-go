@@ -8,7 +8,6 @@ package verifiable_test
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"strings"
 
 	"github.com/trustbloc/bbs-signature-go/bbs12381g2pub"
@@ -37,15 +36,17 @@ type UniversityDegreeCredential struct {
 }
 
 func (udc *UniversityDegreeCredential) MarshalJSON() ([]byte, error) {
-	// todo too complex! (https://github.com/hyperledger/aries-framework-go/issues/847)
-	c := udc.Credential
-	cp := *c
+	raw := udc.Credential.ToRawJSON()
+	raw["referenceNumber"] = udc.ReferenceNumber
 
-	cp.CustomFields = map[string]interface{}{
-		"referenceNumber": udc.ReferenceNumber,
+	vc, err := verifiable.ParseCredentialJSON(raw,
+		verifiable.WithCredDisableValidation(),
+		verifiable.WithDisabledProofCheck())
+	if err != nil {
+		panic(err)
 	}
 
-	return json.Marshal(&cp)
+	return vc.MarshalJSON()
 }
 
 func getJSONLDDocumentLoader() *lddocloader.DocumentLoader {

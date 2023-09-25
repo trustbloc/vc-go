@@ -99,27 +99,104 @@ func Test_unmarshalJSON(t *testing.T) {
 	})
 }
 
-func Test_toMaps(t *testing.T) {
-	v := []interface{}{
-		struct {
-			S string
-			I int
-		}{"12", 5},
-
-		map[string]interface{}{
-			"a": "b",
-		},
+func TestAddCustomFields(t *testing.T) {
+	orign := map[string]interface{}{
+		"fld1": "v1",
+		"fld2": "v2",
+		"fld3": "v3",
 	}
 
-	maps, err := ToMaps(v)
-	require.NoError(t, err)
-	require.Len(t, maps, 2)
-	require.Equal(t, []map[string]interface{}{
-		{"S": "12", "I": 5.},
-		{"a": "b"},
-	}, maps)
+	cf := map[string]interface{}{
+		"fld3": "cv3",
+		"fld4": "cv4",
+		"fld5": "cv5",
+	}
 
-	maps, err = ToMaps([]interface{}{make(chan int)})
-	require.Error(t, err)
-	require.Empty(t, maps)
+	expected := map[string]interface{}{
+		"fld1": "v1",
+		"fld2": "v2",
+		"fld3": "v3",
+		"fld4": "cv4",
+		"fld5": "cv5",
+	}
+
+	AddCustomFields(orign, cf)
+
+	require.Equal(t, expected, orign)
+}
+
+func TestSplitJSONObj(t *testing.T) {
+	orign := map[string]interface{}{
+		"fld1": "v1",
+		"fld2": "v2",
+		"fld3": "v3",
+		"fld4": "cv4",
+		"fld5": "cv5",
+	}
+
+	obj, cf := SplitJSONObj(orign, "fld1", "fld2", "fld3")
+
+	require.Equal(t, map[string]interface{}{
+		"fld1": "v1",
+		"fld2": "v2",
+		"fld3": "v3",
+	}, obj)
+
+	require.Equal(t, map[string]interface{}{
+		"fld4": "cv4",
+		"fld5": "cv5",
+	}, cf)
+}
+
+func TestShallowCopyObj(t *testing.T) {
+	orign := map[string]interface{}{
+		"fld1": "v1",
+		"fld2": "v2",
+		"fld3": "v3",
+	}
+
+	copyObj := ShallowCopyObj(orign)
+
+	require.Equal(t, orign, copyObj)
+
+	copyObj["fld1"] = "new"
+
+	require.NotEqual(t, orign, copyObj)
+}
+
+func TestCopyExcept(t *testing.T) {
+	orign := map[string]interface{}{
+		"fld1": "v1",
+		"fld2": "v2",
+		"fld3": "v3",
+		"fld4": "cv4",
+		"fld5": "cv5",
+	}
+
+	expected := map[string]interface{}{
+		"fld1": "v1",
+		"fld2": "v2",
+		"fld3": "v3",
+	}
+
+	copyObj := CopyExcept(orign, "fld4", "fld5")
+	require.Equal(t, expected, copyObj)
+}
+
+func TestSelect(t *testing.T) {
+	orign := map[string]interface{}{
+		"fld1": "v1",
+		"fld2": "v2",
+		"fld3": "v3",
+		"fld4": "cv4",
+		"fld5": "cv5",
+	}
+
+	expected := map[string]interface{}{
+		"fld4": "cv4",
+		"fld5": "cv5",
+	}
+
+	copyObj := Select(orign, "fld4", "fld5")
+	require.Equal(t, expected, copyObj)
 }

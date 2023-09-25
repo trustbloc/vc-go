@@ -186,41 +186,41 @@ func verifyAllowedProperties(values map[string]interface{}, allowedProperty []st
 func isValidDomainLinkageCredential(vc *verifiable.Credential, did, origin string) error {
 	// validate JWT format if credential has been parsed from JWT format
 	// https://identity.foundation/.well-known/resources/did-configuration/#json-web-token-proof-format
-	if vc.JWT != "" {
+	if vc.IsJWT() {
 		return validateJWT(vc, did, origin)
 	}
 
 	// validate domain linkage credential rules:
 	// https://identity.foundation/.well-known/resources/did-configuration/#domain-linkage-credential
-	return validateDomainLinkageCredential(vc, did, origin)
+	return validateDomainLinkageCredential(vc.Contents(), did, origin)
 }
 
-func validateDomainLinkageCredential(vc *verifiable.Credential, did, origin string) error {
-	if !contains(domainLinkageCredentialType, vc.Types) {
+func validateDomainLinkageCredential(vcc verifiable.CredentialContents, did, origin string) error {
+	if !contains(domainLinkageCredentialType, vcc.Types) {
 		return fmt.Errorf("credential is not of %s type", domainLinkageCredentialType)
 	}
 
-	if vc.ID != "" {
+	if vcc.ID != "" {
 		return fmt.Errorf("id MUST NOT be present")
 	}
 
-	if vc.Issued == nil {
+	if vcc.Issued == nil {
 		return fmt.Errorf("issuance date MUST be present")
 	}
 
-	if vc.Expired == nil {
+	if vcc.Expired == nil {
 		return fmt.Errorf("expiration date MUST be present")
 	}
 
-	if vc.Subject == nil {
+	if vcc.Subject == nil {
 		return fmt.Errorf("subject MUST be present")
 	}
 
-	return validateSubject(vc.Subject, did, origin)
+	return validateSubject(vcc.Subject, did, origin)
 }
 
 func validateJWT(vc *verifiable.Credential, did, origin string) error {
-	jsonWebToken, _, err := jwt.Parse(vc.JWT, jwt.WithSignatureVerifier(&noVerifier{}))
+	jsonWebToken, _, err := jwt.Parse(vc.JWTEnvelope.JWT, jwt.WithSignatureVerifier(&noVerifier{}))
 	if err != nil {
 		return fmt.Errorf("parse JWT: %w", err)
 	}
@@ -233,7 +233,7 @@ func validateJWT(vc *verifiable.Credential, did, origin string) error {
 		return err
 	}
 
-	if err := validateDomainLinkageCredential(vc, did, origin); err != nil {
+	if err := validateDomainLinkageCredential(vc.Contents(), did, origin); err != nil {
 		return err
 	}
 
@@ -409,8 +409,9 @@ func getCredentials(linkedDIDs []interface{}, did, domain string, opts ...verifi
 			continue
 		}
 
-		if vc.Issuer.ID != did {
-			debugLogger.Printf("skipping credential since issuer[%s] is different from DID[%s]", vc.Issuer.ID, did)
+		if vc.Contents().Issuer.ID != did {
+			debugLogger.Printf("skipping credential since issuer[%s] is different from DID[%s]",
+				vc.Contents().Issuer.ID, did)
 
 			continue
 		}

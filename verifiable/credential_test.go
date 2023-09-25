@@ -6,6 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
+	"crypto"
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/json"
@@ -18,11 +19,13 @@ import (
 	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
 	jsonld "github.com/trustbloc/did-go/doc/ld/processor"
+	afgotime "github.com/trustbloc/did-go/doc/util/time"
 	"github.com/trustbloc/kms-go/doc/jose"
 	"github.com/trustbloc/kms-go/spi/kms"
-	"github.com/trustbloc/vc-go/internal/testutil/signatureutil"
 	"github.com/xeipuuv/gojsonschema"
 	"golang.org/x/exp/slices"
+
+	"github.com/trustbloc/vc-go/internal/testutil/signatureutil"
 
 	"github.com/trustbloc/vc-go/signature/suite"
 	"github.com/trustbloc/vc-go/signature/suite/ed25519signature2018"
@@ -59,11 +62,43 @@ const issuerAsObject = `
 }
 `
 
+//nolint:gochecknoglobals
+var subjectProto = Subject{
+	ID: "did:example:ebfeb1f712ebc6f1c276e12ec21",
+	CustomFields: map[string]interface{}{
+		"name":   "Jayden Doe",
+		"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1",
+	},
+}
+
+//nolint:gochecknoglobals
+var vccProto = CredentialContents{
+	Context: []string{
+		"https://www.w3.org/2018/credentials/v1",
+		"https://www.w3.org/2018/credentials/examples/v1",
+	},
+	ID: "http://example.edu/credentials/1872",
+	Types: []string{
+		"VerifiableCredential",
+		"UniversityDegreeCredential",
+	},
+	Subject: []Subject{subjectProto},
+	Issuer: &Issuer{
+		ID:           "did:example:76e12ec712ebc6f1c221ebfeb1f",
+		CustomFields: CustomFields{"name": "Example University"},
+	},
+	Issued:  afgotime.NewTime(time.Now()),
+	Expired: afgotime.NewTime(time.Now().Add(time.Hour)),
+	Schemas: []TypedID{},
+}
+
 func TestParseCredential(t *testing.T) {
 	t.Run("test creation of new Verifiable Credential from JSON with valid structure", func(t *testing.T) {
 		vc, err := parseTestCredential(t, []byte(validCredential), WithStrictValidation())
 		require.NoError(t, err)
 		require.NotNil(t, vc)
+
+		vcc := vc.Contents()
 
 		// validate @context
 		require.Equal(t, []string{
@@ -72,45 +107,45 @@ func TestParseCredential(t *testing.T) {
 			"https://w3id.org/security/jws/v1",
 			"https://trustbloc.github.io/context/vc/examples-v1.jsonld",
 			"https://w3id.org/security/suites/ed25519-2020/v1",
-		}, vc.Context)
+		}, vcc.Context)
 
 		// validate id
-		require.Equal(t, "http://example.edu/credentials/1872", vc.ID)
+		require.Equal(t, "http://example.edu/credentials/1872", vcc.ID)
 
 		// validate type
-		require.Equal(t, []string{"VerifiableCredential"}, vc.Types)
+		require.Equal(t, []string{"VerifiableCredential"}, vcc.Types)
 
 		// validate not null credential subject
-		require.NotNil(t, vc.Subject)
+		require.NotNil(t, vcc.Subject)
 
 		// validate not null credential subject
-		require.NotNil(t, vc.Issuer)
-		require.Equal(t, "did:example:76e12ec712ebc6f1c221ebfeb1f", vc.Issuer.ID)
-		require.Equal(t, "Example University", vc.Issuer.CustomFields["name"])
-		require.Equal(t, "data:image/png;base64,iVBOR", vc.Issuer.CustomFields["image"])
+		require.NotNil(t, vcc.Issuer)
+		require.Equal(t, "did:example:76e12ec712ebc6f1c221ebfeb1f", vcc.Issuer.ID)
+		require.Equal(t, "Example University", vcc.Issuer.CustomFields["name"])
+		require.Equal(t, "data:image/png;base64,iVBOR", vcc.Issuer.CustomFields["image"])
 
 		// check issued date
 		expectedIssued := time.Date(2010, time.January, 1, 19, 23, 24, 0, time.UTC)
-		require.Equal(t, expectedIssued, vc.Issued.Time)
+		require.Equal(t, expectedIssued, vcc.Issued.Time)
 
 		// check issued date
 		expectedExpired := time.Date(2020, time.January, 1, 19, 23, 24, 0, time.UTC)
-		require.Equal(t, expectedExpired, vc.Expired.Time)
+		require.Equal(t, expectedExpired, vcc.Expired.Time)
 
 		// check credential status
-		require.NotNil(t, vc.Status)
-		require.Equal(t, "https://example.edu/status/24", vc.Status.ID)
-		require.Equal(t, "CredentialStatusList2017", vc.Status.Type)
+		require.NotNil(t, vcc.Status)
+		require.Equal(t, "https://example.edu/status/24", vcc.Status.ID)
+		require.Equal(t, "CredentialStatusList2017", vcc.Status.Type)
 
 		// check refresh service
-		require.NotNil(t, vc.RefreshService)
-		require.Equal(t, "https://example.edu/refresh/3732", vc.RefreshService[0].ID)
-		require.Equal(t, "ManualRefreshService2018", vc.RefreshService[0].Type)
+		require.NotNil(t, vcc.RefreshService)
+		require.Equal(t, "https://example.edu/refresh/3732", vcc.RefreshService[0].ID)
+		require.Equal(t, "ManualRefreshService2018", vcc.RefreshService[0].Type)
 
-		require.NotNil(t, vc.Evidence)
+		require.NotNil(t, vcc.Evidence)
 
-		require.NotNil(t, vc.TermsOfUse)
-		require.Len(t, vc.TermsOfUse, 1)
+		require.NotNil(t, vcc.TermsOfUse)
+		require.Len(t, vcc.TermsOfUse, 1)
 	})
 
 	t.Run("test a try to create a new Verifiable Credential from JSON with invalid structure", func(t *testing.T) {
@@ -147,88 +182,83 @@ func TestParseCredentialWithoutIssuanceDate(t *testing.T) {
 
 func TestValidateVerCredContext(t *testing.T) {
 	t.Run("test verifiable credential with a single context", func(t *testing.T) {
-		var raw rawCredential
+		var raw JSONObject
 
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-		raw.Context = "https://www.w3.org/2018/credentials/v1"
-		bytes, err := json.Marshal(raw)
-		require.NoError(t, err)
-		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
+		raw[jsonFldContext] = []string{"https://www.w3.org/2018/credentials/v1"}
+
+		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
 		require.NoError(t, err)
 	})
 
 	t.Run("test verifiable credential with a single invalid context", func(t *testing.T) {
-		var raw rawCredential
+		var raw JSONObject
 
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-		raw.Context = "https://www.w3.org/2018/credentials/v2"
-		bytes, err := json.Marshal(raw)
-		require.NoError(t, err)
-		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
+		raw[jsonFldContext] = []string{"https://www.w3.org/2018/credentials/v2"}
+
+		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "@context: @context does not match: \"https://www.w3.org/2018/credentials/v1\"")
+		require.Contains(t, err.Error(), "does not match: \"https://www.w3.org/2018/credentials/v1\"")
 	})
 
 	t.Run("test verifiable credential with empty context", func(t *testing.T) {
-		var raw rawCredential
+		var raw JSONObject
 
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-		raw.Context = nil
-		bytes, err := json.Marshal(raw)
-		require.NoError(t, err)
-		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
+		delete(raw, jsonFldContext)
+
+		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "@context is required")
 	})
 
 	t.Run("test verifiable credential with multiple contexts", func(t *testing.T) {
-		var raw rawCredential
+		var raw JSONObject
 
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-		raw.Context = []interface{}{
+		raw[jsonFldContext] = []string{
 			"https://www.w3.org/2018/credentials/v1",
 			"https://www.w3.org/2018/credentials/examples/v1",
 		}
-		bytes, err := json.Marshal(raw)
-		require.NoError(t, err)
-		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
+
+		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
 		require.NoError(t, err)
 	})
 
 	t.Run("test verifiable credential with multiple invalid contexts", func(t *testing.T) {
-		var raw rawCredential
+		var raw JSONObject
 
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-		raw.Context = []interface{}{
+		raw[jsonFldContext] = []string{
 			"https://www.w3.org/2018/credentials/v2",
 			"https://www.w3.org/2018/credentials/examples/v1",
 		}
-		bytes, err := json.Marshal(raw)
-		require.NoError(t, err)
-		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
+
+		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "@context.0: @context.0 does not match: \"https://www.w3.org/2018/credentials/v1\"")
 	})
 
 	t.Run("test verifiable credential with object context", func(t *testing.T) {
-		var raw rawCredential
+		var raw JSONObject
 
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-		raw.Context = []interface{}{"https://www.w3.org/2018/credentials/examples/v1", map[string]interface{}{
+
+		raw[jsonFldContext] = []interface{}{"https://www.w3.org/2018/credentials/examples/v1", map[string]interface{}{
 			"image": map[string]string{
 				"@id": "schema:image", "@type": "@id",
 			},
 		}}
-		bytes, err := json.Marshal(raw)
-		require.NoError(t, err)
-		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
+
+		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "@context.0: @context.0 does not match: \"https://www.w3.org/2018/credentials/v1\"")
 	})
 }
 
 // func TestValidateVerCredID(t *testing.T) {
-// 	raw := rawCredential{}
+// 	raw := JSONObject{}
 //
 // 	require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
 //
@@ -242,98 +272,103 @@ func TestValidateVerCredContext(t *testing.T) {
 
 func TestValidateVerCredType(t *testing.T) {
 	t.Run("test verifiable credential with no type", func(t *testing.T) {
-		var raw rawCredential
+		var raw JSONObject
 
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-		raw.Type = []string{}
-		bytes, err := json.Marshal(raw)
-		require.NoError(t, err)
-		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
+		raw[jsonFldType] = []string{}
+
+		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "Array must have at least 1 items")
 	})
 
 	t.Run("test verifiable credential with not first VerifiableCredential type", func(t *testing.T) {
-		var raw rawCredential
+		var raw JSONObject
 
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-		raw.Type = []string{"NotVerifiableCredential"}
-		bytes, err := json.Marshal(raw)
-		require.NoError(t, err)
-		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
+		raw[jsonFldType] = []string{"NotVerifiableCredential"}
+
+		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "Does not match pattern '^VerifiableCredential$")
 	})
 
 	t.Run("test verifiable credential with VerifiableCredential type only as string", func(t *testing.T) {
-		var raw rawCredential
+		var raw JSONObject
 
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-		raw.Type = "VerifiableCredential"
-		bytes, err := json.Marshal(raw)
-		require.NoError(t, err)
-		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
+		raw[jsonFldType] = "VerifiableCredential"
+
+		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
 		require.NoError(t, err)
 	})
 
 	t.Run("test verifiable credential with several types where VerifiableCredential is not a first type",
 		func(t *testing.T) {
-			var raw rawCredential
+			var raw JSONObject
 
 			require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-			raw.Type = []string{"UniversityDegreeCredentail", "VerifiableCredential"}
-			bytes, err := json.Marshal(raw)
-			require.NoError(t, err)
-			err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
+			raw[jsonFldType] = []string{"UniversityDegreeCredentail", "VerifiableCredential"}
+
+			err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
 			require.NoError(t, err)
 		})
 }
 
 func TestValidateVerCredCredentialSubject(t *testing.T) {
 	t.Run("test verifiable credential with no credential subject", func(t *testing.T) {
-		var raw rawCredential
+		var raw JSONObject
 
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-		raw.Subject = nil
-		bytes, err := json.Marshal(raw)
-		require.NoError(t, err)
-		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
+		delete(raw, jsonFldSubject)
+
+		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "credentialSubject is required")
 	})
 
 	t.Run("test verifiable credential with single credential subject", func(t *testing.T) {
-		var raw rawCredential
+		var raw JSONObject
+		var subject interface{}
 
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-		require.NoError(t, json.Unmarshal([]byte(singleCredentialSubject), &raw.Subject))
-		bytes, err := json.Marshal(raw)
+		require.NoError(t, json.Unmarshal([]byte(singleCredentialSubject), &subject))
+		raw[jsonFldSubject] = subject
+
+		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
 		require.NoError(t, err)
-		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
+	})
+
+	t.Run("test verifiable credential with single string credential subject", func(t *testing.T) {
+		var raw JSONObject
+		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
+
+		raw[jsonFldSubject] = "did:example:ebfeb1f712ebc6f1c276e12ec21"
+
+		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
 		require.NoError(t, err)
 	})
 
 	t.Run("test verifiable credential with several credential subjects", func(t *testing.T) {
-		var raw rawCredential
+		var raw JSONObject
+		var subject interface{}
 
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-		require.NoError(t, json.Unmarshal([]byte(multipleCredentialSubjects), &raw.Subject))
-		bytes, err := json.Marshal(raw)
-		require.NoError(t, err)
-		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
+		require.NoError(t, json.Unmarshal([]byte(multipleCredentialSubjects), &subject))
+		raw[jsonFldSubject] = subject
+
+		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
 		require.NoError(t, err)
 	})
 
 	t.Run("test verifiable credential with invalid type of credential subject", func(t *testing.T) {
-		var raw rawCredential
+		var raw JSONObject
 
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-		invalidNumericSubject, err := json.Marshal(55)
-		require.NoError(t, err)
-		raw.Subject = invalidNumericSubject
-		bytes, err := json.Marshal(raw)
-		require.NoError(t, err)
-		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
+
+		raw[jsonFldSubject] = 55
+
+		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "credentialSubject: Invalid type.")
 	})
@@ -341,95 +376,79 @@ func TestValidateVerCredCredentialSubject(t *testing.T) {
 
 func TestValidateVerCredIssuer(t *testing.T) {
 	t.Run("test verifiable credential with no issuer", func(t *testing.T) {
-		var raw rawCredential
+		var raw JSONObject
 
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-		raw.Issuer = nil
-		bytes, err := json.Marshal(raw)
-		require.NoError(t, err)
-		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
+		delete(raw, jsonFldIssuer)
+
+		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "issuer is required")
 	})
 
 	t.Run("test verifiable credential with plain id issuer", func(t *testing.T) {
-		var raw rawCredential
+		var raw JSONObject
 
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
 
-		issuerRaw, err := json.Marshal("https://example.edu/issuers/14")
-		require.NoError(t, err)
+		raw[jsonFldIssuer] = "https://example.edu/issuers/14"
 
-		raw.Issuer = issuerRaw
-
-		bytes, err := json.Marshal(raw)
-		require.NoError(t, err)
-		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
+		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
 		require.NoError(t, err)
 	})
 
 	t.Run("test verifiable credential with issuer as an object", func(t *testing.T) {
-		var raw rawCredential
+		var raw JSONObject
+		var issuer interface{}
 
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-		require.NoError(t, json.Unmarshal([]byte(issuerAsObject), &raw.Issuer))
-		bytes, err := json.Marshal(raw)
-		require.NoError(t, err)
-		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
+		require.NoError(t, json.Unmarshal([]byte(issuerAsObject), &issuer))
+		raw[jsonFldIssuer] = issuer
+
+		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
 		require.NoError(t, err)
 	})
 
 	t.Run("test verifiable credential with invalid type of issuer", func(t *testing.T) {
-		var raw rawCredential
+		var raw JSONObject
 
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
 
-		issuerRaw, err := json.Marshal(55)
-		require.NoError(t, err)
+		raw[jsonFldIssuer] = 55
 
-		raw.Issuer = issuerRaw
-
-		bytes, err := json.Marshal(raw)
-		require.NoError(t, err)
-		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
+		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "issuer: Invalid type")
 	})
 
 	t.Run("test verifiable credential with string issuer", func(t *testing.T) {
-		var raw rawCredential
+		var raw JSONObject
 
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
 
 		issuerRaw, err := json.Marshal("not-a-uri-issuer")
 		require.NoError(t, err)
 
-		raw.Issuer = issuerRaw
+		raw[jsonFldIssuer] = issuerRaw
 
-		bytes, err := json.Marshal(raw)
-		require.NoError(t, err)
-		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
+		err = validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "issuer: Does not match format 'uri'")
 	})
 
 	t.Run("test verifiable credential with object issuer", func(t *testing.T) {
-		var raw rawCredential
+		var raw JSONObject
 
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
 
-		issuerRaw, err := json.Marshal(map[string]interface{}{
+		issuerRaw := map[string]interface{}{
 			"id":   "not-a-uri-issuer-id",
 			"name": "University",
-		})
-		require.NoError(t, err)
+		}
 
-		raw.Issuer = issuerRaw
+		raw[jsonFldIssuer] = issuerRaw
 
-		bytes, err := json.Marshal(raw)
-
-		require.NoError(t, err)
-		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
+		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "issuer.id: Does not match format 'uri'")
 	})
@@ -437,13 +456,12 @@ func TestValidateVerCredIssuer(t *testing.T) {
 
 func TestValidateVerCredIssuanceDate(t *testing.T) {
 	t.Run("test verifiable credential with empty issuance date", func(t *testing.T) {
-		var raw rawCredential
+		var raw JSONObject
 
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-		raw.Issued = nil
-		bytes, err := json.Marshal(raw)
-		require.NoError(t, err)
-		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
+		delete(raw, jsonFldIssued)
+
+		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "issuanceDate is required")
 	})
@@ -453,10 +471,8 @@ func TestValidateVerCredIssuanceDate(t *testing.T) {
 
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &vcMap))
 		vcMap["issuanceDate"] = "not a valid date time"
-		bytes, err := json.Marshal(vcMap)
-		require.NoError(t, err)
 
-		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
+		err := validateCredentialUsingJSONSchema(vcMap, nil, &credentialOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "issuanceDate: Does not match format 'date-time'")
 	})
@@ -466,56 +482,50 @@ func TestValidateVerCredIssuanceDate(t *testing.T) {
 
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &vcMap))
 		vcMap["issuanceDate"] = timeStr
-		bytes, err := json.Marshal(vcMap)
-		require.NoError(t, err)
 
-		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
+		err := validateCredentialUsingJSONSchema(vcMap, nil, &credentialOpts{})
 		require.NoError(t, err)
 	}
 }
 
 func TestValidateVerCredProof(t *testing.T) {
 	t.Run("test verifiable credential with embedded proof", func(t *testing.T) {
-		var raw rawCredential
+		var raw JSONObject
 
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
 
-		proofBytes, err := json.Marshal([]Proof{{
+		proof := []Proof{{
 			"type":               "Ed25519Signature2018",
 			"created":            "2018-06-18T21:19:10Z",
 			"proofPurpose":       "assertionMethod",
 			"verificationMethod": "https://example.com/jdoe/keys/1",
 			"jws":                "eyJhbGciOiJQUzI1N..Dw_mmMCjs9qxg0zcZzqEJw",
-		}})
-		require.NoError(t, err)
+		}}
 
-		raw.Proof = proofBytes
-		bytes, err := json.Marshal(raw)
-		require.NoError(t, err)
-		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
+		raw[jsonFldLDProof] = proof
+
+		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
 		require.NoError(t, err)
 	})
 	t.Run("test verifiable credential with empty proof", func(t *testing.T) {
-		var raw rawCredential
+		var raw JSONObject
 
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-		raw.Proof = nil
-		bytes, err := json.Marshal(raw)
-		require.NoError(t, err)
-		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
+		raw[jsonFldLDProof] = nil
+
+		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
 		require.NoError(t, err)
 	})
 }
 
 func TestValidateVerCredExpirationDate(t *testing.T) {
 	t.Run("test verifiable credential with empty expiration date", func(t *testing.T) {
-		var raw rawCredential
+		var raw JSONObject
 
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-		raw.Expired = nil
-		bytes, err := json.Marshal(raw)
-		require.NoError(t, err)
-		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
+		raw[jsonFldExpired] = nil
+
+		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
 		require.NoError(t, err)
 	})
 
@@ -524,10 +534,8 @@ func TestValidateVerCredExpirationDate(t *testing.T) {
 
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &vcMap))
 		vcMap["expirationDate"] = "not a valid date time"
-		bytes, err := json.Marshal(vcMap)
-		require.NoError(t, err)
 
-		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
+		err := validateCredentialUsingJSONSchema(vcMap, nil, &credentialOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "expirationDate: Does not match format 'date-time'")
 	})
@@ -537,58 +545,52 @@ func TestValidateVerCredExpirationDate(t *testing.T) {
 
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &vcMap))
 		vcMap["expirationDate"] = timeStr
-		bytes, err := json.Marshal(vcMap)
-		require.NoError(t, err)
 
-		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
+		err := validateCredentialUsingJSONSchema(vcMap, nil, &credentialOpts{})
 		require.NoError(t, err)
 	}
 }
 
 func TestValidateVerCredStatus(t *testing.T) {
 	t.Run("test verifiable credential with empty credential status", func(t *testing.T) {
-		var raw rawCredential
+		var raw JSONObject
 
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-		raw.Status = nil
-		bytes, err := json.Marshal(raw)
-		require.NoError(t, err)
-		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
+		raw[jsonFldStatus] = nil
+
+		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
 		require.NoError(t, err)
 	})
 
 	t.Run("test verifiable credential with undefined id of credential status", func(t *testing.T) {
-		var raw rawCredential
+		var raw JSONObject
 
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-		raw.Status = &TypedID{Type: "CredentialStatusList2017"}
-		bytes, err := json.Marshal(raw)
-		require.NoError(t, err)
-		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
+		raw[jsonFldStatus] = &TypedID{Type: "CredentialStatusList2017"}
+
+		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "credentialStatus: id is required")
 	})
 
 	t.Run("test verifiable credential with undefined type of credential status", func(t *testing.T) {
-		var raw rawCredential
+		var raw JSONObject
 
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-		raw.Status = &TypedID{ID: "https://example.edu/status/24"}
-		bytes, err := json.Marshal(raw)
-		require.NoError(t, err)
-		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
+		raw[jsonFldStatus] = &TypedID{ID: "https://example.edu/status/24"}
+
+		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "credentialStatus: type is required")
 	})
 
 	t.Run("test verifiable credential with invalid URL of id of credential status", func(t *testing.T) {
-		var raw rawCredential
+		var raw JSONObject
 
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-		raw.Status = &TypedID{ID: "invalid URL", Type: "CredentialStatusList2017"}
-		bytes, err := json.Marshal(raw)
-		require.NoError(t, err)
-		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
+		raw[jsonFldStatus] = map[string]interface{}{"id": "invalid URL", "type": "CredentialStatusList2017"}
+
+		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "credentialStatus.id: Does not match format 'uri'")
 	})
@@ -596,48 +598,43 @@ func TestValidateVerCredStatus(t *testing.T) {
 
 func TestValidateVerCredSchema(t *testing.T) {
 	t.Run("test verifiable credential with empty credential schema", func(t *testing.T) {
-		var raw rawCredential
+		var raw JSONObject
 
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-		raw.Schema = nil
-		bytes, err := json.Marshal(raw)
-		require.NoError(t, err)
-		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
+
+		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
 		require.NoError(t, err)
 	})
 
 	t.Run("test verifiable credential with undefined id of credential schema", func(t *testing.T) {
-		var raw rawCredential
+		var raw JSONObject
 
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-		raw.Schema = &TypedID{Type: "JsonSchemaValidator2018"}
-		bytes, err := json.Marshal(raw)
-		require.NoError(t, err)
-		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
+		raw[jsonFldSchema] = &TypedID{Type: "JsonSchemaValidator2018"}
+
+		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "credentialSchema: id is required")
 	})
 
 	t.Run("test verifiable credential with undefined type of credential schema", func(t *testing.T) {
-		var raw rawCredential
+		var raw JSONObject
 
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-		raw.Schema = &TypedID{ID: "https://example.org/examples/degree.json"}
-		bytes, err := json.Marshal(raw)
-		require.NoError(t, err)
-		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
+		raw[jsonFldSchema] = &TypedID{ID: "https://example.org/examples/degree.json"}
+
+		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "credentialSchema: type is required")
 	})
 
 	t.Run("test verifiable credential with invalid URL of id of credential schema", func(t *testing.T) {
-		var raw rawCredential
+		var raw JSONObject
 
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-		raw.Schema = &TypedID{ID: "invalid URL", Type: "JsonSchemaValidator2018"}
-		bytes, err := json.Marshal(raw)
-		require.NoError(t, err)
-		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
+		raw[jsonFldSchema] = map[string]interface{}{"id": "invalid URL", "type": "JsonSchemaValidator2018"}
+
+		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "credentialSchema.id: Does not match format 'uri'")
 	})
@@ -645,13 +642,12 @@ func TestValidateVerCredSchema(t *testing.T) {
 
 func TestValidateVerCredRefreshService(t *testing.T) {
 	t.Run("test verifiable credential with empty refresh service", func(t *testing.T) {
-		var raw rawCredential
+		var raw JSONObject
 
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-		raw.RefreshService = nil
-		bytes, err := json.Marshal(raw)
-		require.NoError(t, err)
-		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
+		raw[jsonFldRefreshService] = nil
+
+		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
 		require.NoError(t, err)
 	})
 
@@ -659,10 +655,11 @@ func TestValidateVerCredRefreshService(t *testing.T) {
 		vc, err := parseTestCredential(t, []byte(validCredential))
 		require.NoError(t, err)
 
-		vc.RefreshService = []TypedID{{Type: "ManualRefreshService2018"}}
-		bytes, err := json.Marshal(vc)
-		require.NoError(t, err)
-		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
+		raw := vc.ToRawJSON()
+
+		raw[jsonFldRefreshService] = map[string]interface{}{"type": "ManualRefreshService2018"}
+
+		err = validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "refreshService: id is required")
 	})
@@ -671,10 +668,11 @@ func TestValidateVerCredRefreshService(t *testing.T) {
 		vc, err := parseTestCredential(t, []byte(validCredential))
 		require.NoError(t, err)
 
-		vc.RefreshService = []TypedID{{ID: "https://example.edu/refresh/3732"}}
-		bytes, err := json.Marshal(vc)
-		require.NoError(t, err)
-		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
+		raw := vc.ToRawJSON()
+
+		raw[jsonFldRefreshService] = map[string]interface{}{"id": "https://example.edu/refresh/3732"}
+
+		err = validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "refreshService: type is required")
 	})
@@ -683,10 +681,11 @@ func TestValidateVerCredRefreshService(t *testing.T) {
 		vc, err := parseTestCredential(t, []byte(validCredential))
 		require.NoError(t, err)
 
-		vc.RefreshService = []TypedID{{ID: "invalid URL", Type: "ManualRefreshService2018"}}
-		bytes, err := json.Marshal(vc)
-		require.NoError(t, err)
-		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
+		raw := vc.ToRawJSON()
+
+		raw[jsonFldRefreshService] = map[string]interface{}{"id": "invalid URL", "type": "ManualRefreshService2018"}
+
+		err = validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "refreshService.id: Does not match format 'uri'")
 	})
@@ -774,9 +773,11 @@ func TestCredential_MarshalJSON(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, vc)
 
+		vcc := vc.Contents()
+
 		// clean issuer name - this means that we have only issuer id and thus it should be serialized
 		// as plain issuer id
-		delete(vc.Issuer.CustomFields, "name")
+		delete(vcc.Issuer.CustomFields, "name")
 
 		// convert verifiable credential to json byte data
 		byteCred, err := vc.MarshalJSON()
@@ -792,26 +793,196 @@ func TestCredential_MarshalJSON(t *testing.T) {
 		require.Equal(t, vc.stringJSON(t), cred2.stringJSON(t))
 	})
 
-	t.Run("Failure in VC marshalling", func(t *testing.T) {
-		vc, err := parseTestCredential(t, []byte(validCredential))
-		require.NoError(t, err)
-
-		vc.CustomFields = map[string]interface{}{
+	t.Run("Failure in cf marshalling", func(t *testing.T) {
+		vc, err := CreateCredential(CredentialContents{}, map[string]interface{}{
 			"invalid field": make(chan int),
-		}
+		})
+		require.NoError(t, err)
 
 		bytes, err := vc.MarshalJSON()
 		require.Error(t, err)
 		require.Nil(t, bytes)
+	})
 
-		vc.CustomFields = map[string]interface{}{}
-		vc.TermsOfUse = []TypedID{{CustomFields: map[string]interface{}{
-			"invalidField": make(chan int),
-		}}}
+	t.Run("Failure in TermsOfUse marshalling", func(t *testing.T) {
+		vc, err := CreateCredential(CredentialContents{
+			TermsOfUse: []TypedID{{CustomFields: map[string]interface{}{
+				"invalidField": make(chan int),
+			}}},
+		}, nil)
+		require.NoError(t, err)
 
-		bytes, err = vc.MarshalJSON()
+		bytes, err := vc.MarshalJSON()
 		require.Error(t, err)
 		require.Nil(t, bytes)
+	})
+}
+
+func TestCredential_CreateSignedJWTVC(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		vcc := vccProto
+		vc, err := CreateCredential(vcc, nil)
+		require.NoError(t, err)
+
+		issuerSigner := signatureutil.CryptoSigner(t, kms.RSARS256Type)
+
+		jwtVC, err := vc.CreateSignedJWTVC(true, RS256, issuerSigner, "did:123#issuer-key")
+		require.NoError(t, err)
+		require.NotNil(t, jwtVC)
+
+		unsecureJWT, err := vc.CreateUnsecuredJWTVC(true)
+		require.NoError(t, err)
+		require.NotNil(t, unsecureJWT)
+	})
+
+	t.Run("Invalid subject", func(t *testing.T) {
+		vcc := vccProto
+		vcc.Subject = nil
+
+		vc, err := CreateCredential(vcc, nil)
+		require.NoError(t, err)
+
+		issuerSigner := signatureutil.CryptoSigner(t, kms.RSARS256Type)
+
+		_, err = vc.CreateSignedJWTVC(true, RS256, issuerSigner, "did:123#issuer-key")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "no subject is defined")
+
+		_, err = vc.CreateUnsecuredJWTVC(true)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "no subject is defined")
+	})
+}
+
+func TestCreateCredential(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		vcc := vccProto
+
+		vc, err := CreateCredential(vcc, nil)
+		require.NoError(t, err)
+		require.NotNil(t, vc)
+	})
+
+	t.Run("SDJWTHashAlgs", func(t *testing.T) {
+		vcc := vccProto
+		sdAlg := crypto.SHA256
+		vcc.SDJWTHashAlg = &sdAlg
+
+		vc, err := CreateCredential(vcc, nil)
+		require.NoError(t, err)
+		require.NotNil(t, vc)
+
+		sdAlg = crypto.SHA384
+		vcc.SDJWTHashAlg = &sdAlg
+
+		vc, err = CreateCredential(vcc, nil)
+		require.NoError(t, err)
+		require.NotNil(t, vc)
+
+		sdAlg = crypto.SHA512
+		vcc.SDJWTHashAlg = &sdAlg
+
+		vc, err = CreateCredential(vcc, nil)
+		require.NoError(t, err)
+		require.NotNil(t, vc)
+
+		sdAlg = crypto.MD5
+		vcc.SDJWTHashAlg = &sdAlg
+
+		_, err = CreateCredential(vcc, nil)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "not supported")
+	})
+
+	t.Run("With proofs", func(t *testing.T) {
+		vcc := vccProto
+
+		vc, err := CreateCredentialWithProofs(
+			vcc, nil, []Proof{{"type": "JsonWebSignature2020"}})
+		require.NoError(t, err)
+		require.NotNil(t, vc)
+	})
+
+	t.Run("With proofs, failure", func(t *testing.T) {
+		vcc := vccProto
+		sdAlg := crypto.MD5
+		vcc.SDJWTHashAlg = &sdAlg
+
+		_, err := CreateCredentialWithProofs(
+			vcc, nil, []Proof{{"type": "JsonWebSignature2020"}})
+		require.Error(t, err)
+
+		_, err = CreateCredential(vcc, nil)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "not supported")
+	})
+}
+
+func TestCredential_parseCredentialContents(t *testing.T) {
+	vcProto, errC := CreateCredential(vccProto, nil)
+	require.NoError(t, errC)
+	require.NotNil(t, vcProto)
+
+	t.Run("invalid subject", func(t *testing.T) {
+		raw := vcProto.ToRawJSON()
+
+		raw["credentialSubject"] = []string{}
+		_, err := parseCredentialContents(raw, false)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "subject from raw")
+	})
+
+	t.Run("invalid id", func(t *testing.T) {
+		raw := vcProto.ToRawJSON()
+
+		raw["id"] = []string{}
+		_, err := parseCredentialContents(raw, false)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "credential id")
+	})
+
+	t.Run("invalid expirationDate", func(t *testing.T) {
+		raw := vcProto.ToRawJSON()
+
+		raw["expirationDate"] = "dd"
+		_, err := parseCredentialContents(raw, false)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "credential expired")
+	})
+
+	t.Run("invalid issuanceDate", func(t *testing.T) {
+		raw := vcProto.ToRawJSON()
+
+		raw["issuanceDate"] = []string{}
+		_, err := parseCredentialContents(raw, false)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "credential issued")
+	})
+
+	t.Run("invalid credentialStatus", func(t *testing.T) {
+		raw := vcProto.ToRawJSON()
+
+		raw["credentialStatus"] = []string{}
+		_, err := parseCredentialContents(raw, false)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "credential status")
+	})
+
+	t.Run("missed _sd_alg", func(t *testing.T) {
+		raw := vcProto.ToRawJSON()
+
+		_, err := parseCredentialContents(raw, true)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "_sd_alg must be present in SD-JWT")
+	})
+
+	t.Run("invalid _sd_alg", func(t *testing.T) {
+		raw := vcProto.ToRawJSON()
+
+		raw["_sd_alg"] = []string{}
+		_, err := parseCredentialContents(raw, true)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "should be string")
 	})
 }
 
@@ -982,12 +1153,12 @@ func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
 
 	defer func() { testServer.Close() }()
 
-	var raw rawCredential
+	var raw JSONObject
 	err := json.Unmarshal([]byte(validCredential), &raw)
 	require.NoError(t, err)
 
 	// define credential schema
-	raw.Schema = &TypedID{ID: testServer.URL, Type: "JsonSchemaValidator2018"}
+	raw[jsonFldSchema] = map[string]interface{}{"id": testServer.URL, "type": "JsonSchemaValidator2018"}
 	// but new required field referenceNumber is not defined...
 
 	missingReqFieldSchema, mErr := json.Marshal(raw)
@@ -1022,19 +1193,21 @@ func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
 		}))
 		require.NoError(t, err)
 
+		vcc := vc.Contents()
+
 		// check credential schema
-		require.NotNil(t, vc.Schemas)
-		require.Equal(t, vc.Schemas[0].ID, testServer.URL)
-		require.Equal(t, vc.Schemas[0].Type, "JsonSchemaValidator2018")
+		require.NotNil(t, vcc.Schemas)
+		require.Equal(t, vcc.Schemas[0].ID, testServer.URL)
+		require.Equal(t, vcc.Schemas[0].Type, "JsonSchemaValidator2018")
 	})
 
 	t.Run("Error when failed to download custom credentialSchema", func(t *testing.T) {
-		var raw rawCredential
+		var raw JSONObject
 
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
 
 		// define credential schema with invalid port
-		raw.Schema = &TypedID{ID: "http://localhost:0001", Type: "JsonSchemaValidator2018"}
+		raw[jsonFldSchema] = map[string]interface{}{"id": "http://localhost:0001", "type": "JsonSchemaValidator2018"}
 		// but new required field referenceNumber is not defined...
 
 		schemaWithInvalidURLToCredentialSchema, err := json.Marshal(raw)
@@ -1047,12 +1220,12 @@ func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
 	})
 
 	t.Run("Uses default schema if custom credentialSchema is not of 'JsonSchemaValidator2018' type", func(t *testing.T) { //nolint:lll
-		var raw rawCredential
+		var raw JSONObject
 
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
 
 		// define credential schema with not supported type
-		raw.Schema = &TypedID{ID: testServer.URL, Type: "ZkpExampleSchema2018"}
+		raw[jsonFldSchema] = map[string]interface{}{"id": testServer.URL, "type": "ZkpExampleSchema2018"}
 
 		unsupportedCredentialTypeOfSchema, err := json.Marshal(raw)
 		require.NoError(t, err)
@@ -1060,10 +1233,12 @@ func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
 		vc, err := parseTestCredential(t, unsupportedCredentialTypeOfSchema)
 		require.NoError(t, err)
 
+		vcc := vc.Contents()
+
 		// check credential schema
-		require.NotNil(t, vc.Schemas)
-		require.Equal(t, vc.Schemas[0].ID, testServer.URL)
-		require.Equal(t, vc.Schemas[0].Type, "ZkpExampleSchema2018")
+		require.NotNil(t, vcc.Schemas)
+		require.Equal(t, vcc.Schemas[0].ID, testServer.URL)
+		require.Equal(t, vcc.Schemas[0].Type, "ZkpExampleSchema2018")
 	})
 
 	t.Run("Fallback to default schema validation when custom schemas usage is disabled", func(t *testing.T) {
@@ -1168,33 +1343,14 @@ func TestDownloadCustomSchema(t *testing.T) {
 }
 
 func Test_SubjectID(t *testing.T) {
-	t.Run("With string subject", func(t *testing.T) {
-		vcWithStringSubject := &Credential{Subject: "did:example:ebfeb1f712ebc6f1c276e12ecaa"}
-		subjectID, err := SubjectID(vcWithStringSubject.Subject)
-		require.NoError(t, err)
-		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ecaa", subjectID)
-	})
-
 	t.Run("With single Subject", func(t *testing.T) {
-		vcWithSingleSubject := &Credential{Subject: map[string]interface{}{
-			"id": "did:example:ebfeb1f712ebc6f1c276e12ecaa",
-			"degree": map[string]interface{}{
-				"type": "BachelorDegree",
-				"name": "Bachelor of Science and Arts",
-			},
-		}}
-		subjectID, err := SubjectID(vcWithSingleSubject.Subject)
-		require.NoError(t, err)
-		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ecaa", subjectID)
-	})
-
-	t.Run("With single Subject in array", func(t *testing.T) {
-		vcWithSingleSubject := &Credential{Subject: []map[string]interface{}{{
-			"id": "did:example:ebfeb1f712ebc6f1c276e12ecaa",
-			"degree": map[string]interface{}{
-				"type": "BachelorDegree",
-				"name": "Bachelor of Science and Arts",
-			},
+		vcWithSingleSubject := &CredentialContents{Subject: []Subject{{
+			ID: "did:example:ebfeb1f712ebc6f1c276e12ecaa",
+			CustomFields: map[string]interface{}{
+				"degree": map[string]interface{}{
+					"type": "BachelorDegree",
+					"name": "Bachelor of Science and Arts",
+				}},
 		}}}
 		subjectID, err := SubjectID(vcWithSingleSubject.Subject)
 		require.NoError(t, err)
@@ -1202,17 +1358,20 @@ func Test_SubjectID(t *testing.T) {
 	})
 
 	t.Run("With multiple Subjects", func(t *testing.T) {
-		vcWithMultipleSubjects := &Credential{
-			Subject: []map[string]interface{}{
+		vcWithMultipleSubjects := &CredentialContents{
+			Subject: []Subject{
 				{
-					"id":     "did:example:ebfeb1f712ebc6f1c276e12ec21",
-					"name":   "Jayden Doe",
-					"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1",
+					ID: "did:example:ebfeb1f712ebc6f1c276e12ec21",
+					CustomFields: map[string]interface{}{
+						"name":   "Jayden Doe",
+						"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1",
+					},
 				},
 				{
-					"id":     "did:example:c276e12ec21ebfeb1f712ebc6f1",
-					"name":   "Morgan Doe",
-					"spouse": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+					ID: "did:example:c276e12ec21ebfeb1f712ebc6f1",
+					CustomFields: map[string]interface{}{"name": "Morgan Doe",
+						"spouse": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+					},
 				},
 			},
 		}
@@ -1223,18 +1382,8 @@ func Test_SubjectID(t *testing.T) {
 	})
 
 	t.Run("With no Subject", func(t *testing.T) {
-		vcWithNoSubject := &Credential{
+		vcWithNoSubject := &CredentialContents{
 			Subject: nil,
-		}
-		subjectID, err := SubjectID(vcWithNoSubject.Subject)
-		require.Error(t, err)
-		require.EqualError(t, err, "subject id is not defined")
-		require.Empty(t, subjectID)
-	})
-
-	t.Run("With empty Subject", func(t *testing.T) {
-		vcWithNoSubject := &Credential{
-			Subject: []map[string]interface{}{},
 		}
 		subjectID, err := SubjectID(vcWithNoSubject.Subject)
 		require.Error(t, err)
@@ -1242,71 +1391,32 @@ func Test_SubjectID(t *testing.T) {
 		require.Empty(t, subjectID)
 	})
 
-	t.Run("With non-string Subject ID", func(t *testing.T) {
-		vcWithNotStringID := &Credential{Subject: map[string]interface{}{
-			"id": 55,
-			"degree": map[string]interface{}{
-				"type": "BachelorDegree",
-				"name": "Bachelor of Science and Arts",
-			},
-		}}
-		subjectID, err := SubjectID(vcWithNotStringID.Subject)
+	t.Run("With empty Subject", func(t *testing.T) {
+		vcWithNoSubject := &CredentialContents{
+			Subject: []Subject{},
+		}
+		subjectID, err := SubjectID(vcWithNoSubject.Subject)
 		require.Error(t, err)
-		require.EqualError(t, err, "subject id is not string")
+		require.EqualError(t, err, "no subject is defined")
 		require.Empty(t, subjectID)
 	})
 
 	t.Run("Subject without ID defined", func(t *testing.T) {
-		vcWithSubjectWithoutID := &Credential{
-			Subject: map[string]interface{}{
-				"givenName":  "Jane",
-				"familyName": "Doe",
-				"degree": map[string]interface{}{
-					"type":    "BachelorDegree",
-					"name":    "Bachelor of Science in Mechanical Engineering",
-					"college": "College of Engineering",
-				},
-			},
+		vcWithSubjectWithoutID := &CredentialContents{
+			Subject: []Subject{{
+				CustomFields: CustomFields{
+					"givenName":  "Jane",
+					"familyName": "Doe",
+					"degree": map[string]interface{}{
+						"type":    "BachelorDegree",
+						"name":    "Bachelor of Science in Mechanical Engineering",
+						"college": "College of Engineering",
+					}},
+			}},
 		}
 		subjectID, err := SubjectID(vcWithSubjectWithoutID.Subject)
 		require.Error(t, err)
 		require.EqualError(t, err, "subject id is not defined")
-		require.Empty(t, subjectID)
-	})
-
-	t.Run("Get subject id from custom structure", func(t *testing.T) {
-		type UniversityDegree struct {
-			Type       string `json:"type,omitempty"`
-			University string `json:"university,omitempty"`
-		}
-
-		type UniversityDegreeSubject struct {
-			ID     string           `json:"id,omitempty"`
-			Name   string           `json:"name,omitempty"`
-			Spouse string           `json:"spouse,omitempty"`
-			Degree UniversityDegree `json:"degree,omitempty"`
-		}
-
-		vcWithSubjectWithoutID := &Credential{
-			Subject: UniversityDegreeSubject{
-				ID:     "did:example:ebfeb1f712ebc6f1c276e12ec21",
-				Name:   "Jayden Doe",
-				Spouse: "did:example:c276e12ec21ebfeb1f712ebc6f1",
-				Degree: UniversityDegree{
-					Type:       "BachelorDegree",
-					University: "MIT",
-				},
-			},
-		}
-		subjectID, err := SubjectID(vcWithSubjectWithoutID.Subject)
-		require.NoError(t, err)
-		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ec21", subjectID)
-	})
-
-	t.Run("Get subject id from unmarshalable structure", func(t *testing.T) {
-		subjectID, err := SubjectID(make(chan int))
-		require.Error(t, err)
-		require.EqualError(t, err, "subject of unknown structure")
 		require.Empty(t, subjectID)
 	})
 }
@@ -1314,7 +1424,7 @@ func Test_SubjectID(t *testing.T) {
 func TestRawCredentialSerialization(t *testing.T) {
 	cBytes := []byte(validCredential)
 
-	rc := new(rawCredential)
+	rc := new(JSONObject)
 	err := json.Unmarshal(cBytes, rc)
 	require.NoError(t, err)
 	rcBytes, err := json.Marshal(rc)
@@ -1333,37 +1443,32 @@ func TestRawCredentialSerialization(t *testing.T) {
 
 func TestParseIssuer(t *testing.T) {
 	t.Run("Parse Issuer defined by ID only", func(t *testing.T) {
-		issueBytes, err := json.Marshal("did:example:76e12ec712ebc6f1c221ebfeb1f")
-		require.NoError(t, err)
-
-		issuer, err := parseIssuer(issueBytes)
+		issuer, err := parseIssuer("did:example:76e12ec712ebc6f1c221ebfeb1f")
 		require.NoError(t, err)
 		require.Equal(t, "did:example:76e12ec712ebc6f1c221ebfeb1f", issuer.ID)
 		require.Empty(t, issuer.CustomFields)
 	})
 
 	t.Run("Parse Issuer identified by ID and name", func(t *testing.T) {
-		issueBytes, err := json.Marshal(map[string]interface{}{
+		issueRaw := map[string]interface{}{
 			"id":   "did:example:76e12ec712ebc6f1c221ebfeb1f",
 			"name": "Example University",
-		})
-		require.NoError(t, err)
+		}
 
-		issuer, err := parseIssuer(issueBytes)
+		issuer, err := parseIssuer(issueRaw)
 		require.NoError(t, err)
 		require.Equal(t, "did:example:76e12ec712ebc6f1c221ebfeb1f", issuer.ID)
 		require.Equal(t, "Example University", issuer.CustomFields["name"])
 	})
 
 	t.Run("Parse Issuer identified by ID and name and image", func(t *testing.T) {
-		issueBytes, err := json.Marshal(map[string]interface{}{
+		issueRaw := map[string]interface{}{
 			"id":    "did:example:76e12ec712ebc6f1c221ebfeb1f",
 			"name":  "Example University",
 			"image": "data:image/png;base64,iVBOR",
-		})
-		require.NoError(t, err)
+		}
 
-		issuer, err := parseIssuer(issueBytes)
+		issuer, err := parseIssuer(issueRaw)
 		require.NoError(t, err)
 		require.Equal(t, "did:example:76e12ec712ebc6f1c221ebfeb1f", issuer.ID)
 		require.Equal(t, "Example University", issuer.CustomFields["name"])
@@ -1371,67 +1476,62 @@ func TestParseIssuer(t *testing.T) {
 	})
 
 	t.Run("Parse Issuer identified by ID and empty name", func(t *testing.T) {
-		issueBytes, err := json.Marshal(map[string]interface{}{
+		issueRaw := map[string]interface{}{
 			"id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
-		})
-		require.NoError(t, err)
+		}
 
-		issuer, err := parseIssuer(issueBytes)
+		issuer, err := parseIssuer(issueRaw)
 		require.NoError(t, err)
 		require.Equal(t, "did:example:76e12ec712ebc6f1c221ebfeb1f", issuer.ID)
 		require.Empty(t, issuer.CustomFields)
 	})
 
 	t.Run("Parse Issuer identified by empty ID and name", func(t *testing.T) {
-		issueBytes, err := json.Marshal(map[string]interface{}{
+		issueRaw := map[string]interface{}{
 			"name": "Example University",
-		})
-		require.NoError(t, err)
+		}
 
-		issuer, err := parseIssuer(issueBytes)
+		issuer, err := parseIssuer(issueRaw)
 		require.Error(t, err)
 		require.EqualError(t, err, "issuer ID is not defined")
-		require.Empty(t, issuer.ID)
+		require.Empty(t, issuer)
 	})
 
 	t.Run("Parse Issuer with invalid type of ID", func(t *testing.T) {
-		issueBytes, err := json.Marshal(map[string]interface{}{
+		issueRaw := map[string]interface{}{
 			"id": 55,
-		})
-		require.NoError(t, err)
+		}
 
-		issuer, err := parseIssuer(issueBytes)
+		issuer, err := parseIssuer(issueRaw)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "unmarshal Issuer")
-		require.Empty(t, issuer.ID)
+		require.Contains(t, err.Error(), "should be string")
+		require.Empty(t, issuer)
 	})
 
 	t.Run("Parse Issuer of invalid type", func(t *testing.T) {
-		issueBytes, err := json.Marshal(77)
-		require.NoError(t, err)
+		issueRaw := 77
 
-		issuer, err := parseIssuer(issueBytes)
+		issuer, err := parseIssuer(issueRaw)
 
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "unmarshal Issuer")
-		require.Empty(t, issuer.ID)
+		require.Contains(t, err.Error(), "should be json object or string")
+		require.Empty(t, issuer)
 	})
 
 	t.Run("Parse undefined Issuer", func(t *testing.T) {
 		issuer, err := parseIssuer(nil)
 		require.NoError(t, err)
-		require.Equal(t, Issuer{}, issuer)
+		require.Nil(t, issuer)
 	})
 }
 
 func TestParseSubject(t *testing.T) {
 	t.Run("Parse Subject defined by ID only", func(t *testing.T) {
-		subjectBytes, err := json.Marshal("did:example:ebfeb1f712ebc6f1c276e12ec21")
-		require.NoError(t, err)
+		subjectRaw := "did:example:ebfeb1f712ebc6f1c276e12ec21"
 
-		subject, err := parseSubject(subjectBytes)
+		subject, err := parseSubject(subjectRaw)
 		require.NoError(t, err)
-		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ec21", subject.(string))
+		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ec21", subject[0].ID)
 	})
 
 	t.Run("Parse empty subject", func(t *testing.T) {
@@ -1441,24 +1541,23 @@ func TestParseSubject(t *testing.T) {
 	})
 
 	t.Run("Parse single Subject object", func(t *testing.T) {
-		subjectBytes, err := json.Marshal(map[string]interface{}{
+		subjectRaw := map[string]interface{}{
 			"id":     "did:example:ebfeb1f712ebc6f1c276e12ec21",
 			"name":   "Jayden Doe",
 			"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1",
-		})
-		require.NoError(t, err)
+		}
 
-		subject, err := parseSubject(subjectBytes)
+		subject, err := parseSubject(subjectRaw)
 		require.NoError(t, err)
 		require.Len(t, subject, 1)
-		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ec21", subject.([]Subject)[0].ID)
-		require.NotEmpty(t, subject.([]Subject)[0].CustomFields)
-		require.Equal(t, "Jayden Doe", subject.([]Subject)[0].CustomFields["name"])
-		require.Equal(t, "did:example:c276e12ec21ebfeb1f712ebc6f1", subject.([]Subject)[0].CustomFields["spouse"])
+		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ec21", subject[0].ID)
+		require.NotEmpty(t, subject[0].CustomFields)
+		require.Equal(t, "Jayden Doe", subject[0].CustomFields["name"])
+		require.Equal(t, "did:example:c276e12ec21ebfeb1f712ebc6f1", subject[0].CustomFields["spouse"])
 	})
 
 	t.Run("Parse several Subject objects", func(t *testing.T) {
-		subjectBytes, err := json.Marshal([]map[string]interface{}{
+		subjectRaw := []map[string]interface{}{
 			{
 				"id":     "did:example:ebfeb1f712ebc6f1c276e12ec21",
 				"name":   "Jayden Doe",
@@ -1469,31 +1568,30 @@ func TestParseSubject(t *testing.T) {
 				"name":   "Morgan Doe",
 				"spouse": "did:example:ebfeb1f712ebc6f1c276e12ec21",
 			},
-		})
-		require.NoError(t, err)
+		}
 
-		subject, err := parseSubject(subjectBytes)
+		subject, err := parseSubject(subjectRaw)
 		require.NoError(t, err)
 		require.Len(t, subject, 2)
-		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ec21", subject.([]Subject)[0].ID)
-		require.NotEmpty(t, subject.([]Subject)[0].CustomFields)
-		require.Equal(t, "Jayden Doe", subject.([]Subject)[0].CustomFields["name"])
-		require.Equal(t, "did:example:c276e12ec21ebfeb1f712ebc6f1", subject.([]Subject)[0].CustomFields["spouse"])
-		require.Equal(t, "did:example:c276e12ec21ebfeb1f712ebc6f1", subject.([]Subject)[1].ID)
-		require.NotEmpty(t, subject.([]Subject)[1].CustomFields)
-		require.Equal(t, "Morgan Doe", subject.([]Subject)[1].CustomFields["name"])
-		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ec21", subject.([]Subject)[1].CustomFields["spouse"])
+		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ec21", subject[0].ID)
+		require.NotEmpty(t, subject[0].CustomFields)
+		require.Equal(t, "Jayden Doe", subject[0].CustomFields["name"])
+		require.Equal(t, "did:example:c276e12ec21ebfeb1f712ebc6f1", subject[0].CustomFields["spouse"])
+		require.Equal(t, "did:example:c276e12ec21ebfeb1f712ebc6f1", subject[1].ID)
+		require.NotEmpty(t, subject[1].CustomFields)
+		require.Equal(t, "Morgan Doe", subject[1].CustomFields["name"])
+		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ec21", subject[1].CustomFields["spouse"])
 	})
 }
 
-func TestMarshalIssuer(t *testing.T) {
+func TestSerializeIssuer(t *testing.T) {
 	t.Run("Marshal Issuer with ID defined only", func(t *testing.T) {
 		issuer := Issuer{ID: "did:example:76e12ec712ebc6f1c221ebfeb1f"}
 
 		expectedIssuerBytes, err := json.Marshal("did:example:76e12ec712ebc6f1c221ebfeb1f")
 		require.NoError(t, err)
 
-		issuerBytes, err := issuer.MarshalJSON()
+		issuerBytes, err := json.Marshal(serializeIssuer(issuer))
 		require.NoError(t, err)
 		require.Equal(t, expectedIssuerBytes, issuerBytes)
 	})
@@ -1514,7 +1612,7 @@ func TestMarshalIssuer(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		issuerBytes, err := issuer.MarshalJSON()
+		issuerBytes, err := json.Marshal(serializeIssuer(issuer))
 		require.NoError(t, err)
 		require.Equal(t, expectedIssuerBytes, issuerBytes)
 	})
@@ -1525,7 +1623,7 @@ func TestMarshalIssuer(t *testing.T) {
 			CustomFields: map[string]interface{}{"image": map[chan int]interface{}{make(chan int): 777}},
 		}
 
-		issuerBytes, err := issuer.MarshalJSON()
+		issuerBytes, err := json.Marshal(serializeIssuer(issuer))
 		require.Error(t, err)
 		require.Empty(t, issuerBytes)
 	})
@@ -1533,64 +1631,50 @@ func TestMarshalIssuer(t *testing.T) {
 
 func TestMarshalSubject(t *testing.T) {
 	t.Run("Marshal Subject with ID defined only", func(t *testing.T) {
-		subject := Subject{ID: "did:example:76e12ec712ebc6f1c221ebfeb1f"}
+		subjectRaw := []Subject{{ID: "did:example:76e12ec712ebc6f1c221ebfeb1f"}}
 
-		subjectBytes, err := subject.MarshalJSON()
-		require.NoError(t, err)
-		require.Equal(t, `{"id":"did:example:76e12ec712ebc6f1c221ebfeb1f"}`, string(subjectBytes))
+		subject := SerializeSubject(subjectRaw)
+		require.Equal(t, map[string]interface{}{"id": "did:example:76e12ec712ebc6f1c221ebfeb1f"}, subject)
 	})
 
 	t.Run("Marshal Subject with ID, name, spouse defined", func(t *testing.T) {
-		subject := Subject{
+		subjectRaw := []Subject{{
 			ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
 			CustomFields: CustomFields{
 				"name":   "Morgan Doe",
 				"spouse": "did:example:ebfeb1f712ebc6f1c276e12ec21",
 			},
-		}
+		}}
 
-		expectedSubjectBytes, err := json.Marshal(map[string]interface{}{
+		expectedSubject := map[string]interface{}{
 			"id":     "did:example:76e12ec712ebc6f1c221ebfeb1f",
 			"name":   "Morgan Doe",
 			"spouse": "did:example:ebfeb1f712ebc6f1c276e12ec21",
-		})
-		require.NoError(t, err)
-
-		subjectBytes, err := subject.MarshalJSON()
-		require.NoError(t, err)
-		require.Equal(t, expectedSubjectBytes, subjectBytes)
-	})
-
-	t.Run("corner case: marshal Subject with invalid custom fields", func(t *testing.T) {
-		subject := Subject{
-			ID:           "did:example:76e12ec712ebc6f1c221ebfeb1f",
-			CustomFields: map[string]interface{}{"image": map[chan int]interface{}{make(chan int): 777}},
 		}
 
-		subjectBytes, err := subject.MarshalJSON()
-		require.Error(t, err)
-		require.Empty(t, subjectBytes)
+		subject := SerializeSubject(subjectRaw)
+		require.Equal(t, expectedSubject, subject)
 	})
 }
 
 func TestTypesToSerialize(t *testing.T) {
 	// single type
-	require.Equal(t, "VerifiableCredential", typesToRaw([]string{"VerifiableCredential"}))
+	require.Equal(t, "VerifiableCredential", serializeTypes([]string{"VerifiableCredential"}))
 
 	// several types
 	require.Equal(t,
-		[]string{"VerifiableCredential", "UniversityDegreeCredential"},
-		typesToRaw([]string{"VerifiableCredential", "UniversityDegreeCredential"}))
+		[]interface{}{"VerifiableCredential", "UniversityDegreeCredential"},
+		serializeTypes([]string{"VerifiableCredential", "UniversityDegreeCredential"}))
 }
 
 func TestContextToSerialize(t *testing.T) {
 	// single context without custom objects
 	require.Equal(t,
-		[]string{"https://www.w3.org/2018/credentials/v1"},
+		[]interface{}{"https://www.w3.org/2018/credentials/v1"},
 		contextToRaw([]string{"https://www.w3.org/2018/credentials/v1"}, []interface{}{}))
 
 	// several contexts without custom objects
-	require.Equal(t, []string{
+	require.Equal(t, []interface{}{
 		"https://www.w3.org/2018/credentials/v1",
 		"https://www.w3.org/2018/credentials/examples/v1",
 	},
@@ -1621,7 +1705,7 @@ func Test_JWTVCToJSON(t *testing.T) {
 	jwtClaims, err := vcSource.JWTClaims(true)
 	require.NoError(t, err)
 
-	jws, err := jwtClaims.MarshalJWS(EdDSA, signer, "any")
+	jws, err := jwtClaims.MarshalJWSString(EdDSA, signer, "any")
 	require.NoError(t, err)
 
 	t.Run("success", func(t *testing.T) {
@@ -1635,24 +1719,23 @@ func Test_JWTVCToJSON(t *testing.T) {
 }
 
 func TestParseCredentialFromRaw(t *testing.T) {
-	issuer, err := json.Marshal("did:example:76e12ec712ebc6f1c221ebfeb1f")
-	require.NoError(t, err)
+	issuer := "did:example:76e12ec712ebc6f1c221ebfeb1f"
 
-	vc, err := newCredential(&rawCredential{
-		Schema:  44,
-		Type:    "VerifiableCredential",
-		Issuer:  issuer,
-		Context: "https://www.w3.org/2018/credentials/v1",
-	})
+	vc, err := parseCredentialContents(JSONObject{
+		jsonFldSchema:  44,
+		jsonFldType:    "VerifiableCredential",
+		jsonFldIssuer:  issuer,
+		jsonFldContext: "https://www.w3.org/2018/credentials/v1",
+	}, false)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "fill credential schemas from raw")
 	require.Nil(t, vc)
 
-	vc, err = newCredential(&rawCredential{
-		Type:    5,
-		Issuer:  issuer,
-		Context: "https://www.w3.org/2018/credentials/v1",
-	})
+	vc, err = parseCredentialContents(JSONObject{
+		jsonFldType:    5,
+		jsonFldIssuer:  issuer,
+		jsonFldContext: "https://www.w3.org/2018/credentials/v1",
+	}, false)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "fill credential types from raw")
 	require.Nil(t, vc)
@@ -1660,63 +1743,49 @@ func TestParseCredentialFromRaw(t *testing.T) {
 	invalidIssuer, err := json.Marshal(5)
 	require.NoError(t, err)
 
-	vc, err = newCredential(&rawCredential{
-		Type:    "VerifiableCredential",
-		Issuer:  invalidIssuer,
-		Context: "https://www.w3.org/2018/credentials/v1",
-	})
+	vc, err = parseCredentialContents(JSONObject{
+		jsonFldType:    "VerifiableCredential",
+		jsonFldIssuer:  invalidIssuer,
+		jsonFldContext: "https://www.w3.org/2018/credentials/v1",
+	}, false)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "fill credential issuer from raw")
 	require.Nil(t, vc)
 
-	vc, err = newCredential(&rawCredential{
-		Type:    "VerifiableCredential",
-		Issuer:  issuer,
-		Context: 5, // invalid context
-	})
+	vc, err = parseCredentialContents(JSONObject{
+		jsonFldType:    "VerifiableCredential",
+		jsonFldIssuer:  issuer,
+		jsonFldContext: 5, // invalid context
+	}, false)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "fill credential context from raw")
 	require.Nil(t, vc)
 
-	vc, err = newCredential(&rawCredential{
-		Type:       "VerifiableCredential",
-		Issuer:     issuer,
-		Context:    "https://www.w3.org/2018/credentials/v1",
-		TermsOfUse: []byte("not json"),
-	})
+	vc, err = parseCredentialContents(JSONObject{
+		jsonFldType:       "VerifiableCredential",
+		jsonFldIssuer:     issuer,
+		jsonFldContext:    "https://www.w3.org/2018/credentials/v1",
+		jsonFldTermsOfUse: []byte("not json"),
+	}, false)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "fill credential terms of use from raw")
 	require.Nil(t, vc)
 
-	vc, err = newCredential(&rawCredential{
-		Type:           "VerifiableCredential",
-		Issuer:         issuer,
-		Context:        "https://www.w3.org/2018/credentials/v1",
-		RefreshService: []byte("not json"),
-	})
+	vc, err = parseCredentialContents(JSONObject{
+		jsonFldType:           "VerifiableCredential",
+		jsonFldIssuer:         issuer,
+		jsonFldContext:        "https://www.w3.org/2018/credentials/v1",
+		jsonFldRefreshService: []byte("not json"),
+	}, false)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "fill credential refresh service from raw")
 	require.Nil(t, vc)
 
-	vc, err = newCredential(&rawCredential{
-		Type:    "VerifiableCredential",
-		Issuer:  issuer,
-		Context: "https://www.w3.org/2018/credentials/v1",
-		Proof:   []byte("not json"),
-	})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "fill credential proof from raw")
-	require.Nil(t, vc)
+	proofs, err := parseLDProof([]byte("not json"))
 
-	vc, err = newCredential(&rawCredential{
-		Type:             "VerifiableCredential",
-		Issuer:           issuer,
-		Context:          "https://www.w3.org/2018/credentials/v1",
-		SDJWTDisclosures: []string{"not base64!"},
-	})
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "fill credential sdjwt disclosures from raw")
-	require.Nil(t, vc)
+	require.Contains(t, err.Error(), "unsupported proof value")
+	require.Nil(t, proofs)
 }
 
 func TestParseCredentialFromRaw_PreserveDates(t *testing.T) {
@@ -1755,69 +1824,69 @@ func TestCredential_validateCredential(t *testing.T) {
 		vc, err := parseTestCredential(t, []byte(validCredential))
 		r.NoError(err)
 
-		vcOpts := &credentialOpts{
-			modelValidationMode: jsonldValidation,
-			jsonldCredentialOpts: jsonldCredentialOpts{
-				jsonldDocumentLoader: createTestDocumentLoader(t),
-			},
-			strictValidation: true,
+		vcOpts := []CredentialOpt{
+			WithJSONLDDocumentLoader(createTestDocumentLoader(t)),
+			WithJSONLDValidation(),
+			WithStrictValidation(),
 		}
-		r.NoError(validateCredential(vc, vc.byteJSON(t), vcOpts))
+
+		raw := vc.ToRawJSON()
+
+		_, err = ParseCredentialJSON(raw, vcOpts...)
+		r.NoError(err)
 
 		// add a field which is not defined in the schema
-		vc.CustomFields = map[string]interface{}{
-			"referenceNumber": 83294847,
-		}
-		r.Error(validateCredential(&Credential{}, vc.byteJSON(t), vcOpts))
 
-		// remove strict validation
-		vcOpts.strictValidation = false
-		r.NoError(validateCredential(&Credential{}, vc.byteJSON(t), vcOpts))
+		raw["referenceNumber"] = 83294847
+
+		_, err = ParseCredentialJSON(raw, vcOpts...)
+		r.Error(err)
+
+		_, err = ParseCredentialJSON(raw, WithJSONLDDocumentLoader(createTestDocumentLoader(t)),
+			WithJSONLDValidation())
+		r.NoError(err)
 
 		// remove base context
-		vc.Context = []string{"https://trustbloc.github.io/context/vc/examples-v1.jsonld"}
-		r.Error(validateCredential(&Credential{}, vc.byteJSON(t), vcOpts))
+		raw[jsonFldContext] = []string{"https://trustbloc.github.io/context/vc/examples-v1.jsonld"}
+
+		_, err = ParseCredentialJSON(raw, WithJSONLDDocumentLoader(createTestDocumentLoader(t)),
+			WithJSONLDValidation())
+		r.Error(err)
 	})
 
 	t.Run("test baseContextValidation constraint", func(t *testing.T) {
 		vc, err := parseTestCredential(t, []byte(validCredential))
 		require.NoError(t, err)
 
-		vc.Types = []string{"VerifiableCredential"}
-		vc.Context = []string{"https://www.w3.org/2018/credentials/v1"}
-		r.NoError(validateCredential(
-			vc, vc.byteJSON(t),
-			&credentialOpts{modelValidationMode: baseContextValidation}))
+		raw := vc.ToRawJSON()
 
-		vc.Types = []string{"VerifiableCredential", "UniversityDegreeCredential"}
-		vc.Context = []string{"https://www.w3.org/2018/credentials/v1"}
-		err = validateCredential(
-			vc, vc.byteJSON(t),
-			&credentialOpts{modelValidationMode: baseContextValidation})
+		raw[jsonFldType] = []string{"VerifiableCredential"}
+		raw[jsonFldContext] = []string{"https://www.w3.org/2018/credentials/v1"}
+
+		_, err = ParseCredentialJSON(raw, WithBaseContextValidation())
+		r.NoError(err)
+
+		raw[jsonFldType] = []string{"VerifiableCredential", "UniversityDegreeCredential"}
+		raw[jsonFldContext] = []string{"https://www.w3.org/2018/credentials/v1"}
+		_, err = ParseCredentialJSON(raw, WithBaseContextValidation())
 		r.Error(err)
 		r.EqualError(err, "violated type constraint: not base only type defined")
 
-		vc.Types = []string{"UniversityDegreeCredential"}
-		vc.Context = []string{"https://www.w3.org/2018/credentials/v1"}
-		err = validateCredential(
-			vc, vc.byteJSON(t),
-			&credentialOpts{modelValidationMode: baseContextValidation})
+		raw[jsonFldType] = []string{"UniversityDegreeCredential"}
+		raw[jsonFldContext] = []string{"https://www.w3.org/2018/credentials/v1"}
+		_, err = ParseCredentialJSON(raw, WithBaseContextValidation())
 		r.Error(err)
 		r.EqualError(err, "violated type constraint: not base only type defined")
 
-		vc.Types = []string{"VerifiableCredential"}
-		vc.Context = []string{"https://www.w3.org/2018/credentials/v1", "https://www.exaple.org/udc/v1"}
-		err = validateCredential(
-			vc, vc.byteJSON(t),
-			&credentialOpts{modelValidationMode: baseContextValidation})
+		raw[jsonFldType] = []string{"VerifiableCredential"}
+		raw[jsonFldContext] = []string{"https://www.w3.org/2018/credentials/v1", "https://www.exaple.org/udc/v1"}
+		_, err = ParseCredentialJSON(raw, WithBaseContextValidation())
 		r.Error(err)
 		r.EqualError(err, "violated @context constraint: not base only @context defined")
 
-		vc.Types = []string{"VerifiableCredential"}
-		vc.Context = []string{"https://www.exaple.org/udc/v1"}
-		err = validateCredential(
-			vc, vc.byteJSON(t),
-			&credentialOpts{modelValidationMode: baseContextValidation})
+		raw[jsonFldType] = []string{"VerifiableCredential"}
+		raw[jsonFldContext] = []string{"https://www.exaple.org/udc/v1"}
+		_, err = ParseCredentialJSON(raw, WithBaseContextValidation())
 		r.Error(err)
 		r.EqualError(err, "violated @context constraint: not base only @context defined")
 	})
@@ -1826,55 +1895,39 @@ func TestCredential_validateCredential(t *testing.T) {
 		vc, err := parseTestCredential(t, []byte(validCredential))
 		require.NoError(t, err)
 
-		vc.Types = []string{"VerifiableCredential", "AlumniCredential"}
-		vc.Context = []string{"https://www.w3.org/2018/credentials/v1", "https://www.exaple.org/alumni/v1"}
-		r.NoError(validateCredential(
-			vc, vc.byteJSON(t),
-			&credentialOpts{
-				modelValidationMode: baseContextExtendedValidation,
-				allowedCustomTypes: map[string]bool{
-					"VerifiableCredential": true,
-					"AlumniCredential":     true,
-				},
-				allowedCustomContexts: map[string]bool{
-					"https://www.w3.org/2018/credentials/v1": true,
-					"https://www.exaple.org/alumni/v1":       true,
-				},
-			}))
+		raw := vc.ToRawJSON()
 
-		vc.Types = []string{"VerifiableCredential", "UniversityDegreeCredential"}
-		vc.Context = []string{"https://www.w3.org/2018/credentials/v1", "https://www.exaple.org/alumni/v1"}
-		err = validateCredential(
-			vc, vc.byteJSON(t),
-			&credentialOpts{
-				modelValidationMode: baseContextExtendedValidation,
-				allowedCustomTypes: map[string]bool{
-					"VerifiableCredential": true,
-					"AlumniCredential":     true,
-				},
-				allowedCustomContexts: map[string]bool{
-					"https://www.w3.org/2018/credentials/v1": true,
-					"https://www.exaple.org/alumni/v1":       true,
-				},
-			})
+		raw[jsonFldType] = []string{"VerifiableCredential", "AlumniCredential"}
+		raw[jsonFldContext] = []string{"https://www.w3.org/2018/credentials/v1", "https://www.exaple.org/alumni/v1"}
+
+		_, err = ParseCredentialJSON(
+			raw,
+			WithBaseContextExtendedValidation(
+				[]string{"https://www.w3.org/2018/credentials/v1", "https://www.exaple.org/alumni/v1"},
+				[]string{"VerifiableCredential", "AlumniCredential"},
+			))
+
+		r.NoError(err)
+
+		raw[jsonFldType] = []string{"VerifiableCredential", "UniversityDegreeCredential"}
+		raw[jsonFldContext] = []string{"https://www.w3.org/2018/credentials/v1", "https://www.exaple.org/alumni/v1"}
+		_, err = ParseCredentialJSON(
+			raw,
+			WithBaseContextExtendedValidation(
+				[]string{"https://www.w3.org/2018/credentials/v1", "https://www.exaple.org/alumni/v1"},
+				[]string{"VerifiableCredential", "AlumniCredential"},
+			))
 		r.Error(err)
 		r.EqualError(err, "not allowed type: UniversityDegreeCredential")
 
-		vc.Types = []string{"VerifiableCredential", "AlumniCredential"}
-		vc.Context = []string{"https://www.w3.org/2018/credentials/v1", "https://www.exaple.org/udc/v1"}
-		err = validateCredential(
-			vc, vc.byteJSON(t),
-			&credentialOpts{
-				modelValidationMode: baseContextExtendedValidation,
-				allowedCustomTypes: map[string]bool{
-					"VerifiableCredential": true,
-					"AlumniCredential":     true,
-				},
-				allowedCustomContexts: map[string]bool{
-					"https://www.w3.org/2018/credentials/v1": true,
-					"https://www.exaple.org/alumni/v1":       true,
-				},
-			})
+		raw[jsonFldType] = []string{"VerifiableCredential", "AlumniCredential"}
+		raw[jsonFldContext] = []string{"https://www.w3.org/2018/credentials/v1", "https://www.exaple.org/udc/v1"}
+		_, err = ParseCredentialJSON(
+			raw,
+			WithBaseContextExtendedValidation(
+				[]string{"https://www.w3.org/2018/credentials/v1", "https://www.exaple.org/alumni/v1"},
+				[]string{"VerifiableCredential", "AlumniCredential"},
+			))
 		r.Error(err)
 		r.EqualError(err, "not allowed @context: https://www.exaple.org/udc/v1")
 	})
@@ -1920,46 +1973,6 @@ func TestDecodeWithNullValues(t *testing.T) {
 	require.NotNil(t, vc)
 }
 
-func TestCredential_raw(t *testing.T) {
-	t.Run("Serialize with invalid refresh service", func(t *testing.T) {
-		vc, err := parseTestCredential(t, []byte(validCredential))
-		require.NoError(t, err)
-
-		vc.RefreshService = []TypedID{{CustomFields: map[string]interface{}{
-			"invalidField": make(chan int),
-		}}}
-
-		_, err = vc.raw()
-		require.Error(t, err)
-	})
-
-	t.Run("Serialize with invalid terms of use", func(t *testing.T) {
-		vc, err := parseTestCredential(t, []byte(validCredential))
-		require.NoError(t, err)
-
-		vc.TermsOfUse = []TypedID{{CustomFields: map[string]interface{}{
-			"invalidField": make(chan int),
-		}}}
-
-		vcRaw, err := vc.raw()
-		require.Error(t, err)
-		require.Nil(t, vcRaw)
-	})
-
-	t.Run("Serialize with invalid proof", func(t *testing.T) {
-		vc, err := parseTestCredential(t, []byte(validCredential))
-		require.NoError(t, err)
-
-		vc.Proofs = []Proof{{
-			"invalidField": make(chan int),
-		}}
-
-		vcRaw, err := vc.raw()
-		require.Error(t, err)
-		require.Nil(t, vcRaw)
-	})
-}
-
 func TestParseCredentialWithDisabledProofCheck(t *testing.T) {
 	signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
 
@@ -1971,7 +1984,7 @@ func TestParseCredentialWithDisabledProofCheck(t *testing.T) {
 		credClaims, err := vc.JWTClaims(true)
 		require.NoError(t, err)
 
-		jws, err := credClaims.MarshalJWS(EdDSA, signer, "any")
+		jws, err := credClaims.MarshalJWSString(EdDSA, signer, "any")
 		require.NoError(t, err)
 
 		// Parse VC with JWS proof.
@@ -1981,19 +1994,22 @@ func TestParseCredentialWithDisabledProofCheck(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, vcUnverified)
 
-		require.Equal(t, jws, vcUnverified.JWT)
-		vcUnverified.JWT = ""
+		require.Equal(t, jws, vcUnverified.JWTEnvelope.JWT)
 
-		require.Equal(t, vc, vcUnverified)
+		require.Equal(t, vc.Contents(), vcUnverified.Contents())
 	})
 
 	t.Run("ParseUnverifiedCredential() for JWT error cases", func(t *testing.T) {
-		// Prepare JWS.
-		vc, err := parseTestCredential(t, []byte(validCredential))
+		validCred, err := parseTestCredential(t, []byte(validCredential))
 		require.NoError(t, err)
 
+		vcc := validCred.Contents()
+
 		// Manually change URI on 0 position
-		vc.Context = append([]string{"https://w3id.org/security/bbs/v1"}, vc.Context...)
+		vcc.Context = append([]string{"https://w3id.org/security/bbs/v1"}, vcc.Context...)
+
+		vc, err := CreateCredential(vcc, nil)
+		require.NoError(t, err)
 
 		credClaims, err := vc.JWTClaims(true)
 		require.NoError(t, err)
@@ -2034,7 +2050,7 @@ func TestParseCredentialWithDisabledProofCheck(t *testing.T) {
 			WithDisabledProofCheck())
 		require.NoError(t, err)
 		require.NotNil(t, vcUnverified)
-		require.Equal(t, vc, vcUnverified)
+		require.Equal(t, vc.ToRawJSON(), vcUnverified.ToRawJSON())
 	})
 
 	t.Run("ParseUnverifiedCredential() error cases", func(t *testing.T) {
@@ -2070,7 +2086,7 @@ func TestParseCredentialWithDisabledProofCheck(t *testing.T) {
 
 		vc, err = ParseCredential(rawVCMapBytes, WithDisabledProofCheck())
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "build new credential")
+		require.Contains(t, err.Error(), "context of unknown type")
 		require.Nil(t, vc)
 
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &rawVCMap))
@@ -2087,13 +2103,31 @@ func TestParseCredentialWithDisabledProofCheck(t *testing.T) {
 	})
 }
 
+func TestCredential_ValidateCredential(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		vc, err := ParseCredential([]byte(validCredential), WithCredDisableValidation())
+		require.NoError(t, err)
+		require.NotNil(t, vc)
+		require.NoError(t, vc.ValidateCredential(WithJSONLDDocumentLoader(createTestDocumentLoader(t))))
+	})
+
+	t.Run("Invalid cred", func(t *testing.T) {
+		vc, err := ParseCredential([]byte(credentialWithoutIssuanceDate), WithCredDisableValidation())
+		require.NoError(t, err)
+		require.NotNil(t, vc)
+		require.Error(t, vc.ValidateCredential(WithJSONLDDocumentLoader(createTestDocumentLoader(t))))
+	})
+}
+
 func TestMarshalCredential(t *testing.T) {
 	t.Run("test marshalling VC to JSON bytes", func(t *testing.T) {
 		vc, err := parseTestCredential(t, []byte(validCredential))
 		require.NoError(t, err)
 		require.NotNil(t, vc)
 
-		vcMap, err := jsonutil.ToMap(vc)
+		vcc := vc.Contents()
+
+		vcMap, err := serializeCredentialContents(&vcc, vc.Proofs())
 		require.NoError(t, err)
 		require.Empty(t, vcMap["credentialSchema"])
 		require.NotEmpty(t, vcMap["@context"])
@@ -2102,9 +2136,9 @@ func TestMarshalCredential(t *testing.T) {
 		require.NotEmpty(t, vcMap["type"])
 
 		// now set schema and try again
-		vc.Schemas = []TypedID{{ID: "test1"}, {ID: "test2"}}
+		vcc.Schemas = []TypedID{{ID: "test1"}, {ID: "test2"}}
 
-		vcMap, err = jsonutil.ToMap(vc)
+		vcMap, err = serializeCredentialContents(&vcc, vc.Proofs())
 		require.NoError(t, err)
 		require.NotEmpty(t, vcMap["credentialSchema"])
 		require.NotEmpty(t, vcMap["@context"])
@@ -2118,69 +2152,36 @@ func TestMarshalCredential(t *testing.T) {
 func TestSubjectToBytes(t *testing.T) {
 	r := require.New(t)
 
-	t.Run("string subject", func(t *testing.T) {
-		subjectBytes, err := subjectToBytes("did:example:ebfeb1f712ebc6f1c276e12ec21")
-		r.NoError(err)
-		r.Equal("\"did:example:ebfeb1f712ebc6f1c276e12ec21\"", string(subjectBytes))
-	})
-
-	t.Run("map subject", func(t *testing.T) {
-		subjectBytes, err := subjectToBytes(map[string]interface{}{
-			"id":     "did:example:ebfeb1f712ebc6f1c276e12ec21",
-			"name":   "Jayden Doe",
-			"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1",
-		})
-		r.NoError(err)
-		r.Equal("{\"id\":\"did:example:ebfeb1f712ebc6f1c276e12ec21\",\"name\":\"Jayden Doe\",\"spouse\":\"did:example:c276e12ec21ebfeb1f712ebc6f1\"}", string(subjectBytes))
-	})
-
-	t.Run("slice of maps subject", func(t *testing.T) {
-		subjectBytes, err := subjectToBytes([]map[string]interface{}{
-			{
-				"id":     "did:example:ebfeb1f712ebc6f1c276e12ec21",
-				"name":   "Jayden Doe",
-				"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1",
-			},
-		})
-		r.NoError(err)
-		r.Equal("{\"id\":\"did:example:ebfeb1f712ebc6f1c276e12ec21\",\"name\":\"Jayden Doe\",\"spouse\":\"did:example:c276e12ec21ebfeb1f712ebc6f1\"}", string(subjectBytes))
-
-		subjectBytes, err = subjectToBytes([]map[string]interface{}{
-			{
-				"id":     "did:example:ebfeb1f712ebc6f1c276e12ec21",
-				"name":   "Jayden Doe",
-				"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1",
-			},
-			{
-				"id":     "did:example:c276e12ec21ebfeb1f712ebc6f1",
-				"name":   "Morgan Doe",
-				"spouse": "did:example:ebfeb1f712ebc6f1c276e12ec21",
-			},
-		})
-		r.NoError(err)
-		r.Equal("[{\"id\":\"did:example:ebfeb1f712ebc6f1c276e12ec21\",\"name\":\"Jayden Doe\",\"spouse\":\"did:example:c276e12ec21ebfeb1f712ebc6f1\"},{\"id\":\"did:example:c276e12ec21ebfeb1f712ebc6f1\",\"name\":\"Morgan Doe\",\"spouse\":\"did:example:ebfeb1f712ebc6f1c276e12ec21\"}]", string(subjectBytes))
+	t.Run("nil subject", func(t *testing.T) {
+		subject := SerializeSubject(nil)
+		r.Nil(subject)
 	})
 
 	t.Run("Single Subject subject", func(t *testing.T) {
-		subjectBytes, err := subjectToBytes(Subject{
+		subject := SerializeSubject([]Subject{{
 			ID: "did:example:ebfeb1f712ebc6f1c276e12ec21",
-		})
+		}})
+
+		subjectBytes, err := json.Marshal(subject)
 		r.NoError(err)
+
 		r.Equal("{\"id\":\"did:example:ebfeb1f712ebc6f1c276e12ec21\"}", string(subjectBytes))
 
-		subjectBytes, err = subjectToBytes(Subject{
+		subject = SerializeSubject([]Subject{{
 			ID: "did:example:ebfeb1f712ebc6f1c276e12ec21",
 			CustomFields: CustomFields{
 				"name":   "Jayden Doe",
 				"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1",
 			},
-		})
+		}})
+
+		subjectBytes, err = json.Marshal(subject)
 		r.NoError(err)
 		r.Equal("{\"id\":\"did:example:ebfeb1f712ebc6f1c276e12ec21\",\"name\":\"Jayden Doe\",\"spouse\":\"did:example:c276e12ec21ebfeb1f712ebc6f1\"}", string(subjectBytes))
 	})
 
 	t.Run("Several Subject subjects", func(t *testing.T) {
-		subjectBytes, err := subjectToBytes([]Subject{
+		subject := SerializeSubject([]Subject{
 			{
 				ID: "did:example:ebfeb1f712ebc6f1c276e12ec21",
 				CustomFields: CustomFields{
@@ -2189,10 +2190,12 @@ func TestSubjectToBytes(t *testing.T) {
 				},
 			},
 		})
+
+		subjectBytes, err := json.Marshal(subject)
 		r.NoError(err)
 		r.Equal("{\"id\":\"did:example:ebfeb1f712ebc6f1c276e12ec21\",\"name\":\"Jayden Doe\",\"spouse\":\"did:example:c276e12ec21ebfeb1f712ebc6f1\"}", string(subjectBytes))
 
-		subjectBytes, err = subjectToBytes([]Subject{
+		subject = SerializeSubject([]Subject{
 			{
 				ID: "did:example:ebfeb1f712ebc6f1c276e12ec21",
 				CustomFields: CustomFields{
@@ -2208,27 +2211,9 @@ func TestSubjectToBytes(t *testing.T) {
 				},
 			},
 		})
+
+		subjectBytes, err = json.Marshal(subject)
 		r.NoError(err)
 		r.Equal("[{\"id\":\"did:example:ebfeb1f712ebc6f1c276e12ec21\",\"name\":\"Jayden Doe\",\"spouse\":\"did:example:c276e12ec21ebfeb1f712ebc6f1\"},{\"id\":\"did:example:c276e12ec21ebfeb1f712ebc6f1\",\"name\":\"Morgan Doe\",\"spouse\":\"did:example:ebfeb1f712ebc6f1c276e12ec21\"}]", string(subjectBytes))
-	})
-
-	t.Run("Custom struct subject", func(t *testing.T) {
-		subjectBytes, err := subjectToBytes(UniversityDegreeSubject{
-			ID:     "did:example:ebfeb1f712ebc6f1c276e12ec21",
-			Name:   "Jayden Doe",
-			Spouse: "did:example:c276e12ec21ebfeb1f712ebc6f1",
-			Degree: UniversityDegree{
-				Type:       "BachelorDegree",
-				University: "MIT",
-			},
-		})
-		r.NoError(err)
-		r.Equal("{\"degree\":{\"type\":\"BachelorDegree\",\"university\":\"MIT\"},\"id\":\"did:example:ebfeb1f712ebc6f1c276e12ec21\",\"name\":\"Jayden Doe\",\"spouse\":\"did:example:c276e12ec21ebfeb1f712ebc6f1\"}", string(subjectBytes))
-	})
-
-	t.Run("nil subject", func(t *testing.T) {
-		subjectBytes, err := subjectToBytes(nil)
-		r.Empty(subjectBytes)
-		r.NoError(err)
 	})
 }

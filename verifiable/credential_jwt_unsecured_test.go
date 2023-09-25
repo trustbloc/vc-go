@@ -29,12 +29,12 @@ func TestCredentialJWTClaimsMarshallingToUnsecuredJWT(t *testing.T) {
 	vcBytes, err := decodeCredJWTUnsecured(sJWT)
 	require.NoError(t, err)
 
-	vcRaw := new(rawCredential)
+	var vcRaw JSONObject
 	err = json.Unmarshal(vcBytes, &vcRaw)
 	require.NoError(t, err)
 
 	require.NoError(t, err)
-	require.Equal(t, vc.stringJSON(t), vcRaw.stringJSON(t))
+	require.Equal(t, vc.stringJSON(t), jsonObjectToString(t, vcRaw))
 }
 
 func TestCredUnsecuredJWTDecoderParseJWTClaims(t *testing.T) {
