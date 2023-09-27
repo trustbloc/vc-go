@@ -408,7 +408,8 @@ type Issuer struct {
 	CustomFields CustomFields `json:"-"`
 }
 
-func issuerToJSON(issuer Issuer) JSONObject {
+// IssuerToJSON converts issuer to raw json object.
+func IssuerToJSON(issuer Issuer) JSONObject {
 	jsonObj := jsonutil.ShallowCopyObj(issuer.CustomFields)
 
 	if issuer.ID != "" {
@@ -418,7 +419,8 @@ func issuerToJSON(issuer Issuer) JSONObject {
 	return jsonObj
 }
 
-func issuerFromJSON(issuerObj JSONObject) (*Issuer, error) {
+// IssuerFromJSON creates issuer from raw json object.
+func IssuerFromJSON(issuerObj JSONObject) (*Issuer, error) {
 	flds, rest := jsonutil.SplitJSONObj(issuerObj, jsonFldIssuerID)
 
 	id, err := parseStringFld(flds, jsonFldIssuerID)
@@ -821,7 +823,7 @@ func parseIssuer(issuerRaw interface{}) (*Issuer, error) {
 
 		return &Issuer{ID: issuer}, nil
 	case map[string]interface{}:
-		return issuerFromJSON(issuer)
+		return IssuerFromJSON(issuer)
 	}
 
 	return nil, fmt.Errorf("should be json object or string but got %v", issuerRaw)
@@ -832,7 +834,7 @@ func serializeIssuer(issuer Issuer) interface{} {
 		return issuer.ID
 	}
 
-	return issuerToJSON(issuer)
+	return IssuerToJSON(issuer)
 }
 
 // parseSubject parses raw credential subject.
@@ -853,11 +855,16 @@ func parseSubject(subjectRaw interface{}) ([]Subject, error) {
 		}
 
 		return []Subject{parsed}, nil
-	case []map[string]interface{}:
+	case []interface{}:
 		var subjects []Subject
 
-		for _, s := range subject {
-			parsed, err := SubjectFromJSON(s)
+		for _, raw := range subject {
+			sub, ok := raw.(map[string]interface{})
+			if !ok {
+				return nil, fmt.Errorf("verifiable credential subject of unsupported format")
+			}
+
+			parsed, err := SubjectFromJSON(sub)
 			if err != nil {
 				return nil, fmt.Errorf("parse subjects array: %w", err)
 			}
@@ -874,8 +881,8 @@ func parseSubject(subjectRaw interface{}) ([]Subject, error) {
 // decodeCredentialSchemas decodes credential schema(s).
 //
 // credential schema can be defined as a single object or array of objects.
-func decodeCredentialSchemas(raw JSONObject) ([]TypedID, error) {
-	return parseTypedID(raw[jsonFldSchema])
+func decodeCredentialSchemas(schema interface{}) ([]TypedID, error) {
+	return parseTypedID(schema)
 }
 
 // CreateCredential creates vc from CredentialContents.
@@ -980,14 +987,14 @@ func ParseCredential(vcData []byte, opts ...CredentialOpt) (*Credential, error) 
 		return nil, err
 	}
 
-	ldProofs, err := parseLDProof(vcJSON[jsonFldLDProof])
-	if err != nil {
-		return nil, fmt.Errorf("fill credential proof from raw: %w", err)
-	}
-
 	contents, err := parseCredentialContents(vcJSON, jwtParseRes.isSDJWT)
 	if err != nil {
 		return nil, err
+	}
+
+	ldProofs, err := parseLDProof(vcJSON[jsonFldLDProof])
+	if err != nil {
+		return nil, fmt.Errorf("fill credential proof from raw: %w", err)
 	}
 
 	if externalJWT == "" && !vcOpts.disableValidation {
@@ -1147,10 +1154,11 @@ func validateJSONLD(vcJSON JSONObject, vcOpts *credentialOpts) error {
 func parseCredentialContents(raw JSONObject, isSDJWT bool) (*CredentialContents, error) {
 	var schemas []TypedID
 
-	if raw[jsonFldSchema] != nil {
+	rawSchemas := raw[jsonFldSchema]
+	if rawSchemas != nil {
 		var err error
 
-		schemas, err = decodeCredentialSchemas(raw)
+		schemas, err = decodeCredentialSchemas(rawSchemas)
 		if err != nil {
 			return nil, fmt.Errorf("fill credential schemas from raw: %w", err)
 		}
@@ -1663,6 +1671,7 @@ func loadJSONSchema(url string, client *http.Client) ([]byte, error) {
 // JWTClaims converts Verifiable Credential into JWT Credential claims, which can be than serialized
 // e.g. into JWS.
 // TODO: review JWT and SDJWT implementation. Do not expose claims externally.
+// TODO: JWTClaims not take to account "sub" claim from jwt, should it?
 func (vc *Credential) JWTClaims(minimizeVC bool) (*JWTCredClaims, error) {
 	return newJWTCredClaims(vc, minimizeVC)
 }
@@ -1879,4 +1888,112 @@ func (vc *Credential) MarshalAsJSONLD() ([]byte, error) {
 	}
 
 	return byteCred, nil
+}
+
+// WithModifiedID creates new credential with modified id and without proofs as they become invalid.
+func (vc *Credential) WithModifiedID(id string) *Credential {
+	newCredJSON := copyCredentialJSONWithoutProofs(vc.credentialJSON)
+	newContents := vc.Contents()
+
+	newContents.ID = id
+
+	if id != "" {
+		newCredJSON[jsonFldID] = id
+	} else {
+		delete(newCredJSON, jsonFldID)
+	}
+
+	return &Credential{
+		credentialJSON:     newCredJSON,
+		credentialContents: newContents,
+	}
+}
+
+// WithModifiedContext creates new credential with modified context and without proofs as they become invalid.
+func (vc *Credential) WithModifiedContext(context []string) *Credential {
+	newCredJSON := copyCredentialJSONWithoutProofs(vc.credentialJSON)
+	newContents := vc.Contents()
+
+	newContents.Context = context
+	rawContext := contextToRaw(context, newContents.CustomContext)
+
+	if len(rawContext) > 0 {
+		newCredJSON[jsonFldContext] = rawContext
+	} else {
+		delete(newCredJSON, jsonFldContext)
+	}
+
+	return &Credential{
+		credentialJSON:     newCredJSON,
+		credentialContents: newContents,
+	}
+}
+
+// WithModifiedStatus creates new credential with modified status and without proofs as they become invalid.
+func (vc *Credential) WithModifiedStatus(status *TypedID) *Credential {
+	newCredJSON := copyCredentialJSONWithoutProofs(vc.credentialJSON)
+	newContents := vc.Contents()
+
+	newContents.Status = status
+
+	if status != nil {
+		newCredJSON[jsonFldStatus] = serializeTypedIDObj(*status)
+	} else {
+		delete(newCredJSON, jsonFldStatus)
+	}
+
+	return &Credential{
+		credentialJSON:     newCredJSON,
+		credentialContents: newContents,
+	}
+}
+
+// WithModifiedIssuer creates new credential with modified issuer and without proofs as they become invalid.
+func (vc *Credential) WithModifiedIssuer(issuer *Issuer) *Credential {
+	newCredJSON := copyCredentialJSONWithoutProofs(vc.credentialJSON)
+	newContents := vc.Contents()
+
+	newContents.Issuer = issuer
+
+	if issuer != nil {
+		newCredJSON[jsonFldIssuer] = serializeIssuer(*issuer)
+	} else {
+		delete(newCredJSON, jsonFldIssuer)
+	}
+
+	return &Credential{
+		credentialJSON:     newCredJSON,
+		credentialContents: newContents,
+	}
+}
+
+// WithModifiedSubject creates new credential with modified issuer and without proofs as they become invalid.
+func (vc *Credential) WithModifiedSubject(subject []Subject) *Credential {
+	newCredJSON := copyCredentialJSONWithoutProofs(vc.credentialJSON)
+	newContents := vc.Contents()
+
+	newContents.Subject = subject
+
+	if len(subject) > 0 {
+		newCredJSON[jsonFldSubject] = SerializeSubject(subject)
+	} else {
+		delete(newCredJSON, jsonFldSubject)
+	}
+
+	return &Credential{
+		credentialJSON:     newCredJSON,
+		credentialContents: newContents,
+	}
+}
+
+// SetCustomField should be used only in tests. Remove after proper vc test tool created.
+func (vc *Credential) SetCustomField(name string, value interface{}) {
+	vc.credentialJSON[name] = value
+}
+
+func copyCredentialJSONWithoutProofs(credentialJSON JSONObject) JSONObject {
+	newContent := jsonutil.ShallowCopyObj(credentialJSON)
+	delete(newContent, jsonFldLDProof)
+
+	return newContent
 }
