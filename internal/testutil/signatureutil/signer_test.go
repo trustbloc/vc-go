@@ -13,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	kmsapi "github.com/trustbloc/kms-go/spi/kms"
+
 	"github.com/trustbloc/vc-go/internal/testutil/kmscryptoutil"
 	"github.com/trustbloc/vc-go/internal/testutil/signatureutil/internal/signer"
 )
@@ -23,8 +24,7 @@ func TestNewCryptoSigner(t *testing.T) {
 		kmsapi.ECDSAP256TypeIEEEP1363, kmsapi.ECDSAP521TypeIEEEP1363, kmsapi.ED25519Type,
 		kmsapi.ECDSAP384TypeIEEEP1363, kmsapi.ECDSASecp256k1TypeIEEEP1363, kmsapi.RSARS256Type, kmsapi.RSAPS256Type,
 	} {
-		newSigner, signerErr := NewCryptoSigner(kmscryptoutil.LocalKMSCrypto(t), keyType)
-		require.NoError(t, signerErr)
+		newSigner := CryptoSigner(t, keyType)
 
 		msgSig, signerErr := newSigner.Sign([]byte("test message"))
 		require.NoError(t, signerErr)

@@ -357,7 +357,7 @@ func TestValidateVerCredCredentialSubject(t *testing.T) {
 		require.NoError(t, json.Unmarshal([]byte(multipleCredentialSubjects), &subject))
 		raw[jsonFldSubject] = subject
 
-		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
+		_, err := ParseCredentialJSON(raw, WithJSONLDDocumentLoader(createTestDocumentLoader(t)))
 		require.NoError(t, err)
 	})
 
@@ -1557,13 +1557,13 @@ func TestParseSubject(t *testing.T) {
 	})
 
 	t.Run("Parse several Subject objects", func(t *testing.T) {
-		subjectRaw := []map[string]interface{}{
-			{
+		subjectRaw := []interface{}{
+			map[string]interface{}{
 				"id":     "did:example:ebfeb1f712ebc6f1c276e12ec21",
 				"name":   "Jayden Doe",
 				"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1",
 			},
-			{
+			map[string]interface{}{
 				"id":     "did:example:c276e12ec21ebfeb1f712ebc6f1",
 				"name":   "Morgan Doe",
 				"spouse": "did:example:ebfeb1f712ebc6f1c276e12ec21",
@@ -2216,4 +2216,69 @@ func TestSubjectToBytes(t *testing.T) {
 		r.NoError(err)
 		r.Equal("[{\"id\":\"did:example:ebfeb1f712ebc6f1c276e12ec21\",\"name\":\"Jayden Doe\",\"spouse\":\"did:example:c276e12ec21ebfeb1f712ebc6f1\"},{\"id\":\"did:example:c276e12ec21ebfeb1f712ebc6f1\",\"name\":\"Morgan Doe\",\"spouse\":\"did:example:ebfeb1f712ebc6f1c276e12ec21\"}]", string(subjectBytes))
 	})
+}
+
+func TestCredential_WithModified(t *testing.T) {
+	cred, err := CreateCredential(CredentialContents{
+		Context: []string{
+			"https://www.w3.org/2018/credentials/v1",
+			"https://www.w3.org/2018/credentials/examples/v1",
+		},
+		ID: "http://example.edu/credentials/1872",
+		Types: []string{
+			"VerifiableCredential",
+			"UniversityDegreeCredential",
+		},
+		Status: &TypedID{
+			ID:   "https://example.edu/status/24",
+			Type: "CredentialStatusList2017",
+		},
+		Subject: []Subject{subjectProto},
+		Issuer: &Issuer{
+			ID:           "did:example:76e12ec712ebc6f1c221ebfeb1f",
+			CustomFields: CustomFields{"name": "Example University"},
+		},
+		Issued:  afgotime.NewTime(time.Now()),
+		Expired: afgotime.NewTime(time.Now().Add(time.Hour)),
+		Schemas: []TypedID{},
+	}, nil)
+	require.NoError(t, err)
+
+	cred = cred.
+		WithModifiedID("newID").
+		WithModifiedSubject([]Subject{{ID: "newID"}}).
+		WithModifiedIssuer(&Issuer{ID: "newID"}).
+		WithModifiedContext([]string{"newContext"}).
+		WithModifiedStatus(&TypedID{
+			ID:   "newID",
+			Type: "newType",
+		})
+
+	require.Equal(t, "newID", cred.Contents().ID)
+	require.Equal(t, "newID", cred.Contents().Subject[0].ID)
+	require.Equal(t, "newID", cred.Contents().Issuer.ID)
+	require.Equal(t, []string{"newContext"}, cred.Contents().Context)
+	require.Equal(t, "newID", cred.Contents().Status.ID)
+	require.Equal(t, "newType", cred.Contents().Status.Type)
+
+	cred = cred.
+		WithModifiedID("").
+		WithModifiedSubject(nil).
+		WithModifiedIssuer(nil).
+		WithModifiedContext(nil).
+		WithModifiedStatus(nil)
+
+	require.Empty(t, cred.Contents().ID)
+	require.Empty(t, cred.Contents().Subject)
+	require.Empty(t, cred.Contents().Issuer)
+	require.Empty(t, cred.Contents().Context)
+	require.Empty(t, cred.Contents().Status)
+
+	raw := cred.ToRawJSON()
+
+	require.NotContains(t, raw, jsonFldID)
+	require.NotContains(t, raw, jsonFldSubject)
+	require.NotContains(t, raw, jsonFldIssuer)
+	require.NotContains(t, raw, jsonFldContext)
+	require.NotContains(t, raw, jsonFldStatus)
 }
