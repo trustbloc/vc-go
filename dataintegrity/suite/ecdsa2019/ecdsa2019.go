@@ -7,10 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package ecdsa2019
 
 import (
-	"crypto"
 	"crypto/sha256"
 	"crypto/sha512"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -20,7 +18,7 @@ import (
 	"github.com/piprate/json-gold/ld"
 	"github.com/trustbloc/did-go/doc/ld/processor"
 	"github.com/trustbloc/kms-go/doc/jose/jwk"
-	"github.com/trustbloc/kms-go/wrapper"
+	wrapperapi "github.com/trustbloc/kms-go/wrapper/api"
 
 	"github.com/trustbloc/vc-go/dataintegrity/models"
 	"github.com/trustbloc/vc-go/dataintegrity/suite"
@@ -51,28 +49,9 @@ func WithStaticSigner(signer Signer) SignerGetter {
 //
 // This SignerGetter assumes that the public key JWKs provided were received
 // from the same kmscrypto.KMSCrypto implementation.
-func WithKMSCryptoWrapper(kmsCrypto wrapper.KMSCryptoSigner) SignerGetter {
+func WithKMSCryptoWrapper(kmsCrypto wrapperapi.KMSCryptoSigner) SignerGetter {
 	return func(pub *jwk.JWK) (Signer, error) {
 		return kmsCrypto.FixedKeySigner(pub)
-	}
-}
-
-// WithLocalKMSSigner returns a SignerGetter that will sign using the given localkms, using the private key matching
-// the given public key.
-//
-// Deprecated: use WithKMSCryptoWrapper instead.
-func WithLocalKMSSigner(kms models.KeyManager, kmsSigner KMSSigner) SignerGetter {
-	kcs := wrapper.NewKMSCryptoSigner(kms, kmsSigner)
-
-	return func(pub *jwk.JWK) (Signer, error) {
-		kid, err := kmsKID(pub)
-		if err != nil {
-			return nil, err
-		}
-
-		pub.KeyID = kid
-
-		return kcs.FixedKeySigner(pub)
 	}
 }
 
@@ -336,16 +315,6 @@ func proofConfig(docCtx interface{}, opts *models.ProofOptions) map[string]inter
 		"created":            opts.Created.Format(models.DateTimeFormat),
 		"proofPurpose":       opts.Purpose,
 	}
-}
-
-// TODO copied from kid_creator.go, should move there: https://github.com/hyperledger/aries-framework-go/issues/3614
-func kmsKID(key *jwk.JWK) (string, error) {
-	tp, err := key.Thumbprint(crypto.SHA256)
-	if err != nil {
-		return "", fmt.Errorf("computing thumbprint for kms kid: %w", err)
-	}
-
-	return base64.RawURLEncoding.EncodeToString(tp), nil
 }
 
 func sign(sigBase []byte, key *jwk.JWK, signerGetter SignerGetter) ([]byte, error) {

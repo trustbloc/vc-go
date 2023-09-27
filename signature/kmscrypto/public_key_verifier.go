@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 package kmscrypto
 
 import (
-	"github.com/trustbloc/kms-go/wrapper"
+	wrapperapi "github.com/trustbloc/kms-go/wrapper/api"
 	"github.com/trustbloc/vc-go/signature/api"
 )
 
@@ -17,12 +17,12 @@ type PublicKeyVerifier interface {
 }
 
 // NewPublicKeyVerifier provides a PublicKeyVerifier using the given KMSCryptoVerifier.
-func NewPublicKeyVerifier(cryptoVerifier wrapper.KMSCryptoVerifier) PublicKeyVerifier {
+func NewPublicKeyVerifier(cryptoVerifier wrapperapi.KMSCryptoVerifier) PublicKeyVerifier {
 	return &pkvImpl{kcv: cryptoVerifier}
 }
 
 type pkvImpl struct {
-	kcv wrapper.KMSCryptoVerifier
+	kcv wrapperapi.KMSCryptoVerifier
 }
 
 func (p *pkvImpl) Verify(pubKey *api.PublicKey, doc []byte, signature []byte) error {

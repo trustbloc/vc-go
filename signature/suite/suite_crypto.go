@@ -8,7 +8,7 @@ package suite
 
 import (
 	"github.com/trustbloc/kms-go/spi/crypto"
-	"github.com/trustbloc/kms-go/wrapper"
+	wrapperapi "github.com/trustbloc/kms-go/wrapper/api"
 
 	"github.com/trustbloc/vc-go/signature/api"
 	"github.com/trustbloc/vc-go/signature/kmscrypto"
@@ -18,11 +18,11 @@ import (
 type CryptoSigner struct {
 	cr  crypto.Crypto
 	kh  interface{}
-	fks wrapper.FixedKeySigner
+	fks wrapperapi.FixedKeySigner
 }
 
 // NewCryptoWrapperSigner creates a new CryptoSigner using a kmscrypto wrapper.
-func NewCryptoWrapperSigner(keySigner wrapper.FixedKeySigner) *CryptoSigner {
+func NewCryptoWrapperSigner(keySigner wrapperapi.FixedKeySigner) *CryptoSigner {
 	return &CryptoSigner{fks: keySigner}
 }
 
@@ -52,11 +52,11 @@ func (s *CryptoSigner) Alg() string {
 
 // CryptoVerifier defines signature verifier based on crypto.
 type CryptoVerifier struct {
-	kc wrapper.KMSCryptoVerifier
+	kc wrapperapi.KMSCryptoVerifier
 }
 
 // NewCryptoVerifier creates a new CryptoVerifier.
-func NewCryptoVerifier(kmsCrypto wrapper.KMSCryptoVerifier) kmscrypto.PublicKeyVerifier {
+func NewCryptoVerifier(kmsCrypto wrapperapi.KMSCryptoVerifier) kmscrypto.PublicKeyVerifier {
 	return &CryptoVerifier{
 		kc: kmsCrypto,
 	}

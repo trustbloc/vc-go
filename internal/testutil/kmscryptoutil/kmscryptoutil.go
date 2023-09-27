@@ -7,19 +7,18 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/trustbloc/kms-go/crypto/tinkcrypto"
 	"github.com/trustbloc/kms-go/doc/jose/jwk"
 	"github.com/trustbloc/kms-go/doc/jose/jwk/jwksupport"
-	"github.com/trustbloc/kms-go/kms/localkms"
-	mockkms "github.com/trustbloc/kms-go/mock/kms"
+	"github.com/trustbloc/kms-go/kms"
 	"github.com/trustbloc/kms-go/secretlock/noop"
-	"github.com/trustbloc/kms-go/spi/kms"
-	"github.com/trustbloc/kms-go/wrapper"
-	mockstorage "github.com/trustbloc/vc-go/legacy/mock/storage"
+	kmsapi "github.com/trustbloc/kms-go/spi/kms"
+	wrapperapi "github.com/trustbloc/kms-go/wrapper/api"
+	"github.com/trustbloc/kms-go/wrapper/localsuite"
+	"github.com/trustbloc/vc-go/legacy/mock/storage"
 )
 
 // LocalKMSCrypto creates a kmscrypto.KMSCrypto instance that uses localkms and tinkcrypto.
-func LocalKMSCrypto(t *testing.T) wrapper.KMSCrypto {
+func LocalKMSCrypto(t *testing.T) wrapperapi.KMSCrypto {
 	kc, err := LocalKMSCryptoErr()
 	require.NoError(t, err)
 
@@ -27,30 +26,29 @@ func LocalKMSCrypto(t *testing.T) wrapper.KMSCrypto {
 }
 
 // LocalKMSCryptoErr creates a kmscrypto.KMSCrypto instance that uses localkms and tinkcrypto.
-// This API returns error instead of expecting a test manager.
-func LocalKMSCryptoErr() (wrapper.KMSCrypto, error) {
-	storeProv := mockstorage.NewMockStoreProvider()
-
-	kmsProv, err := mockkms.NewProviderForKMS(storeProv, &noop.NoLock{})
+//
+// This API returns an error instead of needing a testing parameter.
+func LocalKMSCryptoErr() (wrapperapi.KMSCrypto, error) {
+	suite, err := LocalKMSCryptoSuite()
 	if err != nil {
 		return nil, err
 	}
 
-	kms, err := localkms.New("local-lock://custom/master/key/", kmsProv)
+	return suite.KMSCrypto()
+}
+
+// LocalKMSCryptoSuite creates a kms+crypto wrapper suite that uses localkms and tinkcrypto.
+func LocalKMSCryptoSuite() (wrapperapi.Suite, error) {
+	p, err := kms.NewAriesProviderWrapper(storage.NewMockStoreProvider())
 	if err != nil {
 		return nil, err
 	}
 
-	cr, err := tinkcrypto.New()
-	if err != nil {
-		return nil, err
-	}
-
-	return wrapper.NewKMSCrypto(kms, cr), nil
+	return localsuite.NewLocalCryptoSuite("local-lock://custom/master/key/", p, &noop.NoLock{})
 }
 
 // PubKeyBytesToJWK converts the given public key to a JWK.
-func PubKeyBytesToJWK(t *testing.T, pubKeyBytes []byte, keyType kms.KeyType) *jwk.JWK {
+func PubKeyBytesToJWK(t *testing.T, pubKeyBytes []byte, keyType kmsapi.KeyType) *jwk.JWK {
 	pubJWK, err := jwksupport.PubKeyBytesToJWK(pubKeyBytes, keyType)
 	require.NoError(t, err)
 

@@ -13,13 +13,13 @@ import (
 
 	"github.com/trustbloc/did-go/doc/did"
 	"github.com/trustbloc/did-go/doc/did/util/vmparse"
-	"github.com/trustbloc/did-go/vdr/api"
+	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	"github.com/trustbloc/kms-go/doc/jose"
 	"github.com/trustbloc/kms-go/doc/jose/jwk"
 	"github.com/trustbloc/kms-go/doc/jose/jwk/jwksupport"
 	"github.com/trustbloc/kms-go/doc/util/jwkkid"
 	"github.com/trustbloc/kms-go/doc/util/kmssigner"
-	"github.com/trustbloc/kms-go/wrapper"
+	wrapperapi "github.com/trustbloc/kms-go/wrapper/api"
 
 	"github.com/trustbloc/vc-go/jwt"
 )
@@ -29,24 +29,8 @@ const (
 	vmSectionCount = 2
 )
 
-type keyReader interface { // TODO note: only used by deprecated function
-	// Get key handle for the given keyID
-	// Returns:
-	//  - handle instance (to private key)
-	//  - error if failure
-	Get(keyID string) (interface{}, error)
-}
-
 type didResolver interface {
-	Resolve(did string, opts ...api.DIDMethodOption) (*did.DocResolution, error)
-}
-
-type cryptoSigner interface { // TODO note: only used by deprecated function
-	// Sign will sign msg using a matching signature primitive in kh key handle of a private key
-	// returns:
-	// 		signature in []byte
-	//		error in case of errors
-	Sign(msg []byte, kh interface{}) ([]byte, error)
+	Resolve(did string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error)
 }
 
 // A Signer is capable of signing data.
@@ -58,23 +42,11 @@ type Signer interface {
 // SignerGetter creates a signer that signs with the private key corresponding to the given public key.
 type SignerGetter func(vm *did.VerificationMethod) (Signer, error)
 
-// UseDefaultSigner provides SignJWT with a signer that uses the given KMS and Crypto instances.
-//
-// Note: this API assumes that the KMS KID is the same as is used by localkms,
-// allowing it to be determined based on the public key.
-//
-// Deprecated: use UseKMSCryptoWrapperSigner instead.
-func UseDefaultSigner(r keyReader, s cryptoSigner) SignerGetter {
-	kcs := wrapper.NewKMSCryptoSigner(r, s)
-
-	return UseKMSCryptoWrapperSigner(kcs)
-}
-
 // UseKMSCryptoWrapperSigner uses the KMSCrypto wrapper to provide a signer.
 //
 // Note: this API assumes that the KMS KID is the same as is used by localkms,
 // allowing it to be determined based on the public key.
-func UseKMSCryptoWrapperSigner(crypto wrapper.KMSCryptoSigner) SignerGetter {
+func UseKMSCryptoWrapperSigner(crypto wrapperapi.KMSCryptoSigner) SignerGetter {
 	return func(vm *did.VerificationMethod) (Signer, error) {
 		var pubJWK *jwk.JWK
 

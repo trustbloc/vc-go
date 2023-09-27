@@ -23,10 +23,7 @@ import (
 	"github.com/trustbloc/did-go/doc/ld/store"
 	"github.com/trustbloc/kms-go/doc/jose/jwk"
 	"github.com/trustbloc/kms-go/doc/jose/jwk/jwksupport"
-	mockcrypto "github.com/trustbloc/kms-go/mock/crypto"
-	mockkms "github.com/trustbloc/kms-go/mock/kms"
-	"github.com/trustbloc/kms-go/wrapper"
-
+	mockwrapper "github.com/trustbloc/kms-go/mock/wrapper"
 	"github.com/trustbloc/vc-go/dataintegrity/models"
 	"github.com/trustbloc/vc-go/dataintegrity/suite"
 	signatureverifier "github.com/trustbloc/vc-go/signature/verifier"
@@ -47,10 +44,7 @@ func TestNew(t *testing.T) {
 	docLoader, err := documentloader.NewDocumentLoader(createMockProvider())
 	require.NoError(t, err)
 
-	cryp := &mockcrypto.Crypto{}
-	kms := &mockkms.KeyManager{}
-
-	kc := wrapper.NewKMSCryptoSigner(kms, cryp)
+	kc := &mockwrapper.MockKMSCrypto{}
 
 	signerGetter := WithKMSCryptoWrapper(kc)
 
@@ -79,8 +73,7 @@ func TestNew(t *testing.T) {
 }
 
 type testCase struct {
-	crypto       *mockcrypto.Crypto
-	kms          *mockkms.KeyManager
+	signer       *mockwrapper.MockKMSCrypto
 	docLoader    *documentloader.DocumentLoader
 	proofOpts    *models.ProofOptions
 	proof        *models.Proof
@@ -99,8 +92,7 @@ func successCase(t *testing.T) *testCase {
 	docLoader, err := documentloader.NewDocumentLoader(createMockProvider())
 	require.NoError(t, err)
 
-	cryp := &mockcrypto.Crypto{}
-	keyManager := &mockkms.KeyManager{}
+	signer := &mockwrapper.MockKMSCrypto{}
 
 	proofCreated := time.Now()
 
@@ -127,8 +119,7 @@ func successCase(t *testing.T) *testCase {
 	}
 
 	return &testCase{
-		crypto:    cryp,
-		kms:       keyManager,
+		signer:    signer,
 		docLoader: docLoader,
 		proofOpts: proofOpts,
 		proof:     proof,
@@ -141,7 +132,7 @@ func successCase(t *testing.T) *testCase {
 func testSign(t *testing.T, tc *testCase) {
 	sigInit := NewSignerInitializer(&SignerInitializerOptions{
 		LDDocumentLoader: tc.docLoader,
-		SignerGetter:     WithKMSCryptoWrapper(wrapper.NewKMSCryptoSigner(tc.kms, tc.crypto)),
+		SignerGetter:     WithKMSCryptoWrapper(tc.signer),
 	})
 
 	signer, err := sigInit.Signer()
@@ -219,23 +210,12 @@ func TestSuite_CreateProof(t *testing.T) {
 	})
 
 	t.Run("failure", func(t *testing.T) {
-		t.Run("kms key handle error", func(t *testing.T) {
+		t.Run("signer sign error", func(t *testing.T) {
 			tc := successCase(t)
 
 			errExpected := errors.New("expected error")
 
-			tc.kms.GetKeyErr = errExpected
-			tc.errIs = errExpected
-
-			testSign(t, tc)
-		})
-
-		t.Run("crypto sign error", func(t *testing.T) {
-			tc := successCase(t)
-
-			errExpected := errors.New("expected error")
-
-			tc.crypto.SignErr = errExpected
+			tc.signer.SignErr = errExpected
 			tc.errIs = errExpected
 
 			testSign(t, tc)
