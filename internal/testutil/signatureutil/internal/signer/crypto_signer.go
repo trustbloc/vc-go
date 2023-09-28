@@ -11,14 +11,14 @@ import (
 
 	"github.com/trustbloc/kms-go/doc/jose/jwk"
 	kmsapi "github.com/trustbloc/kms-go/spi/kms"
-	"github.com/trustbloc/kms-go/wrapper"
+	wrapperapi "github.com/trustbloc/kms-go/wrapper/api"
 )
 
 // CryptoSigner defines signer based on crypto.
 type CryptoSigner struct {
 	PubJWK      *jwk.JWK
 	alg         string
-	fixedCrypto wrapper.FixedKeyCrypto
+	fixedCrypto wrapperapi.FixedKeyCrypto
 }
 
 // Sign will sign document and return signature.
@@ -37,7 +37,7 @@ func (s *CryptoSigner) Alg() string {
 }
 
 // NewCryptoSigner creates a new CryptoSigner.
-func NewCryptoSigner(kmsCrypto wrapper.KMSCrypto, keyType kmsapi.KeyType, alg string) (*CryptoSigner, error) {
+func NewCryptoSigner(kmsCrypto wrapperapi.KMSCrypto, keyType kmsapi.KeyType, alg string) (*CryptoSigner, error) {
 	pubJWK, err := kmsCrypto.Create(keyType)
 	if err != nil {
 		return nil, fmt.Errorf("create key: %w", err)
