@@ -72,7 +72,7 @@ func ExamplePresentationDefinition_CreateVP_v1() {
 				"age":        21,
 			},
 		},
-	}), loader, verifiable.WithJSONLDDocumentLoader(loader))
+	}), loader, WithSDCredentialOptions(verifiable.WithJSONLDDocumentLoader(loader)))
 	if err != nil {
 		panic(err)
 	}
@@ -182,7 +182,7 @@ func ExamplePresentationDefinition_CreateVP_v1_With_LDP_FormatAndProof() {
 			},
 			Proofs: []verifiable.Proof{{"type": "JsonWebSignature2020"}},
 		},
-	}), loader, verifiable.WithJSONLDDocumentLoader(loader))
+	}), loader, WithSDCredentialOptions(verifiable.WithJSONLDDocumentLoader(loader)))
 	if err != nil {
 		panic(err)
 	}
@@ -292,7 +292,7 @@ func ExamplePresentationDefinition_CreateVP_v1_With_LDPVC_FormatAndProof() {
 			},
 			Proofs: []verifiable.Proof{{"type": "JsonWebSignature2020"}},
 		},
-	}), loader, verifiable.WithJSONLDDocumentLoader(loader))
+	}), loader, WithSDCredentialOptions(verifiable.WithJSONLDDocumentLoader(loader)))
 	if err != nil {
 		panic(err)
 	}
@@ -426,7 +426,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatches() {
 				"age":        21,
 			},
 		},
-	}), loader, verifiable.WithJSONLDDocumentLoader(loader))
+	}), loader, WithSDCredentialOptions(verifiable.WithJSONLDDocumentLoader(loader)))
 	if err != nil {
 		panic(err)
 	}
@@ -612,7 +612,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
 				"age":        21,
 			},
 		},
-	}), loader, verifiable.WithJSONLDDocumentLoader(loader))
+	}), loader, WithSDCredentialOptions(verifiable.WithJSONLDDocumentLoader(loader)))
 	if err != nil {
 		panic(err)
 	}
@@ -862,7 +862,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 				"age":        21,
 			},
 		},
-	}), loader, verifiable.WithJSONLDDocumentLoader(loader))
+	}), loader, WithSDCredentialOptions(verifiable.WithJSONLDDocumentLoader(loader)))
 	if err != nil {
 		panic(err)
 	}
@@ -1095,7 +1095,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 				"age":        21,
 			},
 		},
-	}), loader, verifiable.WithJSONLDDocumentLoader(loader))
+	}), loader, WithSDCredentialOptions(verifiable.WithJSONLDDocumentLoader(loader)))
 	if err != nil {
 		panic(err)
 	}
@@ -1441,7 +1441,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements2() {
 				}},
 			},
 		},
-	}), loader, verifiable.WithJSONLDDocumentLoader(loader))
+	}), loader, WithSDCredentialOptions(verifiable.WithJSONLDDocumentLoader(loader)))
 	if err != nil {
 		panic(err)
 	}
@@ -1673,7 +1673,9 @@ func ExamplePresentationDefinition_Match() {
 	// verifier matches the received VP against their definitions
 	matched, err := verifierDefinitions.Match(
 		[]*verifiable.Presentation{receivedVP}, loader,
-		WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(loader)),
+		WithCredentialOptions(
+			verifiable.WithDisabledProofCheck(),
+			verifiable.WithJSONLDDocumentLoader(loader)),
 	)
 	if err != nil {
 		panic(fmt.Errorf("presentation submission did not match definitions: %w", err))

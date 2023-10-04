@@ -145,7 +145,7 @@ func TestGetDisclosureClaims(t *testing.T) {
 		sdJWT := ParseCombinedFormatForIssuance(testCombinedFormatForIssuance)
 		require.Equal(t, 1, len(sdJWT.Disclosures))
 
-		token, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
+		token, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithProofChecker(&NoopSignatureVerifier{}))
 		r.NoError(err)
 
 		hash, err := GetCryptoHashFromClaims(token.Payload)
@@ -233,7 +233,7 @@ func TestGetDisclosureClaims(t *testing.T) {
 		sdJWT := ParseCombinedFormatForIssuance(testSDJWT + "~xyz")
 		require.Equal(t, 1, len(sdJWT.Disclosures))
 
-		token, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
+		token, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithProofChecker(&NoopSignatureVerifier{}))
 		r.NoError(err)
 
 		hash, err := GetCryptoHashFromClaims(token.Payload)
@@ -254,7 +254,7 @@ func TestGetDisclosureClaims(t *testing.T) {
 			base64.RawURLEncoding.EncodeToString(disclosureJSON)))
 		require.Equal(t, 1, len(sdJWT.Disclosures))
 
-		token, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
+		token, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithProofChecker(&NoopSignatureVerifier{}))
 		r.NoError(err)
 
 		hash, err := GetCryptoHashFromClaims(token.Payload)
@@ -275,7 +275,7 @@ func TestGetDisclosureClaims(t *testing.T) {
 			base64.RawURLEncoding.EncodeToString(disclosureJSON)))
 		require.Equal(t, 1, len(sdJWT.Disclosures))
 
-		token, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
+		token, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithProofChecker(&NoopSignatureVerifier{}))
 		r.NoError(err)
 
 		hash, err := GetCryptoHashFromClaims(token.Payload)
@@ -295,7 +295,7 @@ func TestGetDisclosedClaims(t *testing.T) {
 	r.Equal(testSDJWT, cfi.SDJWT)
 	r.Equal(1, len(cfi.Disclosures))
 
-	token, _, err := afjwt.Parse(cfi.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
+	token, _, err := afjwt.Parse(cfi.SDJWT, afjwt.WithProofChecker(&NoopSignatureVerifier{}))
 	r.NoError(err)
 
 	hash, err := GetCryptoHashFromClaims(token.Payload)
@@ -325,7 +325,7 @@ func TestGetDisclosedClaims(t *testing.T) {
 		sdJWT := ParseCombinedFormatForIssuance(testCombinedFormatForIssuanceV5)
 		require.Equal(t, 6, len(sdJWT.Disclosures))
 
-		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
+		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithProofChecker(&NoopSignatureVerifier{}))
 		require.NoError(t, err)
 
 		disclosureClaimsV5, err := GetDisclosureClaims(sdJWT.Disclosures, crypto.SHA256)
@@ -354,7 +354,7 @@ func TestGetDisclosedClaims(t *testing.T) {
 		sdJWT := ParseCombinedFormatForIssuance(testCombinedFormatForIssuanceV5)
 		require.Equal(t, 6, len(sdJWT.Disclosures))
 
-		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
+		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithProofChecker(&NoopSignatureVerifier{}))
 		require.NoError(t, err)
 
 		disclosureClaimsV5, err := GetDisclosureClaims(sdJWT.Disclosures, crypto.SHA256)
@@ -1031,7 +1031,8 @@ func prettyPrint(msg []byte) (string, error) {
 type NoopSignatureVerifier struct {
 }
 
-func (sv *NoopSignatureVerifier) Verify(joseHeaders jose.Headers, payload, signingInput, signature []byte) error {
+func (sv *NoopSignatureVerifier) CheckJWTProof(joseHeaders jose.Headers, payload,
+	signingInput, signature []byte) error {
 	return nil
 }
 

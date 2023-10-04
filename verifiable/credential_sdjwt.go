@@ -74,7 +74,8 @@ func DisclosureHolderBinding(binding *holder.BindingInfo) MarshalDisclosureOptio
 	}
 }
 
-// DisclosureSigner option provides Credential.MarshalWithDisclosure with a signer that will be used to create an SD-JWT
+// DisclosureSigner option provides Credential.MarshalWithDisclosure with a signer
+// that will be used to create an SD-JWT
 // if the given Credential wasn't already parsed from SD-JWT.
 func DisclosureSigner(signer jose.Signer, signingKeyID string) MarshalDisclosureOption {
 	return func(opts *marshalDisclosureOpts) {
@@ -482,7 +483,7 @@ func (vc *Credential) CreateDisplayCredential( // nolint:funlen,gocyclo
 		return vc, nil
 	}
 
-	_, credClaims, err := unmarshalJWSClaims(vc.JWTEnvelope.JWT, false, nil)
+	_, credClaims, err := unmarshalJWSClaims(vc.JWTEnvelope.JWT, nil)
 	if err != nil {
 		return nil, fmt.Errorf("unmarshal VC JWT claims: %w", err)
 	}
@@ -539,7 +540,7 @@ func (vc *Credential) CreateDisplayCredentialMap( // nolint:funlen,gocyclo
 		return vc.credentialJSON, nil
 	}
 
-	_, credClaims, err := unmarshalJWSClaims(vc.JWTEnvelope.JWT, false, nil)
+	_, credClaims, err := unmarshalJWSClaims(vc.JWTEnvelope.JWT, nil)
 	if err != nil {
 		return nil, fmt.Errorf("unmarshal VC JWT claims: %w", err)
 	}

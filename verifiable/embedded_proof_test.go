@@ -9,49 +9,10 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	kmsapi "github.com/trustbloc/kms-go/spi/kms"
 
-	"github.com/trustbloc/kms-go/spi/kms"
-
-	"github.com/trustbloc/vc-go/signature/suite"
-	"github.com/trustbloc/vc-go/signature/suite/ed25519signature2018"
-	"github.com/trustbloc/vc-go/signature/verifier"
+	"github.com/trustbloc/vc-go/proof/testsupport"
 )
-
-func Test_parseEmbeddedProof(t *testing.T) {
-	t.Run("parse linked data proof with \"Ed25519Signature2018\" proof type", func(t *testing.T) {
-		s, err := getProofType(map[string]interface{}{
-			"type": ed25519Signature2018,
-		})
-		require.NoError(t, err)
-		require.Equal(t, ed25519Signature2018, s)
-
-		s, err = getProofType(map[string]interface{}{
-			"type": jsonWebSignature2020,
-		})
-		require.NoError(t, err)
-		require.Equal(t, jsonWebSignature2020, s)
-
-		s, err = getProofType(map[string]interface{}{
-			"type": ecdsaSecp256k1Signature2019,
-		})
-		require.NoError(t, err)
-		require.Equal(t, ecdsaSecp256k1Signature2019, s)
-	})
-
-	t.Run("parse embedded proof without \"type\" element", func(t *testing.T) {
-		_, err := getProofType(map[string]interface{}{})
-		require.Error(t, err)
-		require.EqualError(t, err, "proof type is missing")
-	})
-
-	t.Run("parse embedded proof with unsupported type", func(t *testing.T) {
-		_, err := getProofType(map[string]interface{}{
-			"type": "SomethingUnsupported",
-		})
-		require.Error(t, err)
-		require.EqualError(t, err, "unsupported proof type: SomethingUnsupported")
-	})
-}
 
 func Test_checkEmbeddedProofBytes(t *testing.T) {
 	r := require.New(t)
@@ -59,13 +20,11 @@ func Test_checkEmbeddedProofBytes(t *testing.T) {
 	defaultOpts := &embeddedProofCheckOpts{}
 
 	t.Run("Happy path - single proof", func(t *testing.T) {
-		vc, publicKeyFetcher := createVCWithLinkedDataProof(t)
+		vc, proofChecker := createVCWithLinkedDataProof(t)
 		vcBytes := vc.byteJSON(t)
 
-		vSuite := ed25519signature2018.New(suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier()))
 		err := checkEmbeddedProofBytes(vcBytes, &embeddedProofCheckOpts{
-			publicKeyFetcher:     publicKeyFetcher,
-			ldpSuites:            []verifier.SignatureSuite{vSuite},
+			proofChecker:         proofChecker,
 			jsonldCredentialOpts: jsonldCredentialOpts{jsonldDocumentLoader: createTestDocumentLoader(t)},
 		})
 
@@ -73,13 +32,11 @@ func Test_checkEmbeddedProofBytes(t *testing.T) {
 	})
 
 	t.Run("Happy path - two proofs", func(t *testing.T) {
-		vc, publicKeyFetcher := createVCWithTwoLinkedDataProofs(t)
+		vc, proofChecker := createVCWithTwoLinkedDataProofs(t)
 		vcBytes := vc.byteJSON(t)
 
-		vSuite := ed25519signature2018.New(suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier()))
 		err := checkEmbeddedProofBytes(vcBytes, &embeddedProofCheckOpts{
-			publicKeyFetcher:     publicKeyFetcher,
-			ldpSuites:            []verifier.SignatureSuite{vSuite},
+			proofChecker:         proofChecker,
 			jsonldCredentialOpts: jsonldCredentialOpts{jsonldDocumentLoader: createTestDocumentLoader(t)},
 		})
 
@@ -151,28 +108,19 @@ func Test_checkEmbeddedProofBytes(t *testing.T) {
 		docWithNotSupportedProof := `{
   "@context": "https://www.w3.org/2018/credentials/v1",
   "proof": {
+	"created": "2020-01-21T12:59:31+02:00",
+    "proofPurpose": "assertionMethod",
+    "proofValue": "Lxx69YOV08JglTEmAmdVZgsJdBnCw7oWvfGNaTEKdg-_8qMVAKy1u0oTvWZuhAjTbowjuf1oRtu_1N--PA4TBg",
 	"type": "SomethingUnsupported"
   }
 }`
-		err := checkEmbeddedProofBytes([]byte(docWithNotSupportedProof), defaultOpts)
+		_, proofChecker := testsupport.NewKMSSigVerPair(t, kmsapi.ED25519Type, "did:123#any")
+		err := checkEmbeddedProofBytes([]byte(docWithNotSupportedProof), &embeddedProofCheckOpts{
+			proofChecker:         proofChecker,
+			jsonldCredentialOpts: jsonldCredentialOpts{jsonldDocumentLoader: createTestDocumentLoader(t)},
+		})
 		r.Error(err)
-		r.EqualError(err, "check embedded proof: unsupported proof type: SomethingUnsupported")
-	})
-
-	t.Run("error on invalid proof of Linked Data embedded proof", func(t *testing.T) {
-		docWithNotSupportedProof := `{
-  "@context": "https://www.w3.org/2018/credentials/v1",
-  "proof": {
-	"type": "Ed25519Signature2018",
-    "created": "2020-01-21T12:59:31+02:00",
-    "creator": "John",
-    "proofValue": "invalid value"
-  }
-}`
-		err := checkEmbeddedProofBytes([]byte(docWithNotSupportedProof),
-			&embeddedProofCheckOpts{publicKeyFetcher: SingleKey([]byte("pub key bytes"), kms.ED25519)})
-		r.Error(err)
-		r.Contains(err.Error(), "check embedded proof")
+		r.Contains(err.Error(), "unsupported proof type: SomethingUnsupported")
 	})
 
 	t.Run("no public key fetcher defined", func(t *testing.T) {
@@ -187,25 +135,6 @@ func Test_checkEmbeddedProofBytes(t *testing.T) {
 }`
 		err := checkEmbeddedProofBytes([]byte(docWithNotSupportedProof), defaultOpts)
 		r.Error(err)
-		r.EqualError(err, "public key fetcher is not defined")
+		r.EqualError(err, "proofChecker is not defined")
 	})
-}
-
-func Test_getSuites(t *testing.T) {
-	createProofOfTypeFunc := func(suiteType string) map[string]interface{} {
-		return map[string]interface{}{
-			"type": suiteType,
-		}
-	}
-
-	proofs := []map[string]interface{}{
-		createProofOfTypeFunc(ed25519Signature2018),
-		createProofOfTypeFunc(jsonWebSignature2020),
-		createProofOfTypeFunc(ecdsaSecp256k1Signature2019),
-		createProofOfTypeFunc(bbsBlsSignature2020),
-	}
-
-	suites, err := getSuites(proofs, &embeddedProofCheckOpts{})
-	require.NoError(t, err)
-	require.Len(t, suites, 4)
 }

@@ -13,23 +13,23 @@ import (
 	"github.com/go-jose/go-jose/v3"
 	"github.com/go-jose/go-jose/v3/jwt"
 	"github.com/stretchr/testify/require"
-	"github.com/trustbloc/vc-go/internal/testutil/signatureutil"
+
+	"github.com/trustbloc/vc-go/proof/creator"
+	"github.com/trustbloc/vc-go/proof/testsupport"
 
 	"github.com/trustbloc/kms-go/spi/kms"
-
-	"github.com/trustbloc/vc-go/signature/verifier"
 )
 
 func TestJWTPresClaims_MarshalJWS(t *testing.T) {
-	vp, err := newTestPresentation(t, []byte(validPresentation))
+	vp, err := newTestPresentation(t, []byte(validPresentation), WithPresDisabledProofCheck())
 	require.NoError(t, err)
 
-	signer := signatureutil.CryptoSigner(t, kms.RSARS256Type)
+	proofCreator, proofChecker := testsupport.NewKMSSigVerPair(t, kms.RSARS256Type, "did:123#key1")
 	require.NoError(t, err)
 
-	jws := createCredJWS(t, vp, signer)
+	jws := createCredJWS(t, vp, proofCreator)
 
-	_, rawVC, err := decodeVPFromJWS(jws, true, SingleJWK(signer.PublicJWK(), kms.RSARS256))
+	_, rawVC, err := decodeVPFromJWS(jws, proofChecker)
 
 	require.NoError(t, err)
 	require.Equal(t, vp.stringJSON(t), jsonObjectToString(t, rawVC))
@@ -42,23 +42,21 @@ type invalidPresClaims struct {
 }
 
 func TestUnmarshalPresJWSClaims(t *testing.T) {
-	holderSigner := signatureutil.CryptoSigner(t, kms.RSARS256Type)
-
-	testFetcher := SingleJWK(holderSigner.PublicJWK(), kms.RSARS256)
+	holderProofCreator, proofChecker := testsupport.NewKMSSigVerPair(t, kms.RSARS256Type, "did:123#key1")
 
 	t.Run("Successful JWS decoding", func(t *testing.T) {
-		vp, err := newTestPresentation(t, []byte(validPresentation))
+		vp, err := newTestPresentation(t, []byte(validPresentation), WithPresDisabledProofCheck())
 		require.NoError(t, err)
 
-		jws := createCredJWS(t, vp, holderSigner)
+		jws := createCredJWS(t, vp, holderProofCreator)
 
-		claims, err := unmarshalPresJWSClaims(jws, true, testFetcher)
+		claims, err := unmarshalPresJWSClaims(jws, proofChecker)
 		require.NoError(t, err)
 		require.Equal(t, vp.stringJSON(t), jsonObjectToString(t, claims.Presentation))
 	})
 
 	t.Run("Invalid serialized JWS", func(t *testing.T) {
-		claims, err := unmarshalPresJWSClaims("invalid JWS", true, testFetcher)
+		claims, err := unmarshalPresJWSClaims("invalid JWS", proofChecker)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "parse JWT")
 		require.Nil(t, claims)
@@ -81,34 +79,28 @@ func TestUnmarshalPresJWSClaims(t *testing.T) {
 		token, err := jwt.Signed(signer).Claims(claims).CompactSerialize()
 		require.NoError(t, err)
 
-		uc, err := unmarshalPresJWSClaims(token, true, testFetcher)
+		uc, err := unmarshalPresJWSClaims(token, proofChecker)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "parse JWT")
 		require.Nil(t, uc)
 	})
 
 	t.Run("Invalid signature of JWS", func(t *testing.T) {
-		vp, err := newTestPresentation(t, []byte(validPresentation))
+		vp, err := newTestPresentation(t, []byte(validPresentation), WithPresDisabledProofCheck())
 		require.NoError(t, err)
 
-		jws := createCredJWS(t, vp, holderSigner)
+		jws := createCredJWS(t, vp, holderProofCreator)
 
-		uc, err := unmarshalPresJWSClaims(jws, true, func(issuerID, keyID string) (*verifier.PublicKey, error) {
-			// use public key of VC Issuer (while expecting to use the ones of VP Holder)
-			issuerSigner := signatureutil.CryptoSigner(t, kms.RSARS256Type)
+		_, otherProofChecker := testsupport.NewKMSSigVerPair(t, kms.RSARS256Type, "did:123#key1")
 
-			return &verifier.PublicKey{
-				Type: kms.RSARS256,
-				JWK:  issuerSigner.PublicJWK(),
-			}, nil
-		})
+		uc, err := unmarshalPresJWSClaims(jws, otherProofChecker)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "parse JWT")
 		require.Nil(t, uc)
 	})
 }
 
-func createCredJWS(t *testing.T, vp *Presentation, signer Signer) string {
+func createCredJWS(t *testing.T, vp *Presentation, signer *creator.ProofCreator) string {
 	claims, err := newJWTPresClaims(vp, []string{}, false)
 	require.NoError(t, err)
 	require.NotNil(t, claims)

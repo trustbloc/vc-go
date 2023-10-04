@@ -40,6 +40,10 @@ func (vc *Credential) AddDataIntegrityProof(context *DataIntegrityProofContext, 
 
 	vc.ldProofs = proofs
 
+	if len(vc.ldProofs) > 0 {
+		vc.credentialJSON[jsonFldLDProof] = proofsToRaw(vc.ldProofs)
+	}
+
 	return nil
 }
 

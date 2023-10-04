@@ -19,6 +19,7 @@ import (
 
 	afjose "github.com/trustbloc/kms-go/doc/jose"
 
+	"github.com/trustbloc/vc-go/crypto-ext/testutil"
 	afjwt "github.com/trustbloc/vc-go/jwt"
 )
 
@@ -62,13 +63,13 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 	_, privKey, err := ed25519.GenerateKey(rand.Reader)
 	r.NoError(err)
 
-	signer := afjwt.NewEd25519Signer(privKey)
+	signer := testutil.NewEd25519Signer(privKey)
 
 	t.Run("success", func(t *testing.T) {
 		sdJWT := ParseCombinedFormatForIssuance(testCombinedFormatForIssuance)
 		require.Equal(t, 1, len(sdJWT.Disclosures))
 
-		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
+		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithProofChecker(&NoopSignatureVerifier{}))
 		require.NoError(t, err)
 
 		err = VerifyDisclosuresInSDJWT(sdJWT.Disclosures, signedJWT)
@@ -79,7 +80,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 		sdJWT := ParseCombinedFormatForIssuance(testCombinedFormatForIssuanceV5)
 		require.Equal(t, 6, len(sdJWT.Disclosures))
 
-		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
+		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithProofChecker(&NoopSignatureVerifier{}))
 		require.NoError(t, err)
 
 		err = VerifyDisclosuresInSDJWT(sdJWT.Disclosures, signedJWT)
@@ -91,7 +92,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 
 		sdJWT := ParseCombinedFormatForPresentation(specExample2bPresentation)
 
-		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
+		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithProofChecker(&NoopSignatureVerifier{}))
 		require.NoError(t, err)
 
 		err = VerifyDisclosuresInSDJWT(sdJWT.Disclosures, signedJWT)
@@ -104,7 +105,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 			SDAlg:  "sha-256",
 		}
 
-		signedJWT, err := afjwt.NewSigned(jwtPayload, nil, signer)
+		signedJWT, err := afjwt.NewJoseSigned(jwtPayload, nil, signer)
 		r.NoError(err)
 
 		err = VerifyDisclosuresInSDJWT(nil, signedJWT)
@@ -116,7 +117,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 		payload[SDAlgorithmKey] = testAlg
 		payload[SDKey] = nil
 
-		signedJWT, err := afjwt.NewSigned(payload, nil, signer)
+		signedJWT, err := afjwt.NewJoseSigned(payload, nil, signer)
 		r.NoError(err)
 
 		err = VerifyDisclosuresInSDJWT(nil, signedJWT)
@@ -127,7 +128,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 		sdJWT := ParseCombinedFormatForIssuance(testCombinedFormatForIssuance)
 		require.Equal(t, 1, len(sdJWT.Disclosures))
 
-		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
+		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithProofChecker(&NoopSignatureVerifier{}))
 		require.NoError(t, err)
 
 		err = VerifyDisclosuresInSDJWT(append(sdJWT.Disclosures, additionalSDDisclosure), signedJWT)
@@ -142,7 +143,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 			SDAlg:  testAlg,
 		}
 
-		signedJWT, err := afjwt.NewSigned(jwtPayload, nil, signer)
+		signedJWT, err := afjwt.NewJoseSigned(jwtPayload, nil, signer)
 		r.NoError(err)
 
 		err = VerifyDisclosuresInSDJWT([]string{additionalSDDisclosure}, signedJWT)
@@ -156,7 +157,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 			Issuer: "issuer",
 		}
 
-		signedJWT, err := afjwt.NewSigned(jwtPayload, nil, signer)
+		signedJWT, err := afjwt.NewJoseSigned(jwtPayload, nil, signer)
 		r.NoError(err)
 
 		err = VerifyDisclosuresInSDJWT(nil, signedJWT)
@@ -170,7 +171,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 			SDAlg:  "SHA-XXX",
 		}
 
-		signedJWT, err := afjwt.NewSigned(jwtPayload, nil, signer)
+		signedJWT, err := afjwt.NewJoseSigned(jwtPayload, nil, signer)
 		r.NoError(err)
 
 		err = VerifyDisclosuresInSDJWT(nil, signedJWT)
@@ -182,7 +183,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 		payload := make(map[string]interface{})
 		payload[SDAlgorithmKey] = 18
 
-		signedJWT, err := afjwt.NewSigned(payload, nil, signer)
+		signedJWT, err := afjwt.NewJoseSigned(payload, nil, signer)
 		r.NoError(err)
 
 		err = VerifyDisclosuresInSDJWT(nil, signedJWT)
@@ -195,7 +196,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 		payload[SDAlgorithmKey] = testAlg
 		payload[SDKey] = "test"
 
-		signedJWT, err := afjwt.NewSigned(payload, nil, signer)
+		signedJWT, err := afjwt.NewJoseSigned(payload, nil, signer)
 		r.NoError(err)
 
 		err = VerifyDisclosuresInSDJWT([]string{additionalSDDisclosure}, signedJWT)
@@ -208,7 +209,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 		payload[SDAlgorithmKey] = testAlg
 		payload[SDKey] = []float64{123}
 
-		signedJWT, err := afjwt.NewSigned(payload, nil, signer)
+		signedJWT, err := afjwt.NewJoseSigned(payload, nil, signer)
 		r.NoError(err)
 
 		err = VerifyDisclosuresInSDJWT([]string{additionalSDDisclosure}, signedJWT)
@@ -220,7 +221,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 		sdJWT := ParseCombinedFormatForIssuance(testCombinedFormatForIssuanceV5)
 		require.Equal(t, 6, len(sdJWT.Disclosures))
 
-		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
+		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithProofChecker(&NoopSignatureVerifier{}))
 		require.NoError(t, err)
 
 		additionalDigest, err := GetHash(crypto.SHA256, additionalSDDisclosure)
@@ -246,7 +247,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 		sdJWT := ParseCombinedFormatForIssuance(testCombinedFormatForIssuanceV5)
 		require.Equal(t, 6, len(sdJWT.Disclosures))
 
-		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
+		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithProofChecker(&NoopSignatureVerifier{}))
 		require.NoError(t, err)
 
 		additionalDigest, err := GetHash(crypto.SHA256, additionalArrayElementDisclosure)
@@ -263,7 +264,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 		sdJWT := ParseCombinedFormatForIssuance(testCombinedFormatForIssuanceV5)
 		require.Equal(t, 6, len(sdJWT.Disclosures))
 
-		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
+		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithProofChecker(&NoopSignatureVerifier{}))
 		require.NoError(t, err)
 
 		additionalDigest, err := GetHash(crypto.SHA256, additionalArrayElementDisclosure)
@@ -280,7 +281,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 		sdJWT := ParseCombinedFormatForIssuance(testCombinedFormatForIssuanceV5)
 		require.Equal(t, 6, len(sdJWT.Disclosures))
 
-		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
+		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithProofChecker(&NoopSignatureVerifier{}))
 		require.NoError(t, err)
 
 		additionalDigest, err := GetHash(crypto.SHA256, additionalSDDisclosure)
@@ -297,7 +298,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 		sdJWT := ParseCombinedFormatForIssuance(testCombinedFormatForIssuanceV5)
 		require.Equal(t, 6, len(sdJWT.Disclosures))
 
-		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithSignatureVerifier(&NoopSignatureVerifier{}))
+		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithProofChecker(&NoopSignatureVerifier{}))
 		require.NoError(t, err)
 
 		signedJWT.Payload["address"].(map[string]interface{})["locality"] = "some existing claim"
@@ -440,7 +441,7 @@ func TestVerifyJWT(t *testing.T) {
 	_, privKey, err := ed25519.GenerateKey(rand.Reader)
 	r.NoError(err)
 
-	signer := afjwt.NewEd25519Signer(privKey)
+	signer := testutil.NewEd25519Signer(privKey)
 
 	type args struct {
 		getSignedJWT func() *afjwt.JSONWebToken
@@ -462,7 +463,7 @@ func TestVerifyJWT(t *testing.T) {
 						Audience: []string{"aud1"},
 					}
 
-					signedJWT, err := afjwt.NewSigned(jwtPayload, nil, signer)
+					signedJWT, err := afjwt.NewJoseSigned(jwtPayload, nil, signer)
 					r.NoError(err)
 
 					return signedJWT
@@ -477,7 +478,7 @@ func TestVerifyJWT(t *testing.T) {
 				getSignedJWT: func() *afjwt.JSONWebToken {
 					jwtPayload := jwt.Claims{}
 
-					signedJWT, err := afjwt.NewSigned(jwtPayload, nil, signer)
+					signedJWT, err := afjwt.NewJoseSigned(jwtPayload, nil, signer)
 					r.NoError(err)
 
 					signedJWT.Payload = map[string]interface{}{
@@ -501,7 +502,7 @@ func TestVerifyJWT(t *testing.T) {
 						Expiry:   &exp,
 					}
 
-					signedJWT, err := afjwt.NewSigned(jwtPayload, nil, signer)
+					signedJWT, err := afjwt.NewJoseSigned(jwtPayload, nil, signer)
 					r.NoError(err)
 
 					return signedJWT
@@ -522,7 +523,7 @@ func TestVerifyJWT(t *testing.T) {
 						IssuedAt: &iat,
 					}
 
-					signedJWT, err := afjwt.NewSigned(jwtPayload, nil, signer)
+					signedJWT, err := afjwt.NewJoseSigned(jwtPayload, nil, signer)
 					r.NoError(err)
 
 					return signedJWT

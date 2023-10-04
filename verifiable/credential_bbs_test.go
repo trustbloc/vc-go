@@ -15,12 +15,13 @@ import (
 	"github.com/trustbloc/bbs-signature-go/bbs12381g2pub"
 	jsonld "github.com/trustbloc/did-go/doc/ld/processor"
 	"github.com/trustbloc/kms-go/spi/kms"
-	"github.com/trustbloc/vc-go/internal/testutil/signatureutil"
 
-	"github.com/trustbloc/vc-go/signature/suite"
-	"github.com/trustbloc/vc-go/signature/suite/bbsblssignature2020"
-	"github.com/trustbloc/vc-go/signature/suite/bbsblssignatureproof2020"
-	"github.com/trustbloc/vc-go/signature/suite/ed25519signature2018"
+	"github.com/trustbloc/vc-go/crypto-ext/testutil"
+	"github.com/trustbloc/vc-go/proof/creator"
+	"github.com/trustbloc/vc-go/proof/defaults"
+	"github.com/trustbloc/vc-go/proof/ldproofs/bbsblssignature2020"
+	"github.com/trustbloc/vc-go/proof/testsupport"
+
 	jsonutil "github.com/trustbloc/vc-go/util/json"
 )
 
@@ -74,11 +75,11 @@ func TestCredential_GenerateBBSSelectiveDisclosure(t *testing.T) {
 	pubKeyBytes, err := pubKey.Marshal()
 	require.NoError(t, err)
 
-	vc, err := parseTestCredential(t, []byte(vcJSON))
+	vc, err := parseTestCredential(t, []byte(vcJSON), WithDisabledProofCheck())
 	require.NoError(t, err)
 	require.Len(t, vc.Proofs(), 0)
 
-	signVCWithBBS(t, privKey, pubKeyBytes, vc)
+	bbsKeyFetcher := signVCWithBBS(t, privKey, pubKeyBytes, vc)
 	signVCWithEd25519(t, vc)
 
 	revealJSON := `
@@ -108,10 +109,14 @@ func TestCredential_GenerateBBSSelectiveDisclosure(t *testing.T) {
 
 	nonce := []byte("nonce")
 
-	vcOptions := []CredentialOpt{WithJSONLDDocumentLoader(createTestDocumentLoader(t)), WithPublicKeyFetcher(
-		SingleKey(pubKeyBytes, "Bls12381G2Key2020"))}
+	vcOptions := []CredentialOpt{WithJSONLDDocumentLoader(createTestDocumentLoader(t))}
 
-	vcWithSelectiveDisclosure, err := vc.GenerateBBSSelectiveDisclosure(revealDoc, nonce, vcOptions...)
+	vcWithSelectiveDisclosure, err := vc.GenerateBBSSelectiveDisclosure(revealDoc, nonce,
+		&BBSProofCreator{
+			ProofDerivation:            bbs12381g2pub.New(),
+			VerificationMethodResolver: bbsKeyFetcher,
+		},
+		vcOptions...)
 	require.NoError(t, err)
 	require.NotNil(t, vcWithSelectiveDisclosure)
 	require.Len(t, vcWithSelectiveDisclosure.Proofs(), 1)
@@ -119,13 +124,8 @@ func TestCredential_GenerateBBSSelectiveDisclosure(t *testing.T) {
 	vcSelectiveDisclosureBytes, err := json.Marshal(vcWithSelectiveDisclosure)
 	require.NoError(t, err)
 
-	sigSuite := bbsblssignatureproof2020.New(
-		suite.WithCompactProof(),
-		suite.WithVerifier(bbsblssignatureproof2020.NewG2PublicKeyVerifier(nonce)))
-
 	vcVerified, err := parseTestCredential(t, vcSelectiveDisclosureBytes,
-		WithEmbeddedSignatureSuites(sigSuite),
-		WithPublicKeyFetcher(SingleKey(pubKeyBytes, "Bls12381G2Key2020")),
+		WithProofChecker(defaults.NewDefaultProofChecker(bbsKeyFetcher)),
 	)
 	require.NoError(t, err)
 	require.NotNil(t, vcVerified)
@@ -143,18 +143,25 @@ func TestCredential_GenerateBBSSelectiveDisclosure(t *testing.T) {
 		anotherPubKeyBytes, err = anotherPubKey.Marshal()
 		require.NoError(t, err)
 
+		bbsAnotherKeyFetcher := testsupport.NewSingleKeyResolver(
+			"did:example:123456#key1", anotherPubKeyBytes, "Bls12381G2Key2020")
+
 		vcWithSelectiveDisclosure, err = vc.GenerateBBSSelectiveDisclosure(revealDoc, nonce,
-			WithJSONLDDocumentLoader(createTestDocumentLoader(t)),
-			WithPublicKeyFetcher(SingleKey(anotherPubKeyBytes, "Bls12381G2Key2020")))
+			&BBSProofCreator{
+				ProofDerivation:            bbs12381g2pub.New(),
+				VerificationMethodResolver: bbsAnotherKeyFetcher,
+			},
+			WithJSONLDDocumentLoader(createTestDocumentLoader(t)))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "create VC selective disclosure")
 		require.Empty(t, vcWithSelectiveDisclosure)
 	})
 
-	t.Run("public key fetcher is not passed", func(t *testing.T) {
-		vcWithSelectiveDisclosure, err = vc.GenerateBBSSelectiveDisclosure(revealDoc, nonce)
+	t.Run("bbs proof creator not defined", func(t *testing.T) {
+		vcWithSelectiveDisclosure, err = vc.GenerateBBSSelectiveDisclosure(revealDoc, nonce,
+			nil)
 		require.Error(t, err)
-		require.EqualError(t, err, "public key fetcher is not defined")
+		require.EqualError(t, err, "bbs proof creator not defined")
 		require.Empty(t, vcWithSelectiveDisclosure)
 	})
 
@@ -183,7 +190,12 @@ func TestCredential_GenerateBBSSelectiveDisclosure(t *testing.T) {
 		revealDoc, err = jsonutil.ToMap(revealJSONWithMissingIssuer)
 		require.NoError(t, err)
 
-		vcWithSelectiveDisclosure, err = vc.GenerateBBSSelectiveDisclosure(revealDoc, nonce, vcOptions...)
+		vcWithSelectiveDisclosure, err = vc.GenerateBBSSelectiveDisclosure(revealDoc, nonce,
+			&BBSProofCreator{
+				ProofDerivation:            bbs12381g2pub.New(),
+				VerificationMethodResolver: bbsKeyFetcher,
+			},
+			vcOptions...)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "issuer is required")
 		require.Nil(t, vcWithSelectiveDisclosure)
@@ -191,27 +203,32 @@ func TestCredential_GenerateBBSSelectiveDisclosure(t *testing.T) {
 
 	t.Run("VC with no embedded proof", func(t *testing.T) {
 		vc.ResetProofs(nil)
-		vcWithSelectiveDisclosure, err = vc.GenerateBBSSelectiveDisclosure(revealDoc, nonce, vcOptions...)
+		vcWithSelectiveDisclosure, err = vc.GenerateBBSSelectiveDisclosure(revealDoc, nonce,
+			&BBSProofCreator{
+				ProofDerivation:            bbs12381g2pub.New(),
+				VerificationMethodResolver: bbsKeyFetcher,
+			},
+			vcOptions...)
 		require.Error(t, err)
 		require.EqualError(t, err, "expected at least one proof present")
 		require.Empty(t, vcWithSelectiveDisclosure)
 	})
 }
 
-func signVCWithBBS(t *testing.T, privKey *bbs12381g2pub.PrivateKey, pubKeyBytes []byte, vc *Credential) {
+func signVCWithBBS(t *testing.T, privKey *bbs12381g2pub.PrivateKey, pubKeyBytes []byte,
+	vc *Credential) *testsupport.VMResolver {
 	t.Helper()
 
-	bbsSigner, err := newBBSSigner(privKey)
+	bbsSigner, err := testutil.NewBBSSigner(privKey)
 	require.NoError(t, err)
 
-	sigSuite := bbsblssignature2020.New(
-		suite.WithSigner(bbsSigner),
-		suite.WithVerifier(bbsblssignature2020.NewG2PublicKeyVerifier()))
+	bbsProofCreator := creator.New(creator.WithLDProofType(bbsblssignature2020.New(), bbsSigner))
 
 	ldpContext := &LinkedDataProofContext{
 		SignatureType:           "BbsBlsSignature2020",
+		KeyType:                 kms.BLS12381G2Type,
 		SignatureRepresentation: SignatureProofValue,
-		Suite:                   sigSuite,
+		ProofCreator:            bbsProofCreator,
 		VerificationMethod:      "did:example:123456#key1",
 	}
 
@@ -222,27 +239,28 @@ func signVCWithBBS(t *testing.T, privKey *bbs12381g2pub.PrivateKey, pubKeyBytes 
 	require.NoError(t, err)
 	require.NotEmpty(t, vcSignedBytes)
 
+	bbsKeyFetcher := testsupport.NewSingleKeyResolver(
+		"did:example:123456#key1", pubKeyBytes, "Bls12381G2Key2020")
+
 	vcVerified, err := parseTestCredential(t, vcSignedBytes,
-		WithEmbeddedSignatureSuites(sigSuite),
-		WithPublicKeyFetcher(SingleKey(pubKeyBytes, "Bls12381G2Key2020")),
+		WithProofChecker(defaults.NewDefaultProofChecker(bbsKeyFetcher)),
 	)
 	require.NoError(t, err)
 	require.NotEmpty(t, vcVerified)
+
+	return bbsKeyFetcher
 }
 
 func signVCWithEd25519(t *testing.T, vc *Credential) {
 	t.Helper()
 
-	signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
-
-	sigSuite := ed25519signature2018.New(
-		suite.WithSigner(signer),
-		suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier()))
+	signer, _ := testsupport.NewKMSSigVerPair(t, kms.ED25519Type, "did:example:123456#key1")
 
 	ldpContext := &LinkedDataProofContext{
 		SignatureType:           "Ed25519Signature2018",
+		KeyType:                 kms.ED25519Type,
 		SignatureRepresentation: SignatureProofValue,
-		Suite:                   sigSuite,
+		ProofCreator:            signer,
 		VerificationMethod:      "did:example:123456#key1",
 	}
 

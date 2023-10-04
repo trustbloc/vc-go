@@ -23,7 +23,9 @@ import (
 	"github.com/trustbloc/kms-go/doc/jose"
 
 	"github.com/trustbloc/vc-go/jwt"
+	"github.com/trustbloc/vc-go/proof/defaults"
 	"github.com/trustbloc/vc-go/verifiable"
+	"github.com/trustbloc/vc-go/vermethod"
 )
 
 const (
@@ -220,7 +222,7 @@ func validateDomainLinkageCredential(vcc verifiable.CredentialContents, did, ori
 }
 
 func validateJWT(vc *verifiable.Credential, did, origin string) error {
-	jsonWebToken, _, err := jwt.Parse(vc.JWTEnvelope.JWT, jwt.WithSignatureVerifier(&noVerifier{}))
+	jsonWebToken, _, err := jwt.Parse(vc.JWTEnvelope.JWT, jwt.WithProofChecker(&noVerifier{}))
 	if err != nil {
 		return fmt.Errorf("parse JWT: %w", err)
 	}
@@ -438,7 +440,7 @@ func getCredentials(linkedDIDs []interface{}, did, domain string, opts ...verifi
 // To be used with precaution.
 type noVerifier struct{}
 
-func (v noVerifier) Verify(_ jose.Headers, _, _, _ []byte) error {
+func (v noVerifier) CheckJWTProof(_ jose.Headers, _, _, _ []byte) error {
 	return nil
 }
 
@@ -454,7 +456,7 @@ func getParseCredentialOptions(disableProofCheck bool, opts *didConfigOpts) []ve
 		credOpts = append(credOpts, verifiable.WithDisabledProofCheck())
 	} else {
 		credOpts = append(credOpts,
-			verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(opts.didResolver).PublicKeyFetcher()))
+			verifiable.WithProofChecker(defaults.NewDefaultProofChecker(vermethod.NewVDRResolver(opts.didResolver))))
 	}
 
 	return credOpts

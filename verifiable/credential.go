@@ -20,6 +20,8 @@ import (
 	"time"
 
 	jsonld "github.com/piprate/json-gold/ld"
+	"github.com/trustbloc/did-go/doc/ld/processor"
+	"github.com/trustbloc/did-go/doc/ld/proof"
 	docjsonld "github.com/trustbloc/did-go/doc/ld/validator"
 	"github.com/trustbloc/kms-go/doc/jose"
 	"github.com/xeipuuv/gojsonschema"
@@ -29,8 +31,8 @@ import (
 	"github.com/trustbloc/vc-go/dataintegrity"
 	"github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/sdjwt/common"
-	"github.com/trustbloc/vc-go/signature/verifier"
 	jsonutil "github.com/trustbloc/vc-go/util/json"
+	"github.com/trustbloc/vc-go/verifiable/lddocument"
 )
 
 var errLogger = log.New(os.Stderr, " [vc-go/verifiable] ", log.Ldate|log.Ltime|log.LUTC)
@@ -631,6 +633,19 @@ const (
 	jsonFldSDJWTHashAlg   = "_sd_alg"
 )
 
+// CombinedProofChecker universal proof checker for both LD and JWT proofs.
+type CombinedProofChecker interface {
+	CheckLDProof(proof *proof.Proof, msg, signature []byte) error
+
+	// GetLDPCanonicalDocument will return normalized/canonical version of the document
+	GetLDPCanonicalDocument(proof *proof.Proof, doc map[string]interface{}, opts ...processor.Opts) ([]byte, error)
+
+	// GetLDPDigest returns document digest
+	GetLDPDigest(proof *proof.Proof, doc []byte) ([]byte, error)
+
+	CheckJWTProof(headers jose.Headers, payload, msg, signature []byte) error
+}
+
 // CredentialDecoder makes a custom decoding of Verifiable Credential in JSON form to existent
 // instance of Credential.
 type CredentialDecoder func(dataJSON []byte, vc *Credential) error
@@ -640,7 +655,8 @@ type CredentialTemplate func() *Credential
 
 // credentialOpts holds options for the Verifiable Credential decoding.
 type credentialOpts struct {
-	publicKeyFetcher      PublicKeyFetcher
+	ldProofChecker        lddocument.ProofChecker
+	jwtProofChecker       jwt.ProofChecker
 	disabledCustomSchema  bool
 	schemaLoader          *CredentialSchemaLoader
 	modelValidationMode   vcModelValidationMode
@@ -648,7 +664,6 @@ type credentialOpts struct {
 	allowedCustomTypes    map[string]bool
 	disabledProofCheck    bool
 	strictValidation      bool
-	ldpSuites             []verifier.SignatureSuite
 	defaultSchema         string
 	disableValidation     bool
 	verifyDataIntegrity   *verifyDataIntegrityOpts
@@ -688,10 +703,25 @@ func WithNoCustomSchemaCheck() CredentialOpt {
 	}
 }
 
-// WithPublicKeyFetcher set public key fetcher used when decoding from JWS.
-func WithPublicKeyFetcher(fetcher PublicKeyFetcher) CredentialOpt {
+// WithProofChecker set proofChecker that used for validation of ldp-vc and jwt proof.
+func WithProofChecker(verifier CombinedProofChecker) CredentialOpt {
 	return func(opts *credentialOpts) {
-		opts.publicKeyFetcher = fetcher
+		opts.jwtProofChecker = verifier
+		opts.ldProofChecker = verifier
+	}
+}
+
+// WithLDProofChecker set proofChecker that used for validation of ldp-vc proof.
+func WithLDProofChecker(verifier lddocument.ProofChecker) CredentialOpt {
+	return func(opts *credentialOpts) {
+		opts.ldProofChecker = verifier
+	}
+}
+
+// WithJWTProofChecker set proofChecker that used for validation of jwt proof.
+func WithJWTProofChecker(verifier jwt.ProofChecker) CredentialOpt {
+	return func(opts *credentialOpts) {
+		opts.jwtProofChecker = verifier
 	}
 }
 
@@ -793,13 +823,6 @@ func WithExternalJSONLDContext(context ...string) CredentialOpt {
 func WithJSONLDOnlyValidRDF() CredentialOpt {
 	return func(opts *credentialOpts) {
 		opts.jsonldOnlyValidRDF = true
-	}
-}
-
-// WithEmbeddedSignatureSuites defines the suites which are used to check embedded linked data proof of VC.
-func WithEmbeddedSignatureSuites(suites ...verifier.SignatureSuite) CredentialOpt {
-	return func(opts *credentialOpts) {
-		opts.ldpSuites = suites
 	}
 }
 
@@ -1411,11 +1434,7 @@ func (vc *Credential) CheckProof(opts ...CredentialOpt) error {
 	vcOpts := getCredentialOpts(opts)
 
 	if vc.JWTEnvelope != nil {
-		if vcOpts.publicKeyFetcher == nil && !vcOpts.disabledProofCheck {
-			return errors.New("public key fetcher is not defined")
-		}
-
-		_, _, err := decodeCredJWS(vc.JWTEnvelope.JWT, true, vcOpts.publicKeyFetcher)
+		_, _, err := decodeCredJWS(vc.JWTEnvelope.JWT, true, vcOpts.jwtProofChecker)
 		if err != nil {
 			return fmt.Errorf("JWS proof check: %w", err)
 		}
@@ -1460,9 +1479,8 @@ func JWTVCToJSON(vc []byte) ([]byte, error) {
 
 func getEmbeddedProofCheckOpts(vcOpts *credentialOpts) *embeddedProofCheckOpts {
 	return &embeddedProofCheckOpts{
-		publicKeyFetcher:     vcOpts.publicKeyFetcher,
+		proofChecker:         vcOpts.ldProofChecker,
 		disabledProofCheck:   vcOpts.disabledProofCheck,
-		ldpSuites:            vcOpts.ldpSuites,
 		jsonldCredentialOpts: vcOpts.jsonldCredentialOpts,
 		dataIntegrityOpts:    vcOpts.verifyDataIntegrity,
 	}
@@ -1678,13 +1696,13 @@ func (vc *Credential) JWTClaims(minimizeVC bool) (*JWTCredClaims, error) {
 
 // CreateSignedJWTVC envelops current vc into signed jwt.
 func (vc *Credential) CreateSignedJWTVC(
-	minimizeVC bool, signatureAlg JWSAlgorithm, signer Signer, keyID string) (*Credential, error) {
+	minimizeVC bool, signatureAlg JWSAlgorithm, proofCreator jwt.ProofCreator, keyID string) (*Credential, error) {
 	jwtClaims, err := vc.JWTClaims(minimizeVC)
 	if err != nil {
 		return nil, err
 	}
 
-	jwsString, joseHeaders, err := jwtClaims.MarshalJWS(signatureAlg, signer, keyID)
+	jwsString, joseHeaders, err := jwtClaims.MarshalJWS(signatureAlg, proofCreator, keyID)
 	if err != nil {
 		return nil, err
 	}

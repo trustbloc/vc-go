@@ -18,7 +18,9 @@ import (
 	"github.com/trustbloc/kms-go/doc/jose/jwk"
 	"github.com/trustbloc/kms-go/doc/jose/jwk/jwksupport"
 
-	afjwt "github.com/trustbloc/vc-go/jwt"
+	"github.com/trustbloc/vc-go/crypto-ext/testutil"
+	afgjwt "github.com/trustbloc/vc-go/jwt"
+	"github.com/trustbloc/vc-go/proof/testsupport"
 	"github.com/trustbloc/vc-go/sdjwt/holder"
 	"github.com/trustbloc/vc-go/sdjwt/issuer"
 	"github.com/trustbloc/vc-go/sdjwt/verifier"
@@ -243,23 +245,20 @@ func ExampleComplexObjectWithStructuredClaims() { //nolint:govet
 	//	"iss": "https://example.com/issuer"
 	// }
 }
-func setUp() (*afjwt.JoseED25519Signer, *afjwt.JoseEd25519Verifier, error) {
+func setUp() (*testutil.Ed25519Signer, afgjwt.ProofChecker, error) {
 	issuerPublicKey, issuerPrivateKey, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	signer := afjwt.NewEd25519Signer(issuerPrivateKey)
+	signer := testutil.NewEd25519Signer(issuerPrivateKey)
 
-	signatureVerifier, err := afjwt.NewEd25519Verifier(issuerPublicKey)
-	if err != nil {
-		return nil, nil, err
-	}
+	signatureVerifier := testsupport.NewEd25519Verifier(issuerPublicKey)
 
 	return signer, signatureVerifier, nil
 }
 
-func setUpHolderBinding() (*afjwt.JoseED25519Signer, *jwk.JWK, error) {
+func setUpHolderBinding() (*testutil.Ed25519Signer, *jwk.JWK, error) {
 	holderPublicKey, holderPrivateKey, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		return nil, nil, err
@@ -270,7 +269,7 @@ func setUpHolderBinding() (*afjwt.JoseED25519Signer, *jwk.JWK, error) {
 		return nil, nil, err
 	}
 
-	holderSigner := afjwt.NewEd25519Signer(holderPrivateKey)
+	holderSigner := testutil.NewEd25519Signer(holderPrivateKey)
 
 	return holderSigner, holderPublicJWK, nil
 }

@@ -15,33 +15,26 @@ import (
 	"github.com/go-jose/go-jose/v3/jwt"
 	"github.com/stretchr/testify/require"
 
-	"github.com/trustbloc/vc-go/internal/testutil/signatureutil"
+	"github.com/trustbloc/vc-go/proof/testsupport"
 
 	ariesjose "github.com/trustbloc/kms-go/doc/jose"
 	"github.com/trustbloc/kms-go/spi/kms"
-
-	"github.com/trustbloc/vc-go/signature/verifier"
 )
 
 func TestJWTCredClaimsMarshalJWS(t *testing.T) {
-	signer := signatureutil.CryptoSigner(t, kms.RSARS256Type)
+	proofCreator, proofChecker := testsupport.NewKMSSigVerPair(t, kms.RSARS256Type, "did:123#key1")
 
-	vc, err := parseTestCredential(t, []byte(validCredential))
+	vc, err := parseTestCredential(t, []byte(validCredential), WithDisabledProofCheck())
 	require.NoError(t, err)
 
 	jwtClaims, err := vc.JWTClaims(true)
 	require.NoError(t, err)
 
 	t.Run("Marshal signed JWT", func(t *testing.T) {
-		jws, err := jwtClaims.MarshalJWSString(RS256, signer, "did:123#key1")
+		jws, err := jwtClaims.MarshalJWSString(RS256, proofCreator, "did:123#key1")
 		require.NoError(t, err)
 
-		headers, vcBytes, err := decodeCredJWS(jws, true, func(issuerID, keyID string) (*verifier.PublicKey, error) {
-			return &verifier.PublicKey{
-				Type: kms.RSARS256,
-				JWK:  signer.PublicJWK(),
-			}, nil
-		})
+		headers, vcBytes, err := decodeCredJWS(jws, true, proofChecker)
 		require.NoError(t, err)
 		require.Equal(t, ariesjose.Headers{"alg": "RS256", "kid": "did:123#key1"}, headers)
 
@@ -61,19 +54,19 @@ type invalidCredClaims struct {
 }
 
 func TestCredJWSDecoderUnmarshal(t *testing.T) {
-	signer := signatureutil.CryptoSigner(t, kms.RSARS256Type)
+	verificationKeyID := "did:123#key1"
+	otherVerificationKeyID := "did:123#key2"
 
-	pkFetcher := func(_, _ string) (*verifier.PublicKey, error) { //nolint:unparam
-		return &verifier.PublicKey{
-			Type: kms.RSARS256,
-			JWK:  signer.PublicJWK(),
-		}, nil
-	}
+	proofCreators, proofChecker := testsupport.NewKMSSignersAndVerifier(t, []testsupport.SigningKey{
+		{Type: kms.RSARS256, PublicKeyID: verificationKeyID},
+		{Type: kms.RSARS256, PublicKeyID: otherVerificationKeyID},
+	})
 
-	validJWS := createRS256JWS(t, []byte(jwtTestCredential), signer, false)
+	validJWS := createRS256JWS(t, []byte(jwtTestCredential), proofCreators[0], verificationKeyID, false)
+	jwsWithWrongKey := createRS256JWS(t, []byte(jwtTestCredential), proofCreators[0], otherVerificationKeyID, false)
 
 	t.Run("Successful JWS decoding", func(t *testing.T) {
-		headers, vcBytes, err := decodeCredJWS(string(validJWS), true, pkFetcher)
+		headers, vcBytes, err := decodeCredJWS(string(validJWS), true, proofChecker)
 		require.NoError(t, err)
 		require.NotNil(t, headers)
 
@@ -81,13 +74,13 @@ func TestCredJWSDecoderUnmarshal(t *testing.T) {
 		err = json.Unmarshal(vcBytes, &vcRaw)
 		require.NoError(t, err)
 
-		vc, err := parseTestCredential(t, []byte(jwtTestCredential))
+		vc, err := parseTestCredential(t, []byte(jwtTestCredential), WithDisabledProofCheck())
 		require.NoError(t, err)
 		require.Equal(t, vc.stringJSON(t), jsonObjectToString(t, vcRaw))
 	})
 
 	t.Run("Invalid serialized JWS", func(t *testing.T) {
-		joseHeaders, jws, err := decodeCredJWS("invalid JWS", true, pkFetcher)
+		joseHeaders, jws, err := decodeCredJWS("invalid JWS", true, proofChecker)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "unmarshal VC JWT claims")
 		require.Nil(t, jws)
@@ -111,7 +104,7 @@ func TestCredJWSDecoderUnmarshal(t *testing.T) {
 		jwtCompact, err := jwt.Signed(signer).Claims(claims).CompactSerialize()
 		require.NoError(t, err)
 
-		joseHeaders, jws, err := decodeCredJWS(jwtCompact, true, pkFetcher)
+		joseHeaders, jws, err := decodeCredJWS(jwtCompact, true, proofChecker)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "unmarshal VC JWT claims")
 		require.Nil(t, jws)
@@ -119,17 +112,7 @@ func TestCredJWSDecoderUnmarshal(t *testing.T) {
 	})
 
 	t.Run("Invalid signature of JWS", func(t *testing.T) {
-		pkFetcherOther := func(issuerID, keyID string) (*verifier.PublicKey, error) {
-			// use public key of VC Holder (while expecting to use the ones of Issuer)
-			holderSigner := signatureutil.CryptoSigner(t, kms.RSARS256Type)
-
-			return &verifier.PublicKey{
-				Type: kms.RSARS256,
-				JWK:  holderSigner.PublicJWK(),
-			}, nil
-		}
-
-		joseHeaders, jws, err := decodeCredJWS(string(validJWS), true, pkFetcherOther)
+		joseHeaders, jws, err := decodeCredJWS(string(jwsWithWrongKey), true, proofChecker)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "unmarshal VC JWT claims")
 		require.Nil(t, jws)

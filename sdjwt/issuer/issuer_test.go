@@ -28,7 +28,9 @@ import (
 	"github.com/trustbloc/kms-go/doc/jose/jwk"
 	"github.com/trustbloc/kms-go/doc/jose/jwk/jwksupport"
 
+	"github.com/trustbloc/vc-go/crypto-ext/testutil"
 	afjwt "github.com/trustbloc/vc-go/jwt"
+	"github.com/trustbloc/vc-go/proof/testsupport"
 	"github.com/trustbloc/vc-go/sdjwt/common"
 )
 
@@ -67,7 +69,7 @@ func TestNew(t *testing.T) {
 		pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
 		r.NoError(err)
 
-		token, err := New(issuer, claims, nil, afjwt.NewEd25519Signer(privKey),
+		token, err := New(issuer, claims, nil, testutil.NewEd25519Signer(privKey),
 			WithJSONMarshaller(jsonMarshalWithSpace),
 			WithSaltFnc(func() (string, error) {
 				return sampleSalt, nil
@@ -107,7 +109,7 @@ func TestNew(t *testing.T) {
 
 		pubKey := &privKey.PublicKey
 
-		token, err := New(issuer, claims, nil, afjwt.NewRS256Signer(privKey, nil),
+		token, err := New(issuer, claims, nil, testutil.NewRS256Signer(privKey),
 			WithJSONMarshaller(jsonMarshalWithSpace),
 			WithSaltFnc(func() (string, error) {
 				return sampleSalt, nil
@@ -167,7 +169,7 @@ func TestNew(t *testing.T) {
 			WithHashAlgorithm(crypto.SHA256),
 		)
 
-		token, err := New(issuer, complexClaims, nil, afjwt.NewEd25519Signer(privKey), newOpts...)
+		token, err := New(issuer, complexClaims, nil, testutil.NewEd25519Signer(privKey), newOpts...)
 		r.NoError(err)
 		combinedFormatForIssuance, err := token.Serialize(false)
 		require.NoError(t, err)
@@ -217,7 +219,7 @@ func TestNew(t *testing.T) {
 			WithStructuredClaims(true),
 		)
 
-		token, err := New(issuer, complexClaims, nil, afjwt.NewEd25519Signer(privKey), newOpts...)
+		token, err := New(issuer, complexClaims, nil, testutil.NewEd25519Signer(privKey), newOpts...)
 		r.NoError(err)
 		combinedFormatForIssuance, err := token.Serialize(false)
 		require.NoError(t, err)
@@ -268,7 +270,7 @@ func TestNew(t *testing.T) {
 			WithNonSelectivelyDisclosableClaims([]string{"id", "degree.type"}),
 		)
 
-		token, err := New(issuer, complexClaims, nil, afjwt.NewEd25519Signer(privKey), newOpts...)
+		token, err := New(issuer, complexClaims, nil, testutil.NewEd25519Signer(privKey), newOpts...)
 		r.NoError(err)
 
 		var tokenClaims map[string]interface{}
@@ -323,7 +325,7 @@ func TestNew(t *testing.T) {
 			WithHashAlgorithm(crypto.SHA512),
 		)
 
-		token, err := New(issuer, complexClaims, nil, afjwt.NewEd25519Signer(privKey), newOpts...)
+		token, err := New(issuer, complexClaims, nil, testutil.NewEd25519Signer(privKey), newOpts...)
 		r.NoError(err)
 
 		var tokenClaims map[string]interface{}
@@ -358,10 +360,9 @@ func TestNew(t *testing.T) {
 		pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
 		r.NoError(err)
 
-		verifier, e := afjwt.NewEd25519Verifier(pubKey)
-		r.NoError(e)
+		verifier := testsupport.NewEd25519Verifier(pubKey)
 
-		token, err := New(issuer, claims, nil, afjwt.NewEd25519Signer(privKey),
+		token, err := New(issuer, claims, nil, testutil.NewEd25519Signer(privKey),
 			WithDecoyDigests(true))
 		r.NoError(err)
 		combinedFormatForIssuance, err := token.Serialize(false)
@@ -370,7 +371,7 @@ func TestNew(t *testing.T) {
 		cfi := common.ParseCombinedFormatForIssuance(combinedFormatForIssuance)
 		r.Equal(1, len(cfi.Disclosures))
 
-		afjwtToken, _, err := afjwt.Parse(cfi.SDJWT, afjwt.WithSignatureVerifier(verifier))
+		afjwtToken, _, err := afjwt.Parse(cfi.SDJWT, afjwt.WithProofChecker(verifier))
 		r.NoError(err)
 
 		var parsedClaims map[string]interface{}
@@ -393,10 +394,9 @@ func TestNew(t *testing.T) {
 		pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
 		r.NoError(err)
 
-		verifier, e := afjwt.NewEd25519Verifier(pubKey)
-		r.NoError(e)
+		verifier := testsupport.NewEd25519Verifier(pubKey)
 
-		token, err := New(issuer, complexClaims, nil, afjwt.NewEd25519Signer(privKey),
+		token, err := New(issuer, complexClaims, nil, testutil.NewEd25519Signer(privKey),
 			WithSDJWTVersion(common.SDJWTVersionV5),
 			WithStructuredClaims(true),
 			WithAlwaysIncludeObjects([]string{"address.countryCodes", "address.extra"}),
@@ -410,7 +410,7 @@ func TestNew(t *testing.T) {
 		cfi := common.ParseCombinedFormatForIssuance(combinedFormatForIssuance)
 		r.Equal(6, len(cfi.Disclosures))
 
-		afjwtToken, _, err := afjwt.Parse(cfi.SDJWT, afjwt.WithSignatureVerifier(verifier))
+		afjwtToken, _, err := afjwt.Parse(cfi.SDJWT, afjwt.WithProofChecker(verifier))
 		r.NoError(err)
 
 		var parsedClaims map[string]interface{}
@@ -434,7 +434,7 @@ func TestNew(t *testing.T) {
 		holderJWK, err := jwksupport.JWKFromKey(holderPublicKey)
 		require.NoError(t, err)
 
-		token, err := New(issuer, claims, nil, afjwt.NewEd25519Signer(privKey),
+		token, err := New(issuer, claims, nil, testutil.NewEd25519Signer(privKey),
 			WithHolderPublicKey(holderJWK))
 		r.NoError(err)
 		combinedFormatForIssuance, err := token.Serialize(false)
@@ -467,7 +467,7 @@ func TestNew(t *testing.T) {
 			"_sd": "whatever",
 		}
 
-		token, err := New(issuer, complexClaims, nil, afjwt.NewEd25519Signer(privKey))
+		token, err := New(issuer, complexClaims, nil, testutil.NewEd25519Signer(privKey))
 		r.Error(err)
 		r.Nil(token)
 		r.Contains(err.Error(), "key '_sd' cannot be present in the claims")
@@ -486,7 +486,7 @@ func TestNew(t *testing.T) {
 			},
 		}
 
-		token, err := New(issuer, complexClaims, nil, afjwt.NewEd25519Signer(privKey))
+		token, err := New(issuer, complexClaims, nil, testutil.NewEd25519Signer(privKey))
 		r.Error(err)
 		r.Nil(token)
 		r.Contains(err.Error(), "key '_sd' cannot be present in the claims")
@@ -498,7 +498,7 @@ func TestNew(t *testing.T) {
 		_, privKey, err := ed25519.GenerateKey(rand.Reader)
 		r.NoError(err)
 
-		token, err := New(issuer, claims, nil, afjwt.NewEd25519Signer(privKey),
+		token, err := New(issuer, claims, nil, testutil.NewEd25519Signer(privKey),
 			WithHolderPublicKey(&jwk.JWK{JSONWebKey: jose.JSONWebKey{Key: "abc"}}))
 		r.Error(err)
 		r.Nil(token)
@@ -513,7 +513,7 @@ func TestNew(t *testing.T) {
 		_, privKey, err := ed25519.GenerateKey(rand.Reader)
 		r.NoError(err)
 
-		token, err := New(issuer, claims, nil, afjwt.NewEd25519Signer(privKey),
+		token, err := New(issuer, claims, nil, testutil.NewEd25519Signer(privKey),
 			WithDecoyDigests(true),
 			WithSaltFnc(func() (string, error) {
 				return "", fmt.Errorf("salt error")
@@ -528,7 +528,7 @@ func TestNew(t *testing.T) {
 
 		privKey, err := rsa.GenerateKey(rand.Reader, 2048)
 		r.NoError(err)
-		token, err := New(issuer, claims, nil, afjwt.NewRS256Signer(privKey, nil),
+		token, err := New(issuer, claims, nil, testutil.NewRS256Signer(privKey),
 			WithJSONMarshaller(jsonMarshalWithSpace),
 			WithSaltFnc(func() (string, error) {
 				return sampleSalt, nil
@@ -544,7 +544,7 @@ func TestNew(t *testing.T) {
 
 		privKey, err := rsa.GenerateKey(rand.Reader, 2048)
 		r.NoError(err)
-		token, err := New(issuer, claims, nil, afjwt.NewRS256Signer(privKey, nil),
+		token, err := New(issuer, claims, nil, testutil.NewRS256Signer(privKey),
 			WithJSONMarshaller(jsonMarshalWithSpace),
 			WithSaltFnc(func() (string, error) {
 				return "", fmt.Errorf("salt error")
@@ -559,7 +559,7 @@ func TestNew(t *testing.T) {
 
 		privKey, err := rsa.GenerateKey(rand.Reader, 2048)
 		r.NoError(err)
-		token, err := New(issuer, claims, nil, afjwt.NewRS256Signer(privKey, nil),
+		token, err := New(issuer, claims, nil, testutil.NewRS256Signer(privKey),
 			WithJSONMarshaller(func(v interface{}) ([]byte, error) {
 				return nil, fmt.Errorf("marshal error")
 			}))
@@ -575,7 +575,7 @@ func TestNewFromVC(t *testing.T) {
 	_, issuerPrivateKey, e := ed25519.GenerateKey(rand.Reader)
 	r.NoError(e)
 
-	signer := afjwt.NewEd25519Signer(issuerPrivateKey)
+	signer := testutil.NewEd25519Signer(issuerPrivateKey)
 
 	t.Run("success - structured claims + holder binding", func(t *testing.T) {
 		holderPublicKey, _, err := ed25519.GenerateKey(rand.Reader)
@@ -875,7 +875,7 @@ func getValidJSONWebToken(opts ...NewOpt) (*SelectiveDisclosureJWT, error) {
 		return nil, err
 	}
 
-	signer := afjwt.NewEd25519Signer(privKey)
+	signer := testutil.NewEd25519Signer(privKey)
 
 	return New(issuer, claims, headers, signer, opts...)
 }
@@ -968,17 +968,9 @@ func createComplexClaimsWithSlice() map[string]interface{} {
 }
 
 func verifyEd25519(jws string, pubKey ed25519.PublicKey) error {
-	v, err := afjwt.NewEd25519Verifier(pubKey)
-	if err != nil {
-		return err
-	}
+	v := testsupport.NewEd25519Verifier(pubKey)
 
-	sVerifier := afjose.NewCompositeAlgSigVerifier(afjose.AlgSignatureVerifier{
-		Alg:      "EdDSA",
-		Verifier: v,
-	})
-
-	token, _, err := afjwt.Parse(jws, afjwt.WithSignatureVerifier(sVerifier))
+	token, _, err := afjwt.Parse(jws, afjwt.WithProofChecker(v))
 	if err != nil {
 		return err
 	}
@@ -991,14 +983,9 @@ func verifyEd25519(jws string, pubKey ed25519.PublicKey) error {
 }
 
 func verifyRS256(jws string, pubKey *rsa.PublicKey) error {
-	v := afjwt.NewRS256Verifier(pubKey)
+	v := testsupport.NewRS256Verifier(pubKey)
 
-	sVerifier := afjose.NewCompositeAlgSigVerifier(afjose.AlgSignatureVerifier{
-		Alg:      "RS256",
-		Verifier: v,
-	})
-
-	token, _, err := afjwt.Parse(jws, afjwt.WithSignatureVerifier(sVerifier))
+	token, _, err := afjwt.Parse(jws, afjwt.WithProofChecker(v))
 	if err != nil {
 		return err
 	}

@@ -8,7 +8,6 @@ package verifiable_test
 
 import (
 	"encoding/base64"
-	"strings"
 
 	"github.com/trustbloc/bbs-signature-go/bbs12381g2pub"
 	lddocloader "github.com/trustbloc/did-go/doc/ld/documentloader"
@@ -56,43 +55,6 @@ func getJSONLDDocumentLoader() *lddocloader.DocumentLoader {
 	}
 
 	return loader
-}
-
-type bbsSigner struct {
-	privKeyBytes []byte
-}
-
-func newBBSSigner(privKey *bbs12381g2pub.PrivateKey) (*bbsSigner, error) {
-	privKeyBytes, err := privKey.Marshal()
-	if err != nil {
-		return nil, err
-	}
-
-	return &bbsSigner{privKeyBytes: privKeyBytes}, nil
-}
-
-func (s *bbsSigner) Sign(data []byte) ([]byte, error) {
-	msgs := s.textToLines(string(data))
-
-	return bbs12381g2pub.New().Sign(msgs, s.privKeyBytes)
-}
-
-// Alg return alg.
-func (s *bbsSigner) Alg() string {
-	return ""
-}
-
-func (s *bbsSigner) textToLines(txt string) [][]byte {
-	lines := strings.Split(txt, "\n")
-	linesBytes := make([][]byte, 0, len(lines))
-
-	for i := range lines {
-		if strings.TrimSpace(lines[i]) != "" {
-			linesBytes = append(linesBytes, []byte(lines[i]))
-		}
-	}
-
-	return linesBytes
 }
 
 func loadBBSKeyPair(pubKeyB64, privKeyB64 string) (*bbs12381g2pub.PublicKey, *bbs12381g2pub.PrivateKey, error) {

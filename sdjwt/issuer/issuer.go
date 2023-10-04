@@ -388,7 +388,7 @@ func New(issuer string, claims interface{}, headers jose.Headers,
 		return nil, fmt.Errorf("failed to merge payload and digests: %w", err)
 	}
 
-	signedJWT, err := afgjwt.NewSigned(payload, headers, signer)
+	signedJWT, err := afgjwt.NewJoseSigned(payload, headers, signer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create SD-JWT from payload[%+v]: %w", payload, err)
 	}
@@ -459,7 +459,7 @@ func NewFromVC(vc map[string]interface{}, headers jose.Headers,
 	vcClaims[credentialSubjectKey] = selectiveCredentialSubject
 
 	// sign VC with 'selective' credential subject
-	signedJWT, err := afgjwt.NewSigned(vc, headers, signer)
+	signedJWT, err := afgjwt.NewJoseSigned(vc, headers, signer)
 	if err != nil {
 		return nil, err
 	}

@@ -18,12 +18,15 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/bbs-signature-go/bbs12381g2pub"
 	ldprocessor "github.com/trustbloc/did-go/doc/ld/processor"
+	"github.com/trustbloc/kms-go/spi/kms"
 
 	utiltime "github.com/trustbloc/did-go/doc/util/time"
 
+	"github.com/trustbloc/vc-go/crypto-ext/testutil"
 	"github.com/trustbloc/vc-go/presexch"
-	"github.com/trustbloc/vc-go/signature/suite"
-	"github.com/trustbloc/vc-go/signature/suite/bbsblssignature2020"
+	"github.com/trustbloc/vc-go/proof/creator"
+	"github.com/trustbloc/vc-go/proof/ldproofs/bbsblssignature2020"
+	"github.com/trustbloc/vc-go/proof/testsupport"
 	"github.com/trustbloc/vc-go/verifiable"
 )
 
@@ -221,23 +224,27 @@ func TestInstance_GetSubmissionRequirements(t *testing.T) {
 		srcPublicKey, err := publicKey.Marshal()
 		require.NoError(t, err)
 
-		signer, err := newBBSSigner(privateKey)
+		signer, err := testutil.NewBBSSigner(privateKey)
 		require.NoError(t, err)
 
 		lddl := createTestJSONLDDocumentLoader(t)
 
 		require.NoError(t, vc.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
 			SignatureType:           "BbsBlsSignature2020",
+			KeyType:                 kms.BLS12381G2Type,
 			SignatureRepresentation: verifiable.SignatureProofValue,
-			Suite:                   bbsblssignature2020.New(suite.WithSigner(signer)),
+			ProofCreator:            creator.New(creator.WithLDProofType(bbsblssignature2020.New(), signer)),
 			VerificationMethod:      "did:example:123456#key1",
 		}, ldprocessor.WithDocumentLoader(lddl)))
 
 		matched, err := pd.MatchSubmissionRequirement([]*verifiable.Credential{vc}, lddl,
 			presexch.WithSelectiveDisclosureApply(),
-			presexch.WithSDCredentialOptions(verifiable.WithJSONLDDocumentLoader(lddl),
-				verifiable.WithPublicKeyFetcher(verifiable.SingleKey(srcPublicKey, "Bls12381G2Key2020"))),
-		)
+			presexch.WithSDBBSProofCreator(&verifiable.BBSProofCreator{
+				ProofDerivation: bbs12381g2pub.New(),
+				VerificationMethodResolver: testsupport.NewSingleKeyResolver(
+					"did:example:123456#key1", srcPublicKey, "Bls12381G2Key2020"),
+			}),
+			presexch.WithSDCredentialOptions(verifiable.WithJSONLDDocumentLoader(lddl)))
 		require.NoError(t, err)
 		require.Len(t, matched, 1)
 		require.Equal(t, 1, len(matched[0].Descriptors))

@@ -11,12 +11,10 @@ import (
 
 	"github.com/go-jose/go-jose/v3/jwt"
 	"github.com/stretchr/testify/require"
-
-	"github.com/trustbloc/kms-go/doc/jose"
 )
 
 func TestCredentialJWTClaimsMarshallingToUnsecuredJWT(t *testing.T) {
-	vc, err := parseTestCredential(t, []byte(validCredential))
+	vc, err := parseTestCredential(t, []byte(validCredential), WithDisabledProofCheck())
 	require.NoError(t, err)
 
 	jwtClaims, err := vc.JWTClaims(true)
@@ -39,7 +37,7 @@ func TestCredentialJWTClaimsMarshallingToUnsecuredJWT(t *testing.T) {
 
 func TestCredUnsecuredJWTDecoderParseJWTClaims(t *testing.T) {
 	t.Run("Successful unsecured JWT decoding", func(t *testing.T) {
-		vc, err := parseTestCredential(t, []byte(validCredential))
+		vc, err := parseTestCredential(t, []byte(validCredential), WithDisabledProofCheck())
 		require.NoError(t, err)
 
 		jwtClaims, err := vc.JWTClaims(true)
@@ -66,7 +64,7 @@ func TestCredUnsecuredJWTDecoderParseJWTClaims(t *testing.T) {
 			Credential: 55, // "vc" claim of invalid format
 		}
 
-		rawJWT, err := marshalUnsecuredJWT(jose.Headers{}, claims)
+		rawJWT, err := marshalUnsecuredJWT(claims)
 		require.NoError(t, err)
 
 		vcBytes, err := decodeCredJWTUnsecured(rawJWT)
