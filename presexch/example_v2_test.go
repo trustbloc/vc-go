@@ -21,15 +21,16 @@ import (
 	ldtestutil "github.com/trustbloc/did-go/doc/ld/testutil"
 	"github.com/trustbloc/kms-go/spi/kms"
 
-	"github.com/trustbloc/vc-go/internal/testutil/kmscryptoutil"
-	"github.com/trustbloc/vc-go/internal/testutil/signatureutil"
-
 	utiltime "github.com/trustbloc/did-go/doc/util/time"
+
+	"github.com/trustbloc/vc-go/jwt"
+	"github.com/trustbloc/vc-go/proof/creator"
+	"github.com/trustbloc/vc-go/proof/ldproofs/bbsblssignature2020"
+	"github.com/trustbloc/vc-go/proof/ldproofs/bbsblssignatureproof2020"
+	"github.com/trustbloc/vc-go/proof/testsupport"
 
 	. "github.com/trustbloc/vc-go/presexch"
 	"github.com/trustbloc/vc-go/sdjwt/common"
-	"github.com/trustbloc/vc-go/signature/suite"
-	"github.com/trustbloc/vc-go/signature/suite/bbsblssignature2020"
 	jsonutil "github.com/trustbloc/vc-go/util/json"
 	"github.com/trustbloc/vc-go/verifiable"
 )
@@ -94,7 +95,7 @@ func ExamplePresentationDefinition_CreateVP_v2() {
 				"age":        21,
 			}),
 		},
-	}), loader, verifiable.WithJSONLDDocumentLoader(loader))
+	}), loader, WithSDCredentialOptions(verifiable.WithJSONLDDocumentLoader(loader)))
 	if err != nil {
 		panic(err)
 	}
@@ -221,7 +222,7 @@ func ExamplePresentationDefinition_CreateVP_with_LdpVC_Format() {
 				{"type": "Ed25519Signature2018"},
 			},
 		},
-	}), loader, verifiable.WithJSONLDDocumentLoader(loader))
+	}), loader, WithSDCredentialOptions(verifiable.WithJSONLDDocumentLoader(loader)))
 	if err != nil {
 		panic(err)
 	}
@@ -348,7 +349,7 @@ func ExamplePresentationDefinition_CreateVP_with_Ldp_Format() {
 				{"type": "Ed25519Signature2018"},
 			},
 		},
-	}), loader, verifiable.WithJSONLDDocumentLoader(loader))
+	}), loader, WithSDCredentialOptions(verifiable.WithJSONLDDocumentLoader(loader)))
 	if err != nil {
 		panic(err)
 	}
@@ -475,7 +476,7 @@ func ExamplePresentationDefinition_CreateVP_withFormatInInputDescriptor() {
 				{"type": "Ed25519Signature2018"},
 			},
 		},
-	}), loader, verifiable.WithJSONLDDocumentLoader(loader))
+	}), loader, WithSDCredentialOptions(verifiable.WithJSONLDDocumentLoader(loader)))
 	if err != nil {
 		panic(err)
 	}
@@ -602,7 +603,7 @@ func TestExamplePresentationDefinition_CreateVPWithFormat_NoMatch(t *testing.T) 
 				{"type": "JsonWebSignature2020"},
 			},
 		},
-	}), loader, verifiable.WithJSONLDDocumentLoader(loader))
+	}), loader, WithSDCredentialOptions(verifiable.WithJSONLDDocumentLoader(loader)))
 
 	require.EqualError(t, err, "credentials do not satisfy requirements")
 }
@@ -701,7 +702,8 @@ func ExamplePresentationDefinition_CreateVP_withFrame() {
 		panic(err)
 	}
 
-	vc, err := verifiable.ParseCredential([]byte(vcJSON), verifiable.WithJSONLDDocumentLoader(loader))
+	vc, err := verifiable.ParseCredential([]byte(vcJSON), verifiable.WithDisabledProofCheck(),
+		verifiable.WithJSONLDDocumentLoader(loader))
 	if err != nil {
 		panic(err)
 	}
@@ -718,8 +720,16 @@ func ExamplePresentationDefinition_CreateVP_withFrame() {
 
 	signVCWithBBS(privKey, vc, loader)
 
-	vp, err := pd.CreateVP([]*verifiable.Credential{vc}, loader, verifiable.WithJSONLDDocumentLoader(loader), verifiable.WithPublicKeyFetcher(
-		verifiable.SingleKey(pubKeyBytes, "Bls12381G2Key2020")))
+	bbsProofCreator := &bbsblssignatureproof2020.Creator{
+		ProofDelivery: bbs12381g2pub.New(),
+		VerificationMethodResolver: testsupport.NewSingleKeyResolver(
+			"did:example:123456#key1", pubKeyBytes, "Bls12381G2Key2020"),
+	}
+
+	vp, err := pd.CreateVP([]*verifiable.Credential{vc}, loader,
+		WithSDBBSProofCreator(bbsProofCreator),
+		WithSDCredentialOptions(
+			verifiable.WithJSONLDDocumentLoader(loader)))
 	if err != nil {
 		panic(err)
 	}
@@ -862,12 +872,9 @@ func ExamplePresentationDefinition_CreateVP_limitedDisclosureSkipsNonSDVCs() {
 		return vc
 	}
 
-	kmsCrypto, err := kmscryptoutil.LocalKMSCryptoErr()
-	if err != nil {
-		panic(err)
-	}
-
-	signer, err := signatureutil.NewCryptoSigner(kmsCrypto, kms.ECDSAP256TypeIEEEP1363)
+	proofCreators, _, err := testsupport.NewKMSSignersAndVerifierErr([]testsupport.SigningKey{
+		{Type: kms.ECDSAP256TypeIEEEP1363, PublicKeyID: "#key-1"},
+	})
 	if err != nil {
 		panic(err)
 	}
@@ -879,7 +886,7 @@ func ExamplePresentationDefinition_CreateVP_limitedDisclosureSkipsNonSDVCs() {
 		panic(err)
 	}
 
-	credJWT, err := claims.MarshalJWSString(verifiable.ECDSASecp256r1, signer, "#key-1")
+	credJWT, err := claims.MarshalJWSString(verifiable.ECDSASecp256r1, proofCreators[0], "#key-1")
 	if err != nil {
 		panic(err)
 	}
@@ -891,7 +898,15 @@ func ExamplePresentationDefinition_CreateVP_limitedDisclosureSkipsNonSDVCs() {
 
 	sdJWTSrc := makeVC("http://example.edu/credentials/999")
 
-	marshaledSDJWTVC, err := sdJWTSrc.MarshalWithDisclosure(verifiable.DiscloseAll(), verifiable.DisclosureSigner(verifiable.GetJWTSigner(signer, "ES256"), "#key-1"))
+	joseSig, err := jwt.NewJOSESigner(jwt.SignParameters{
+		KeyID:  "#key-1",
+		JWTAlg: "ES256",
+	}, proofCreators[0])
+	if err != nil {
+		panic(err)
+	}
+
+	marshaledSDJWTVC, err := sdJWTSrc.MarshalWithDisclosure(verifiable.DiscloseAll(), verifiable.DisclosureSigner(joseSig, "#key-1"))
 	if err != nil {
 		panic(err)
 	}
@@ -905,7 +920,7 @@ func ExamplePresentationDefinition_CreateVP_limitedDisclosureSkipsNonSDVCs() {
 		jwtVC,
 		sdJWTVC,
 		makeVC("http://example.edu/credentials/777"),
-	}, loader, verifiable.WithJSONLDDocumentLoader(loader))
+	}, loader, WithSDCredentialOptions(verifiable.WithJSONLDDocumentLoader(loader)))
 	if err != nil {
 		panic(err)
 	}
@@ -1013,14 +1028,13 @@ func signVCWithBBS(privKey *bbs12381g2pub.PrivateKey, vc *verifiable.Credential,
 		panic(err)
 	}
 
-	sigSuite := bbsblssignature2020.New(
-		suite.WithSigner(bbsSigner),
-		suite.WithVerifier(bbsblssignature2020.NewG2PublicKeyVerifier()))
+	bbsProofCreator := creator.New(creator.WithProofType(bbsblssignature2020.New(), bbsSigner))
 
 	ldpContext := &verifiable.LinkedDataProofContext{
 		SignatureType:           "BbsBlsSignature2020",
+		KeyType:                 kms.BLS12381G2Type,
 		SignatureRepresentation: verifiable.SignatureProofValue,
-		Suite:                   sigSuite,
+		ProofCreator:            bbsProofCreator,
 		VerificationMethod:      "did:example:123456#key1",
 	}
 

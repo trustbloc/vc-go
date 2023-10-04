@@ -13,6 +13,7 @@ import (
 	"github.com/trustbloc/bbs-signature-go/bbs12381g2pub"
 	lddocloader "github.com/trustbloc/did-go/doc/ld/documentloader"
 	ldtestutil "github.com/trustbloc/did-go/doc/ld/testutil"
+	"github.com/trustbloc/kms-go/spi/kms"
 
 	"github.com/trustbloc/vc-go/verifiable"
 )
@@ -71,7 +72,7 @@ func newBBSSigner(privKey *bbs12381g2pub.PrivateKey) (*bbsSigner, error) {
 	return &bbsSigner{privKeyBytes: privKeyBytes}, nil
 }
 
-func (s *bbsSigner) Sign(data []byte) ([]byte, error) {
+func (s *bbsSigner) Sign(data []byte, _ kms.KeyType) ([]byte, error) {
 	msgs := s.textToLines(string(data))
 
 	return bbs12381g2pub.New().Sign(msgs, s.privKeyBytes)

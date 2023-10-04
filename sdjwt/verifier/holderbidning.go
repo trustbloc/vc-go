@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 /*
-Package verifier enables the Verifier: An entity that requests, checks and
+Package verifier enables the ProofChecker: An entity that requests, checks and
 extracts the claims from an SD-JWT and respective Disclosures.
 */
 

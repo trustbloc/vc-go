@@ -14,58 +14,28 @@ import (
 	"github.com/trustbloc/vc-go/jwt"
 )
 
-// Signer defines signer interface which is used to sign VC JWT.
-type Signer interface {
-	Sign(data []byte) ([]byte, error)
-	Alg() string
-}
-
-// JwtSigner implement jose.Signer interface.
-type JwtSigner struct {
-	signer  Signer
-	headers map[string]interface{}
-}
-
-// GetJWTSigner returns JWT Signer.
-func GetJWTSigner(signer Signer, algorithm string) *JwtSigner {
-	headers := map[string]interface{}{
-		jose.HeaderAlgorithm: algorithm,
-	}
-
-	return &JwtSigner{signer: signer, headers: headers}
-}
-
-// Sign returns signature.
-func (s JwtSigner) Sign(data []byte) ([]byte, error) {
-	return s.signer.Sign(data)
-}
-
-// Headers returns headers.
-func (s JwtSigner) Headers() jose.Headers {
-	return s.headers
-}
-
 // noVerifier is used when no JWT signature verification is needed.
 // To be used with precaution.
 type noVerifier struct{}
 
-func (v noVerifier) Verify(_ jose.Headers, _, _, _ []byte) error {
+func (v noVerifier) CheckJWTProof(_ jose.Headers, _, _, _ []byte) error {
 	return nil
 }
 
 // MarshalJWS serializes JWT presentation claims into signed form (JWS).
 func marshalJWS(
-	jwtClaims interface{}, signatureAlg JWSAlgorithm, signer Signer, keyID string) (string, jose.Headers, error) {
+	jwtClaims interface{}, signatureAlg JWSAlgorithm, signer jwt.ProofCreator, keyID string) (string, jose.Headers, error) {
 	algName, err := signatureAlg.Name()
 	if err != nil {
 		return "", nil, err
 	}
 
-	headers := map[string]interface{}{
-		jose.HeaderKeyID: keyID,
+	signParameters := jwt.SignParameters{
+		KeyID:  keyID,
+		JWTAlg: algName,
 	}
 
-	token, err := jwt.NewSigned(jwtClaims, headers, GetJWTSigner(signer, algName))
+	token, err := jwt.NewSigned(jwtClaims, signParameters, signer)
 	if err != nil {
 		return "", nil, err
 	}
@@ -78,17 +48,13 @@ func marshalJWS(
 	return jwtStr, token.Headers, nil
 }
 
-func unmarshalJWS(rawJwt string, checkProof bool, fetcher PublicKeyFetcher, claims interface{}) (jose.Headers, error) {
-	var verifier jose.SignatureVerifier
-
-	if checkProof {
-		verifier = jwt.NewVerifier(jwt.KeyResolverFunc(fetcher))
-	} else {
+func unmarshalJWS(rawJwt string, verifier jwt.ProofChecker, claims interface{}) (jose.Headers, error) {
+	if verifier == nil {
 		verifier = &noVerifier{}
 	}
 
 	jsonWebToken, claimsRaw, err := jwt.Parse(rawJwt,
-		jwt.WithSignatureVerifier(verifier),
+		jwt.WithProofChecker(verifier),
 		jwt.WithIgnoreClaimsMapDecoding(true),
 	)
 	if err != nil {

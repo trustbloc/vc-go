@@ -27,9 +27,9 @@ import (
 	mockkms "github.com/trustbloc/kms-go/mock/kms"
 	"github.com/trustbloc/kms-go/wrapper"
 
+	"github.com/trustbloc/vc-go/crypto-ext/pubkey"
 	"github.com/trustbloc/vc-go/dataintegrity/models"
 	"github.com/trustbloc/vc-go/dataintegrity/suite"
-	signatureverifier "github.com/trustbloc/vc-go/signature/verifier"
 )
 
 var (
@@ -170,7 +170,7 @@ type mockVerifier struct {
 	err error
 }
 
-func (mv *mockVerifier) Verify(_ *signatureverifier.PublicKey, _, _ []byte) error {
+func (mv *mockVerifier) Verify(_, _ []byte, _ *pubkey.PublicKey) error {
 	return mv.err
 }
 

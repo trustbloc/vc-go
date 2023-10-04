@@ -10,23 +10,20 @@ import (
 	"crypto/ed25519"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"time"
 
+	"github.com/trustbloc/bbs-signature-go/bbs12381g2pub"
 	jsonld "github.com/trustbloc/did-go/doc/ld/processor"
 	"github.com/trustbloc/kms-go/spi/kms"
 
-	"github.com/trustbloc/vc-go/internal/testutil/kmscryptoutil"
-	sigutil "github.com/trustbloc/vc-go/internal/testutil/signatureutil"
+	"github.com/trustbloc/vc-go/proof/creator"
+	"github.com/trustbloc/vc-go/proof/ldproofs/bbsblssignature2020"
+	"github.com/trustbloc/vc-go/proof/ldproofs/bbsblssignatureproof2020"
+	"github.com/trustbloc/vc-go/proof/testsupport"
 
 	utiltime "github.com/trustbloc/did-go/doc/util/time"
 
-	"github.com/trustbloc/vc-go/signature/suite"
-	"github.com/trustbloc/vc-go/signature/suite/bbsblssignature2020"
-	"github.com/trustbloc/vc-go/signature/suite/ed25519signature2018"
-	"github.com/trustbloc/vc-go/signature/suite/jsonwebsignature2020"
-	sigverifier "github.com/trustbloc/vc-go/signature/verifier"
 	"github.com/trustbloc/vc-go/verifiable"
 )
 
@@ -119,7 +116,7 @@ func ExampleCredential_embedding() {
 		panic(fmt.Errorf("failed to marshal JWT claims of VC: %w", err))
 	}
 
-	signer := sigutil.GetEd25519Signer(issuerPrivKey, issuerPubKey)
+	signer, verifier := testsupport.NewEd25519Pair(issuerPubKey, issuerPrivKey, "did:123#key1")
 
 	jws, err := jwtClaims.MarshalJWSString(verifiable.EdDSA, signer, "did:123#key1")
 	if err != nil {
@@ -131,7 +128,7 @@ func ExampleCredential_embedding() {
 	// Parse JWS and make sure it's coincide with JSON.
 	vcParsed, err := verifiable.ParseCredential(
 		[]byte(jws),
-		verifiable.WithPublicKeyFetcher(verifiable.SingleKey(issuerPubKey, kms.ED25519)),
+		verifiable.WithProofChecker(verifier),
 		verifiable.WithJSONLDDocumentLoader(getJSONLDDocumentLoader()))
 	if err != nil {
 		panic(fmt.Errorf("failed to encode VC from JWS: %w", err))
@@ -208,7 +205,7 @@ func ExampleCredential_extraFields() {
 		panic(fmt.Errorf("failed to marshal JWT claims of VC: %w", err))
 	}
 
-	signer := sigutil.GetEd25519Signer(issuerPrivKey, issuerPubKey)
+	signer, verifier := testsupport.NewEd25519Pair(issuerPubKey, issuerPrivKey, "did:123#key1")
 
 	jws, err := jwtClaims.MarshalJWSString(verifiable.EdDSA, signer, "did:123#key1")
 	if err != nil {
@@ -220,7 +217,7 @@ func ExampleCredential_extraFields() {
 	// Parse JWS and make sure it's coincide with JSON.
 	vcParsed, err := verifiable.ParseCredential(
 		[]byte(jws),
-		verifiable.WithPublicKeyFetcher(verifiable.SingleKey(issuerPubKey, kms.ED25519)),
+		verifiable.WithProofChecker(verifier),
 		verifiable.WithJSONLDDocumentLoader(getJSONLDDocumentLoader()))
 	if err != nil {
 		panic(fmt.Errorf("failed to encode VC from JWS: %w", err))
@@ -277,7 +274,7 @@ func ExampleParseCredential() {
 		panic(fmt.Errorf("failed to marshal JWT claims of VC: %w", err))
 	}
 
-	signer := sigutil.GetEd25519Signer(issuerPrivKey, issuerPubKey)
+	signer, verifier := testsupport.NewEd25519Pair(issuerPubKey, issuerPrivKey, "did:123#key1")
 
 	jws, err := jwtClaims.MarshalJWSString(verifiable.EdDSA, signer, "did:123#key1")
 	if err != nil {
@@ -287,7 +284,7 @@ func ExampleParseCredential() {
 	// The Holder receives JWS and decodes it.
 	vcParsed, err := verifiable.ParseCredential(
 		[]byte(jws),
-		verifiable.WithPublicKeyFetcher(verifiable.SingleKey(issuerPubKey, kms.ED25519)),
+		verifiable.WithProofChecker(verifier),
 		verifiable.WithJSONLDDocumentLoader(getJSONLDDocumentLoader()))
 	if err != nil {
 		panic(fmt.Errorf("failed to decode VC JWS: %w", err))
@@ -332,7 +329,7 @@ func ExampleCredential_JWTClaims() {
 		panic(fmt.Errorf("failed to marshal JWT claims of VC: %w", err))
 	}
 
-	signer := sigutil.GetEd25519Signer(issuerPrivKey, issuerPubKey)
+	signer, _ := testsupport.NewEd25519Pair(issuerPubKey, issuerPrivKey, "did:123#key1")
 
 	jws, err := jwtClaims.MarshalJWSString(verifiable.EdDSA, signer, "")
 	if err != nil {
@@ -348,17 +345,19 @@ func ExampleCredential_JWTClaims() {
 
 func ExampleCredential_AddLinkedDataProof() {
 	vc, err := verifiable.ParseCredential([]byte(vcJSON),
+		verifiable.WithDisabledProofCheck(),
 		verifiable.WithJSONLDDocumentLoader(getJSONLDDocumentLoader()))
 	if err != nil {
 		panic(fmt.Errorf("failed to decode VC JSON: %w", err))
 	}
 
-	signer := sigutil.GetEd25519Signer(issuerPrivKey, issuerPubKey)
+	signer, _ := testsupport.NewEd25519Pair(issuerPubKey, issuerPrivKey, "did:123#key1")
 
 	err = vc.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
 		Created:                 &issued,
 		SignatureType:           "Ed25519Signature2018",
-		Suite:                   ed25519signature2018.New(suite.WithSigner(signer)),
+		KeyType:                 kms.ED25519Type,
+		ProofCreator:            signer,
 		SignatureRepresentation: verifiable.SignatureJWS,
 		VerificationMethod:      "did:example:123456#key1",
 	}, jsonld.WithDocumentLoader(getJSONLDDocumentLoader()))
@@ -413,17 +412,26 @@ func ExampleCredential_AddLinkedDataProof() {
 //nolint:govet
 func ExampleCredential_AddLinkedDataProofMultiProofs() {
 	vc, err := verifiable.ParseCredential([]byte(vcJSON),
+		verifiable.WithDisabledProofCheck(),
 		verifiable.WithJSONLDDocumentLoader(getJSONLDDocumentLoader()))
 	if err != nil {
 		panic(fmt.Errorf("failed to decode VC JSON: %w", err))
 	}
 
-	ed25519Signer := sigutil.GetEd25519Signer(issuerPrivKey, issuerPubKey)
+	proofCreators, proofChecker, err := testsupport.NewKMSSignersAndVerifierErr(
+		[]testsupport.SigningKey{
+			{Type: kms.ED25519Type, PublicKeyID: "did:example:123456#key1"},
+			{Type: kms.ECDSASecp256k1TypeIEEEP1363, VMType: "JsonWebKey2020", PublicKeyID: "did:example:123456#key2"},
+		})
+	if err != nil {
+		panic(err)
+	}
 
 	err = vc.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
 		Created:                 &issued,
 		SignatureType:           "Ed25519Signature2018",
-		Suite:                   ed25519signature2018.New(suite.WithSigner(ed25519Signer)),
+		KeyType:                 kms.ED25519Type,
+		ProofCreator:            proofCreators[0],
 		SignatureRepresentation: verifiable.SignatureJWS,
 		VerificationMethod:      "did:example:123456#key1",
 	}, jsonld.WithDocumentLoader(getJSONLDDocumentLoader()))
@@ -431,20 +439,11 @@ func ExampleCredential_AddLinkedDataProofMultiProofs() {
 		panic(err)
 	}
 
-	kmsCrypto, err := kmscryptoutil.LocalKMSCryptoErr()
-	if err != nil {
-		panic(fmt.Errorf("failed to create kms and crypto: %w", err))
-	}
-
-	ecdsaSigner, err := sigutil.NewCryptoSigner(kmsCrypto, kms.ECDSASecp256k1TypeIEEEP1363)
-	if err != nil {
-		panic(err)
-	}
-
 	err = vc.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
 		Created:                 &issued,
 		SignatureType:           "JsonWebSignature2020",
-		Suite:                   jsonwebsignature2020.New(suite.WithSigner(ecdsaSigner)),
+		KeyType:                 kms.ECDSASecp256k1TypeIEEEP1363,
+		ProofCreator:            proofCreators[1],
 		SignatureRepresentation: verifiable.SignatureJWS,
 		VerificationMethod:      "did:example:123456#key2",
 	}, jsonld.WithDocumentLoader(getJSONLDDocumentLoader()))
@@ -457,29 +456,8 @@ func ExampleCredential_AddLinkedDataProofMultiProofs() {
 		panic(err)
 	}
 
-	// Verify the VC with two embedded proofs.
-	ed25519Suite := ed25519signature2018.New(suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier()))
-	jsonWebSignatureSuite := jsonwebsignature2020.New(suite.WithVerifier(jsonwebsignature2020.NewPublicKeyVerifier()))
-
 	_, err = verifiable.ParseCredential(vcBytes,
-		verifiable.WithEmbeddedSignatureSuites(ed25519Suite, jsonWebSignatureSuite),
-		verifiable.WithPublicKeyFetcher(func(issuerID, keyID string) (*sigverifier.PublicKey, error) {
-			switch keyID {
-			case "#key1":
-				return &sigverifier.PublicKey{
-					Type:  "Ed25519Signature2018",
-					Value: issuerPubKey,
-				}, nil
-
-			case "#key2":
-				return &sigverifier.PublicKey{
-					Type: "JsonWebKey2020",
-					JWK:  ecdsaSigner.PublicJWK(),
-				}, nil
-			}
-
-			return nil, errors.New("unsupported keyID")
-		}),
+		verifiable.WithProofChecker(proofChecker),
 		verifiable.WithJSONLDOnlyValidRDF(),
 		verifiable.WithJSONLDDocumentLoader(getJSONLDDocumentLoader()))
 	if err != nil {
@@ -535,12 +513,13 @@ func ExampleCredential_GenerateBBSSelectiveDisclosure() {
 		panic(fmt.Errorf("failed to decode VC JSON: %w", err))
 	}
 
-	ed25519Signer := sigutil.GetEd25519Signer(issuerPrivKey, issuerPubKey)
+	proofCreator, _ := testsupport.NewEd25519Pair(issuerPubKey, issuerPrivKey, "did:example:123456#key1")
 
 	err = vc.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
 		Created:                 &issued,
 		SignatureType:           "Ed25519Signature2018",
-		Suite:                   ed25519signature2018.New(suite.WithSigner(ed25519Signer)),
+		KeyType:                 kms.ED25519Type,
+		ProofCreator:            proofCreator,
 		SignatureRepresentation: verifiable.SignatureJWS,
 		VerificationMethod:      "did:example:123456#key1",
 	}, jsonld.WithDocumentLoader(getJSONLDDocumentLoader()))
@@ -558,10 +537,18 @@ func ExampleCredential_GenerateBBSSelectiveDisclosure() {
 		panic(err)
 	}
 
+	pubKeyBytes, err := pubKey.Marshal()
+	if err != nil {
+		panic(err)
+	}
+
+	bbsProofCreator := creator.New(creator.WithProofType(bbsblssignature2020.New(), bbsSigner))
+
 	err = vc.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
 		Created:                 &issued,
 		SignatureType:           "BbsBlsSignature2020",
-		Suite:                   bbsblssignature2020.New(suite.WithSigner(bbsSigner)),
+		KeyType:                 kms.BLS12381G2Type,
+		ProofCreator:            bbsProofCreator,
 		SignatureRepresentation: verifiable.SignatureProofValue,
 		VerificationMethod:      "did:example:123456#key1",
 	}, jsonld.WithDocumentLoader(getJSONLDDocumentLoader()))
@@ -616,14 +603,13 @@ func ExampleCredential_GenerateBBSSelectiveDisclosure() {
 		panic(err)
 	}
 
-	pubKeyBytes, err := pubKey.Marshal()
-	if err != nil {
-		panic(err)
-	}
-
 	vcWithSelectiveDisclosure, err := vc.GenerateBBSSelectiveDisclosure(revealDocMap, []byte("some nonce"),
-		verifiable.WithJSONLDDocumentLoader(getJSONLDDocumentLoader()),
-		verifiable.WithPublicKeyFetcher(verifiable.SingleKey(pubKeyBytes, "Bls12381G2Key2020")))
+		&bbsblssignatureproof2020.Creator{
+			ProofDelivery: bbs12381g2pub.New(),
+			VerificationMethodResolver: testsupport.NewSingleKeyResolver(
+				"did:example:123456#key1", pubKeyBytes, "Bls12381G2Key2020"),
+		},
+		verifiable.WithJSONLDDocumentLoader(getJSONLDDocumentLoader()))
 	if err != nil {
 		panic(err)
 	}

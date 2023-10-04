@@ -22,7 +22,7 @@ const (
 	proofPath = "proof"
 )
 
-// Verifier implements the Verify Proof algorithm of the verifiable credential
+// Verifier implements the CheckJWTProof Proof algorithm of the verifiable credential
 // data integrity specification, using a set of provided cryptographic suites.
 type Verifier struct {
 	suites   map[string]suite.Verifier

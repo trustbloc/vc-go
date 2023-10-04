@@ -119,7 +119,7 @@ type verifyDataIntegrityOpts struct {
 // TODO: refactor to directly use map[string]inteface{} instead []byte.
 func checkDataIntegrityProof(ldBytes []byte, opts *verifyDataIntegrityOpts) error {
 	if opts == nil || opts.Verifier == nil {
-		return fmt.Errorf("data integrity proof needs data integrity verifier")
+		return fmt.Errorf("data integrity proof needs data integrity proofChecker")
 	}
 
 	if opts.Purpose == "" {

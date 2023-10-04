@@ -9,7 +9,7 @@ Package issuer enables the Issuer: An entity that creates SD-JWTs.
 
 An SD-JWT is a digitally signed document containing digests over the claims
 (per claim: a random salt, the claim name and the claim value).
-It MAY further contain clear-text claims that are always disclosed to the Verifier.
+It MAY further contain clear-text claims that are always disclosed to the ProofChecker.
 It MUST be digitally signed using the Issuer's private key.
 
 	SD-JWT-DOC = (METADATA, SD-CLAIMS, NON-SD-CLAIMS)
@@ -296,7 +296,7 @@ func WithAlwaysIncludeObjects(alwaysIncludeObjects []string) NewOpt {
 //		"Result": "WyJ2Y2g2YXVDVEo3bGdWWjFxNjN3cWF3IiwiZGVncmVlIix7Il9zZCI6WyJnZnNlcUhtTml0SXUwLTBoMTR5bnFNenV2cTFFaXJUQXpVaERuRWxTVlgwIiwiNDNoZm5NN1N6WnNhbEFkYlhReXE3dzRVdmQ1M1lPeFRORnBGSnI0WkcwQSJdfV0",
 //		"Salt": "vch6auCTJ7lgVZ1q63wqaw",
 //		"Key": "degree",
-//		"Value": {
+//		"Bytes": {
 //			"_sd": [
 //				"gfseqHmNitIu0-0h14ynqMzuvq1EirTAzUhDnElSVX0",
 //				"43hfnM7SzZsalAdbXQyq7w4Uvd53YOxTNFpFJr4ZG0A"
@@ -309,7 +309,7 @@ func WithAlwaysIncludeObjects(alwaysIncludeObjects []string) NewOpt {
 //		"Result": "WyJaVHFiUzI0ZWlybmpQMFlObmFmakxRIiwiaWQiLCJkaWQ6ZXhhbXBsZTplYmZlYjFmNzEyZWJjNmYxYzI3NmUxMmVjMjEiXQ",
 //		"Salt": "ZTqbS24eirnjP0YNnafjLQ",
 //		"Key": "id",
-//		"Value": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+//		"Bytes": "did:example:ebfeb1f712ebc6f1c276e12ec21",
 //		"DebugStr": "[\"ZTqbS24eirnjP0YNnafjLQ\",\"id\",\"did:example:ebfeb1f712ebc6f1c276e12ec21\"]",
 //		"DebugDigest": "fgoQstuIzTLQ4zqosjUC_qCk-xx3wjDQU2QkQtbn7FI"
 //	},
@@ -317,7 +317,7 @@ func WithAlwaysIncludeObjects(alwaysIncludeObjects []string) NewOpt {
 //		"Result": "WyIyOEEzMmR0OW9JR0lLZW9iVEdIM2F3IiwiZGVncmVlIiwiTUlUIl0",
 //		"Salt": "28A32dt9oIGIKeobTGH3aw",
 //		"Key": "degree",
-//		"Value": "MIT",
+//		"Bytes": "MIT",
 //		"DebugStr": "[\"28A32dt9oIGIKeobTGH3aw\",\"degree\",\"MIT\"]",
 //		"DebugDigest": "43hfnM7SzZsalAdbXQyq7w4Uvd53YOxTNFpFJr4ZG0A"
 //	},
@@ -325,7 +325,7 @@ func WithAlwaysIncludeObjects(alwaysIncludeObjects []string) NewOpt {
 //		"Result": "WyJUNE8wRlZ2MDBpREhGNFZpYy0wR1VnIiwidHlwZSIsIkJhY2hlbG9yRGVncmVlIl0",
 //		"Salt": "T4O0FVv00iDHF4Vic-0GUg",
 //		"Key": "type",
-//		"Value": "BachelorDegree",
+//		"Bytes": "BachelorDegree",
 //		"DebugStr": "[\"T4O0FVv00iDHF4Vic-0GUg\",\"type\",\"BachelorDegree\"]",
 //		"DebugDigest": "gfseqHmNitIu0-0h14ynqMzuvq1EirTAzUhDnElSVX0"
 //	}
@@ -388,7 +388,7 @@ func New(issuer string, claims interface{}, headers jose.Headers,
 		return nil, fmt.Errorf("failed to merge payload and digests: %w", err)
 	}
 
-	signedJWT, err := afgjwt.NewSigned(payload, headers, signer)
+	signedJWT, err := afgjwt.NewJoseSigned(payload, headers, signer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create SD-JWT from payload[%+v]: %w", payload, err)
 	}
@@ -459,7 +459,7 @@ func NewFromVC(vc map[string]interface{}, headers jose.Headers,
 	vcClaims[credentialSubjectKey] = selectiveCredentialSubject
 
 	// sign VC with 'selective' credential subject
-	signedJWT, err := afgjwt.NewSigned(vc, headers, signer)
+	signedJWT, err := afgjwt.NewJoseSigned(vc, headers, signer)
 	if err != nil {
 		return nil, err
 	}

@@ -20,7 +20,8 @@ import (
 	"github.com/trustbloc/kms-go/doc/jose/jwk"
 	"github.com/trustbloc/kms-go/doc/jose/jwk/jwksupport"
 
-	afjwt "github.com/trustbloc/vc-go/jwt"
+	"github.com/trustbloc/vc-go/proof/checker"
+	"github.com/trustbloc/vc-go/proof/testsupport"
 	"github.com/trustbloc/vc-go/sdjwt/common"
 	"github.com/trustbloc/vc-go/sdjwt/issuer"
 )
@@ -142,23 +143,20 @@ func ExampleCreatePresentation() {
 	// Output: true
 }
 
-func setUp() (*afjwt.JoseED25519Signer, *afjwt.JoseEd25519Verifier, error) {
+func setUp() (*testsupport.Ed25519Signer, *checker.EmbeddedVMProofChecker, error) {
 	issuerPublicKey, issuerPrivateKey, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	signer := afjwt.NewEd25519Signer(issuerPrivateKey)
+	signer := testsupport.NewEd25519Signer(issuerPrivateKey)
 
-	signatureVerifier, err := afjwt.NewEd25519Verifier(issuerPublicKey)
-	if err != nil {
-		return nil, nil, err
-	}
+	signatureVerifier := testsupport.NewEd25519Verifier(issuerPublicKey)
 
 	return signer, signatureVerifier, nil
 }
 
-func setUpHolderBinding() (*afjwt.JoseED25519Signer, *jwk.JWK, error) {
+func setUpHolderBinding() (*testsupport.Ed25519Signer, *jwk.JWK, error) {
 	holderPublicKey, holderPrivateKey, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		return nil, nil, err
@@ -169,7 +167,7 @@ func setUpHolderBinding() (*afjwt.JoseED25519Signer, *jwk.JWK, error) {
 		return nil, nil, err
 	}
 
-	holderSigner := afjwt.NewEd25519Signer(holderPrivateKey)
+	holderSigner := testsupport.NewEd25519Signer(holderPrivateKey)
 
 	return holderSigner, holderPublicJWK, nil
 }

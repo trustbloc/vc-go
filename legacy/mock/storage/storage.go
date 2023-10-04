@@ -159,7 +159,7 @@ func (s *MockStore) GetBulk(keys ...string) ([][]byte, error) {
 
 // Query returns all data that satisfies the expression. Expression format: TagName:TagValue.
 // If TagValue is not provided, then all data associated with the TagName will be returned.
-// For now, expression can only be a single tag Name + Value pair.
+// For now, expression can only be a single tag Name + Bytes pair.
 func (s *MockStore) Query(expression string, _ ...storage.QueryOption) (storage.Iterator, error) {
 	if s.ErrQuery != nil {
 		return nil, s.ErrQuery

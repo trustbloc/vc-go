@@ -171,7 +171,7 @@ func TestProviderOpenStoreSetGetConfig(t *testing.T, provider spi.Provider) { //
 		err = provider.SetStoreConfig(storeName, config)
 		require.NoError(t, err)
 
-		// Verify that the config contains all three tags.
+		// CheckJWTProof that the config contains all three tags.
 
 		expectedTagNames := []string{"tagName1", "tagName2", "tagName3"}
 
@@ -200,7 +200,7 @@ func TestProviderOpenStoreSetGetConfig(t *testing.T, provider spi.Provider) { //
 		err = provider.SetStoreConfig(storeName, spi.StoreConfiguration{})
 		require.NoError(t, err)
 
-		// Verify that the store config now has no tag names.
+		// CheckJWTProof that the store config now has no tag names.
 		config, err := provider.GetStoreConfig(storeName)
 		require.NoError(t, err)
 		require.True(t, equalTagNamesAnyOrder(nil, config.TagNames), "Unexpected tag names")
@@ -228,7 +228,7 @@ func TestProviderOpenStoreSetGetConfig(t *testing.T, provider spi.Provider) { //
 
 		expectedTagNames := []string{"tagName2", "tagName3"}
 
-		// Verify that tagName1 was removed, tagName2 was kept, and tagName3 was added.
+		// CheckJWTProof that tagName1 was removed, tagName2 was kept, and tagName3 was added.
 		config, err := provider.GetStoreConfig(storeName)
 		require.NoError(t, err)
 		require.True(t, equalTagNamesAnyOrder(expectedTagNames, config.TagNames), "Unexpected tag names")
@@ -391,56 +391,56 @@ func TestPutGet(t *testing.T, provider spi.Provider) { //nolint: funlen // Test 
 
 	t.Run("Put and get a value", func(t *testing.T) {
 		t.Run("Key is not a URL", func(t *testing.T) {
-			t.Run("Value is simple text", func(t *testing.T) {
+			t.Run("Bytes is simple text", func(t *testing.T) {
 				doPutThenGetTest(t, provider, testKeyNonURL, []byte(testValueSimpleString))
 			})
-			t.Run("Value is JSON-formatted object", func(t *testing.T) {
+			t.Run("Bytes is JSON-formatted object", func(t *testing.T) {
 				doPutThenGetTestWithJSONFormattedObject(t, provider, testKeyNonURL)
 			})
-			t.Run("Value is JSON-formatted string", func(t *testing.T) {
+			t.Run("Bytes is JSON-formatted string", func(t *testing.T) {
 				doPutThenGetTest(t, provider, testKeyNonURL, []byte(testValueJSONString))
 			})
-			t.Run("Value is binary data", func(t *testing.T) {
+			t.Run("Bytes is binary data", func(t *testing.T) {
 				doPutThenGetTest(t, provider, testKeyNonURL, testBinaryData)
 			})
 		})
 		t.Run("Key is a URL", func(t *testing.T) {
-			t.Run("Value is simple text", func(t *testing.T) {
+			t.Run("Bytes is simple text", func(t *testing.T) {
 				doPutThenGetTest(t, provider, testKeyURL, []byte(testValueSimpleString))
 			})
-			t.Run("Value is JSON-formatted object", func(t *testing.T) {
+			t.Run("Bytes is JSON-formatted object", func(t *testing.T) {
 				doPutThenGetTestWithJSONFormattedObject(t, provider, testKeyURL)
 			})
-			t.Run("Value is JSON-formatted string", func(t *testing.T) {
+			t.Run("Bytes is JSON-formatted string", func(t *testing.T) {
 				doPutThenGetTest(t, provider, testKeyURL, []byte(testValueJSONString))
 			})
-			t.Run("Value is binary data", func(t *testing.T) {
+			t.Run("Bytes is binary data", func(t *testing.T) {
 				doPutThenGetTest(t, provider, testKeyURL, testBinaryData)
 			})
 		})
 	})
 	t.Run("Put a value, update it, and get the updated value", func(t *testing.T) {
 		t.Run("Key is not a URL", func(t *testing.T) {
-			t.Run("Value is simple text", func(t *testing.T) {
+			t.Run("Bytes is simple text", func(t *testing.T) {
 				doPutThenUpdateThenGetTest(t, provider, testKeyNonURL,
 					[]byte(testValueSimpleString), []byte(testValueSimpleString2))
 			})
-			t.Run("Value is JSON-formatted object", func(t *testing.T) {
+			t.Run("Bytes is JSON-formatted object", func(t *testing.T) {
 				doPutThenUpdateThenGetTestWithJSONFormattedObject(t, provider, testKeyNonURL)
 			})
-			t.Run("Value is binary data", func(t *testing.T) {
+			t.Run("Bytes is binary data", func(t *testing.T) {
 				doPutThenUpdateThenGetTest(t, provider, testKeyNonURL, testBinaryData, testBinaryData2)
 			})
 		})
 		t.Run("Key is a URL", func(t *testing.T) {
-			t.Run("Value is simple text", func(t *testing.T) {
+			t.Run("Bytes is simple text", func(t *testing.T) {
 				doPutThenUpdateThenGetTest(t, provider, testKeyURL, []byte(testValueSimpleString),
 					[]byte(testValueSimpleString2))
 			})
-			t.Run("Value is JSON-formatted object", func(t *testing.T) {
+			t.Run("Bytes is JSON-formatted object", func(t *testing.T) {
 				doPutThenUpdateThenGetTestWithJSONFormattedObject(t, provider, testKeyURL)
 			})
-			t.Run("Value is binary data", func(t *testing.T) {
+			t.Run("Bytes is binary data", func(t *testing.T) {
 				doPutThenUpdateThenGetTest(t, provider, testKeyURL, testBinaryData, testBinaryData2)
 			})
 		})
@@ -831,7 +831,7 @@ func TestStoreGetBulk(t *testing.T, provider spi.Provider) { //nolint: funlen //
 		require.Equal(t, `"value2"`, string(values[1]))
 	})
 	t.Run("Two values found, one not", func(t *testing.T) {
-		t.Run("Value not found was the second one", func(t *testing.T) {
+		t.Run("Bytes not found was the second one", func(t *testing.T) {
 			store, err := provider.OpenStore(randomStoreName())
 			require.NoError(t, err)
 			require.NotNil(t, store)
@@ -862,7 +862,7 @@ func TestStoreGetBulk(t *testing.T, provider spi.Provider) { //nolint: funlen //
 			require.Nil(t, values[1])
 			require.Equal(t, "value2", string(values[2]))
 		})
-		t.Run("Value not found was the third one", func(t *testing.T) {
+		t.Run("Bytes not found was the third one", func(t *testing.T) {
 			store, err := provider.OpenStore(randomStoreName())
 			require.NoError(t, err)
 			require.NotNil(t, store)

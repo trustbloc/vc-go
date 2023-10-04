@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 */
 
 /*
-Package verifier enables the Verifier: An entity that requests, checks and
+Package verifier enables the ProofChecker: An entity that requests, checks and
 extracts the claims from an SD-JWT and respective Disclosures.
 */
 package verifier
@@ -16,12 +16,21 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/trustbloc/kms-go/doc/jose"
 	"github.com/trustbloc/kms-go/doc/jose/jwk"
 
+	"github.com/trustbloc/vc-go/crypto-ext/verifiers/ecdsa"
+	"github.com/trustbloc/vc-go/crypto-ext/verifiers/ed25519"
+	"github.com/trustbloc/vc-go/crypto-ext/verifiers/rsa"
 	afgjwt "github.com/trustbloc/vc-go/jwt"
+	"github.com/trustbloc/vc-go/proof/checker"
+	"github.com/trustbloc/vc-go/proof/jwtproofs/eddsa"
+	"github.com/trustbloc/vc-go/proof/jwtproofs/es256"
+	"github.com/trustbloc/vc-go/proof/jwtproofs/es256k"
+	"github.com/trustbloc/vc-go/proof/jwtproofs/es384"
+	"github.com/trustbloc/vc-go/proof/jwtproofs/es521"
+	"github.com/trustbloc/vc-go/proof/jwtproofs/ps256"
+	"github.com/trustbloc/vc-go/proof/jwtproofs/rs256"
 	"github.com/trustbloc/vc-go/sdjwt/common"
-	"github.com/trustbloc/vc-go/signature/verifier"
 	utils "github.com/trustbloc/vc-go/util/maphelpers"
 
 	"github.com/go-jose/go-jose/v3/jwt"
@@ -30,7 +39,7 @@ import (
 // parseOpts holds options for the SD-JWT parsing.
 type parseOpts struct {
 	detachedPayload []byte
-	sigVerifier     jose.SignatureVerifier
+	sigVerifier     afgjwt.ProofChecker
 
 	issuerSigningAlgorithms []string
 	holderSigningAlgorithms []string
@@ -55,7 +64,7 @@ func WithJWTDetachedPayload(payload []byte) ParseOpt {
 }
 
 // WithSignatureVerifier option is for definition of signature verifier.
-func WithSignatureVerifier(signatureVerifier jose.SignatureVerifier) ParseOpt {
+func WithSignatureVerifier(signatureVerifier afgjwt.ProofChecker) ParseOpt {
 	return func(opts *parseOpts) {
 		opts.sigVerifier = signatureVerifier
 	}
@@ -133,12 +142,12 @@ func WithExpectedTypHeader(typ string) ParseOpt {
 }
 
 // Parse parses combined format for presentation and returns verified claims.
-// The Verifier has to verify that all disclosed claim values were part of the original, Issuer-signed SD-JWT.
+// The ProofChecker has to verify that all disclosed claim values were part of the original, Issuer-signed SD-JWT.
 //
-// At a high level, the Verifier:
+// At a high level, the ProofChecker:
 //   - receives the Combined Format for Presentation from the Holder and verifies the signature of the SD-JWT using the
 //     Issuer's public key,
-//   - verifies the Holder (Key) Binding JWT, if Holder Verification is required by the Verifier's policy,
+//   - verifies the Holder (Key) Binding JWT, if Holder Verification is required by the ProofChecker's policy,
 //     using the public key included in the SD-JWT,
 //   - calculates the digests over the Holder-Selected Disclosures and verifies that each digest
 //     is contained in the SD-JWT.
@@ -148,7 +157,7 @@ func WithExpectedTypHeader(typ string) ParseOpt {
 // V2 https://www.ietf.org/archive/id/draft-ietf-oauth-selective-disclosure-jwt-02.html#name-verification-by-the-verifier
 // V5 https://www.ietf.org/archive/id/draft-ietf-oauth-selective-disclosure-jwt-05.html#name-verification-by-the-verifier
 //
-// The Verifier will not, however, learn any claim values not disclosed in the Disclosures.
+// The ProofChecker will not, however, learn any claim values not disclosed in the Disclosures.
 func Parse(combinedFormatForPresentation string, opts ...ParseOpt) (map[string]interface{}, error) {
 	defaultSigningAlgorithms := []string{"EdDSA", "RS256"}
 	pOpts := &parseOpts{
@@ -169,7 +178,7 @@ func Parse(combinedFormatForPresentation string, opts ...ParseOpt) (map[string]i
 		return nil, err
 	}
 
-	// Verify that all disclosures are present in SD-JWT.
+	// CheckJWTProof that all disclosures are present in SD-JWT.
 	err = common.VerifyDisclosuresInSDJWT(cfp.Disclosures, signedJWT)
 	if err != nil {
 		return nil, err
@@ -201,7 +210,7 @@ func Parse(combinedFormatForPresentation string, opts ...ParseOpt) (map[string]i
 func validateIssuerSignedSDJWT(sdjwt string, disclosures []string, pOpts *parseOpts) (*afgjwt.JSONWebToken, error) {
 	// Validate the signature over the SD-JWT.
 	signedJWT, _, err := afgjwt.Parse(sdjwt,
-		afgjwt.WithSignatureVerifier(pOpts.sigVerifier),
+		afgjwt.WithProofChecker(pOpts.sigVerifier),
 		afgjwt.WithJWTDetachedPayload(pOpts.detachedPayload))
 	if err != nil {
 		return nil, err
@@ -252,7 +261,7 @@ func checkForDuplicates(values []string) error {
 	return nil
 }
 
-func getSignatureVerifier(claims map[string]interface{}) (jose.SignatureVerifier, error) {
+func getSignatureVerifier(claims map[string]interface{}) (afgjwt.ProofChecker, error) {
 	cnf, err := common.GetCNF(claims)
 	if err != nil {
 		return nil, err
@@ -267,7 +276,7 @@ func getSignatureVerifier(claims map[string]interface{}) (jose.SignatureVerifier
 }
 
 // getSignatureVerifierFromCNF will evolve over time as we support more cnf modes and algorithms.
-func getSignatureVerifierFromCNF(cnf map[string]interface{}) (jose.SignatureVerifier, error) {
+func getSignatureVerifierFromCNF(cnf map[string]interface{}) (afgjwt.ProofChecker, error) {
 	jwkObj, ok := cnf["jwk"]
 	if !ok {
 		return nil, fmt.Errorf("jwk must be present in cnf")
@@ -287,11 +296,12 @@ func getSignatureVerifierFromCNF(cnf map[string]interface{}) (jose.SignatureVeri
 		return nil, fmt.Errorf("unmarshal jwk: %w", err)
 	}
 
-	signatureVerifier, err := afgjwt.GetVerifier(&verifier.PublicKey{JWK: &j})
-	if err != nil {
-		return nil, fmt.Errorf("get verifier from jwk: %w", err)
-	}
-
+	// TODO: inject this from outside
+	signatureVerifier := checker.NewEmbeddedJWKProofChecker(&j,
+		checker.WithSignatreVerifiers(ed25519.New(),
+			rsa.NewPS256(), rsa.NewRS256(),
+			ecdsa.NewSecp256k1(), ecdsa.NewES256(), ecdsa.NewES384(), ecdsa.NewES521()),
+		checker.WithJWTAlg(eddsa.New(), es256.New(), es256k.New(), es384.New(), es521.New(), rs256.New(), ps256.New()))
 	return signatureVerifier, nil
 }
 
@@ -330,7 +340,7 @@ func runHolderVerification(sdJWT *afgjwt.JSONWebToken, holderVerificationJWT str
 
 	// Validate the signature over the Key Binding JWT.
 	holderJWT, _, err := afgjwt.Parse(holderVerificationJWT,
-		afgjwt.WithSignatureVerifier(signatureVerifier))
+		afgjwt.WithProofChecker(signatureVerifier))
 	if err != nil {
 		return fmt.Errorf("parse holder verification JWT: %w", err)
 	}

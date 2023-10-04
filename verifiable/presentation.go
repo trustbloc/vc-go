@@ -19,7 +19,6 @@ import (
 	docjsonld "github.com/trustbloc/did-go/doc/ld/validator"
 
 	"github.com/trustbloc/vc-go/jwt"
-	"github.com/trustbloc/vc-go/signature/verifier"
 )
 
 const basePresentationSchema = `
@@ -326,9 +325,8 @@ type rawPresentation = map[string]interface{}
 
 // presentationOpts holds options for the Verifiable Presentation decoding.
 type presentationOpts struct {
-	publicKeyFetcher    PublicKeyFetcher
+	proofChecker        combinedProofChecker
 	disabledProofCheck  bool
-	ldpSuites           []verifier.SignatureSuite
 	strictValidation    bool
 	requireVC           bool
 	requireProof        bool
@@ -341,18 +339,11 @@ type presentationOpts struct {
 // PresentationOpt is the Verifiable Presentation decoding option.
 type PresentationOpt func(opts *presentationOpts)
 
-// WithPresPublicKeyFetcher indicates that Verifiable Presentation should be decoded from JWS using
-// the public key fetcher.
-func WithPresPublicKeyFetcher(fetcher PublicKeyFetcher) PresentationOpt {
+// WithPresProofChecker indicates that Verifiable Presentation should be decoded from JWS using
+// provided proofChecker.
+func WithPresProofChecker(fetcher combinedProofChecker) PresentationOpt {
 	return func(opts *presentationOpts) {
-		opts.publicKeyFetcher = fetcher
-	}
-}
-
-// WithPresEmbeddedSignatureSuites defines the suites which are used to check embedded linked data proof of VP.
-func WithPresEmbeddedSignatureSuites(suites ...verifier.SignatureSuite) PresentationOpt {
-	return func(opts *presentationOpts) {
-		opts.ldpSuites = suites
+		opts.proofChecker = fetcher
 	}
 }
 
@@ -388,7 +379,7 @@ func WithDisabledJSONLDChecks() PresentationOpt {
 	}
 }
 
-// WithPresDataIntegrityVerifier provides the Data Integrity verifier to use when
+// WithPresDataIntegrityVerifier provides the Data Integrity proofChecker to use when
 // the presentation being processed has a Data Integrity proof.
 func WithPresDataIntegrityVerifier(v *dataintegrity.Verifier) PresentationOpt {
 	return func(opts *presentationOpts) {
@@ -511,8 +502,7 @@ func decodeCredentials(rawCred interface{}, opts *presentationOpts) ([]*Credenti
 
 	unmarshalSingleCredFn := func(cred interface{}) (*Credential, error) {
 		credOpts := []CredentialOpt{
-			WithPublicKeyFetcher(opts.publicKeyFetcher),
-			WithEmbeddedSignatureSuites(opts.ldpSuites...),
+			WithProofChecker(opts.proofChecker),
 			WithJSONLDDocumentLoader(opts.jsonldCredentialOpts.jsonldDocumentLoader),
 		}
 
@@ -615,11 +605,16 @@ func decodeRawPresentation(vpData []byte, vpOpts *presentationOpts) ([]byte, raw
 	vpStr := string(unQuote(vpData))
 
 	if jwt.IsJWS(vpStr) {
-		if !vpOpts.disabledProofCheck && vpOpts.publicKeyFetcher == nil {
-			return nil, nil, "", errors.New("public key fetcher is not defined")
+		if !vpOpts.disabledProofCheck && vpOpts.proofChecker == nil {
+			return nil, nil, "", errors.New("proof checker is not defined")
 		}
 
-		vcDataFromJwt, rawCred, err := decodeVPFromJWS(vpStr, !vpOpts.disabledProofCheck, vpOpts.publicKeyFetcher)
+		proofChecker := vpOpts.proofChecker
+		if vpOpts.disabledProofCheck {
+			proofChecker = nil
+		}
+
+		vcDataFromJwt, rawCred, err := decodeVPFromJWS(vpStr, proofChecker)
 		if err != nil {
 			return nil, nil, "", fmt.Errorf("decoding of Verifiable Presentation from JWS: %w", err)
 		}
@@ -629,9 +624,8 @@ func decodeRawPresentation(vpData []byte, vpOpts *presentationOpts) ([]byte, raw
 
 	embeddedProofCheckOpts := &embeddedProofCheckOpts{
 		dataIntegrityOpts:    vpOpts.verifyDataIntegrity,
-		publicKeyFetcher:     vpOpts.publicKeyFetcher,
+		proofChecker:         vpOpts.proofChecker,
 		disabledProofCheck:   vpOpts.disabledProofCheck,
-		ldpSuites:            vpOpts.ldpSuites,
 		jsonldCredentialOpts: vpOpts.jsonldCredentialOpts,
 	}
 

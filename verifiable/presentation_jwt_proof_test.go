@@ -6,37 +6,35 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
-	"crypto/ed25519"
-	"crypto/rand"
 	"encoding/json"
-	"errors"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/trustbloc/vc-go/internal/testutil/signatureutil"
+	"github.com/trustbloc/vc-go/jwt"
+	"github.com/trustbloc/vc-go/proof/testsupport"
 
 	"github.com/trustbloc/kms-go/spi/kms"
 
 	utiltime "github.com/trustbloc/did-go/doc/util/time"
-
-	"github.com/trustbloc/vc-go/signature/verifier"
 )
 
 func TestParsePresentationFromJWS(t *testing.T) {
 	vpBytes := []byte(validPresentation)
 
-	holderSigner := signatureutil.CryptoSigner(t, kms.RSARS256Type)
+	holderSigner, proofChecher := testsupport.NewKMSSigVerPair(t, kms.RSARS256Type,
+		"did:example:ebfeb1f712ebc6f1c276e12ec21#keys-1")
 
-	keyFetcher := SingleJWK(holderSigner.PublicJWK(), kms.RSARS256)
+	_, wrongKeyProofChecher := testsupport.NewKMSSigVerPair(t, kms.RSARS256Type,
+		"did:example:ebfeb1f712ebc6f1c276e12ec21#keys-1")
 
 	t.Run("Decoding presentation from JWS", func(t *testing.T) {
 		jws := createPresJWS(t, vpBytes, false, holderSigner)
-		vpFromJWT, err := newTestPresentation(t, jws, WithPresPublicKeyFetcher(keyFetcher))
+		vpFromJWT, err := newTestPresentation(t, jws, WithPresProofChecker(proofChecher))
 		require.NoError(t, err)
 
-		vp, err := newTestPresentation(t, vpBytes)
+		vp, err := newTestPresentation(t, vpBytes, WithPresDisabledProofCheck())
 		require.NoError(t, err)
 
 		// Validate the JWT field, then clear it to validate against the original presentation.
@@ -48,10 +46,10 @@ func TestParsePresentationFromJWS(t *testing.T) {
 
 	t.Run("Decoding presentation from JWS with minimized fields of \"vp\" claim", func(t *testing.T) {
 		jws := createPresJWS(t, vpBytes, true, holderSigner)
-		vpFromJWT, err := newTestPresentation(t, jws, WithPresPublicKeyFetcher(keyFetcher))
+		vpFromJWT, err := newTestPresentation(t, jws, WithPresProofChecker(proofChecher))
 		require.NoError(t, err)
 
-		vp, err := newTestPresentation(t, vpBytes)
+		vp, err := newTestPresentation(t, vpBytes, WithPresDisabledProofCheck())
 		require.NoError(t, err)
 
 		require.Equal(t, string(jws), vpFromJWT.JWT)
@@ -64,31 +62,10 @@ func TestParsePresentationFromJWS(t *testing.T) {
 		jws := createPresJWS(t, vpBytes, true, holderSigner)
 		vp, err := newTestPresentation(t,
 			jws,
-			// passing issuers's key, while expecting holder's one
-			WithPresPublicKeyFetcher(func(issuerID, keyID string) (*verifier.PublicKey, error) {
-				issuerSigner := signatureutil.CryptoSigner(t, kms.RSARS256Type)
-
-				return &verifier.PublicKey{
-					Type: kms.RSARS256,
-					JWK:  issuerSigner.PublicJWK(),
-				}, nil
-			}))
+			WithPresProofChecker(wrongKeyProofChecher))
 
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "decoding of Verifiable Presentation from JWS")
-		require.Nil(t, vp)
-	})
-
-	t.Run("Failed public key fetching", func(t *testing.T) {
-		jws := createPresJWS(t, vpBytes, true, holderSigner)
-		vp, err := newTestPresentation(t,
-			jws,
-			WithPresPublicKeyFetcher(func(issuerID, keyID string) (*verifier.PublicKey, error) {
-				return nil, errors.New("test: public key is not found")
-			}))
-
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "test: public key is not found")
 		require.Nil(t, vp)
 	})
 
@@ -96,7 +73,7 @@ func TestParsePresentationFromJWS(t *testing.T) {
 		vp, err := newTestPresentation(t, createPresJWS(t, vpBytes, true, holderSigner))
 
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "public key fetcher is not defined")
+		require.Contains(t, err.Error(), "proof checker is not defined")
 		require.Nil(t, vp)
 	})
 }
@@ -104,22 +81,25 @@ func TestParsePresentationFromJWS(t *testing.T) {
 func TestParsePresentationFromJWS_EdDSA(t *testing.T) {
 	vpBytes := []byte(validPresentation)
 
-	signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
-
-	vp, err := newTestPresentation(t, vpBytes)
+	vp, err := newTestPresentation(t, vpBytes, WithPresDisabledProofCheck())
 	require.NoError(t, err)
+
+	holderKeyID := vp.Holder + "#keys-" + keyID
+
+	proofCreator, proofChecher := testsupport.NewKMSSigVerPair(t, kms.ED25519Type,
+		holderKeyID)
 
 	// marshal presentation into JWS using EdDSA (Ed25519 signature algorithm).
 	jwtClaims, err := vp.JWTClaims([]string{}, false)
 	require.NoError(t, err)
 
-	vpJWSStr, err := jwtClaims.MarshalJWS(EdDSA, signer, vp.Holder+"#keys-"+keyID)
+	vpJWSStr, err := jwtClaims.MarshalJWS(EdDSA, proofCreator, holderKeyID)
 	require.NoError(t, err)
 
 	// unmarshal presentation from JWS
 	vpFromJWS, err := newTestPresentation(t,
 		[]byte(vpJWSStr),
-		WithPresPublicKeyFetcher(SingleJWK(signer.PublicJWK(), kms.ED25519)))
+		WithPresProofChecker(proofChecher))
 	require.NoError(t, err)
 
 	require.Equal(t, vpJWSStr, vpFromJWS.JWT)
@@ -133,22 +113,25 @@ func TestParsePresentationFromUnsecuredJWT(t *testing.T) {
 	vpBytes := []byte(validPresentation)
 
 	t.Run("Decoding presentation from unsecured JWT", func(t *testing.T) {
-		vpFromJWT, err := newTestPresentation(t, createPresUnsecuredJWT(t, vpBytes, false))
+		vpFromJWT, err := newTestPresentation(t, createPresUnsecuredJWT(t, vpBytes, false),
+			WithPresDisabledProofCheck())
 
 		require.NoError(t, err)
 
-		vp, err := newTestPresentation(t, vpBytes)
+		vp, err := newTestPresentation(t, vpBytes, WithPresDisabledProofCheck())
 		require.NoError(t, err)
 
 		require.Equal(t, vp, vpFromJWT)
 	})
 
 	t.Run("Decoding presentation from unsecured JWT with minimized fields of \"vp\" claim", func(t *testing.T) {
-		vpFromJWT, err := newTestPresentation(t, createPresUnsecuredJWT(t, vpBytes, true))
+		vpFromJWT, err := newTestPresentation(t,
+			createPresUnsecuredJWT(t, vpBytes, true),
+			WithPresDisabledProofCheck())
 
 		require.NoError(t, err)
 
-		vp, err := newTestPresentation(t, vpBytes)
+		vp, err := newTestPresentation(t, vpBytes, WithPresDisabledProofCheck())
 		require.NoError(t, err)
 
 		require.Equal(t, vp, vpFromJWT)
@@ -201,13 +184,16 @@ func TestParsePresentationWithVCJWT(t *testing.T) {
 	vc, err := CreateCredential(vcc, nil)
 	r.NoError(err)
 
-	issuerSigner := signatureutil.CryptoSigner(t, kms.RSARS256Type)
-
-	jwtVC, err := vc.CreateSignedJWTVC(true, RS256, issuerSigner, "did:123#issuer-key")
-	r.NoError(err)
-	r.NotNil(jwtVC)
-
 	t.Run("Presentation with VC defined as JWS", func(t *testing.T) {
+		proofCreators, proofChecker := testsupport.NewKMSSignersAndVerifier(t, []testsupport.SigningKey{
+			{Type: kms.RSARS256Type, PublicKeyID: "did:123#issuer-key"},
+			{Type: kms.ED25519Type, PublicKeyID: "did:123#holder-key"},
+		})
+
+		jwtVC, err := vc.CreateSignedJWTVC(true, RS256, proofCreators[0], "did:123#issuer-key")
+		r.NoError(err)
+		r.NotNil(jwtVC)
+
 		// Create and encode VP.
 		vp, err := NewPresentation(WithCredentials(jwtVC))
 		r.NoError(err)
@@ -215,46 +201,29 @@ func TestParsePresentationWithVCJWT(t *testing.T) {
 		vp.ID = "urn:uuid:2978344f-8596-4c3a-a978-8fcaba3903c"
 		vp.Holder = "did:example:fbfeb1f712ebc6f1c276e12ec21"
 
-		holderSigner := signatureutil.CryptoSigner(t, kms.ED25519Type)
-		r.NoError(err)
-
 		jwtClaims, err := vp.JWTClaims([]string{}, true)
 		require.NoError(t, err)
 
-		vpJWS, err := jwtClaims.MarshalJWS(EdDSA, holderSigner, "did:123#holder-key")
+		vpJWS, err := jwtClaims.MarshalJWS(EdDSA, proofCreators[1], "did:123#holder-key")
 		r.NoError(err)
 
-		publicKeyFetcher := func(issuerID, keyID string) (*verifier.PublicKey, error) {
-			switch keyID {
-			case "holder-key":
-				return &verifier.PublicKey{
-					Type: kms.ED25519,
-					JWK:  holderSigner.PublicJWK(),
-				}, nil
-			case "issuer-key":
-				return &verifier.PublicKey{
-					Type: kms.RSARS256,
-					JWK:  issuerSigner.PublicJWK(),
-				}, nil
-			default:
-				return nil, errors.New("unexpected key")
-			}
-		}
-
 		// Decode VP
-		vpDecoded, err := newTestPresentation(t, []byte(vpJWS), WithPresPublicKeyFetcher(publicKeyFetcher))
+		vpDecoded, err := newTestPresentation(t, []byte(vpJWS), WithPresProofChecker(proofChecker))
 		r.NoError(err)
 		vpCreds, err := vpDecoded.MarshalledCredentials()
 		r.NoError(err)
 		r.Len(vpCreds, 1)
 
-		vcDecoded, err := parseTestCredential(t, vpCreds[0], WithPublicKeyFetcher(publicKeyFetcher))
+		vcDecoded, err := parseTestCredential(t, vpCreds[0], WithProofChecker(proofChecker))
 		r.NoError(err)
 
 		r.Equal(jwtVC.stringJSON(t), vcDecoded.stringJSON(t))
 	})
 
 	t.Run("Presentation with VC defined as VC struct", func(t *testing.T) {
+		proofCreators, proofCreator := testsupport.NewKMSSignersAndVerifier(t, []testsupport.SigningKey{
+			{Type: kms.ED25519Type, PublicKeyID: "did:123#holder-key"},
+		})
 		// Create and encode VP.
 		vp, err := NewPresentation(WithCredentials(vc))
 		r.NoError(err)
@@ -262,68 +231,52 @@ func TestParsePresentationWithVCJWT(t *testing.T) {
 		vp.ID = "urn:uuid:5978344f-8596-4c3a-a978-8fcaba3903c"
 		vp.Holder = "did:example:abfeb1f712ebc6f1c276e12ec21"
 
-		holderSigner := signatureutil.CryptoSigner(t, kms.ED25519Type)
-		r.NoError(err)
-
 		jwtClaims, err := vp.JWTClaims([]string{}, true)
 		require.NoError(t, err)
 
-		vpJWS, err := jwtClaims.MarshalJWS(EdDSA, holderSigner, "did:123#holder-key")
+		vpJWS, err := jwtClaims.MarshalJWS(EdDSA, proofCreators[0], "did:123#holder-key")
 		r.NoError(err)
 
 		// Decode VP
-		vpDecoded, err := newTestPresentation(t, []byte(vpJWS), WithPresPublicKeyFetcher(
-			SingleJWK(holderSigner.PublicJWK(), kms.ED25519)))
+		vpDecoded, err := newTestPresentation(t, []byte(vpJWS), WithPresProofChecker(proofCreator))
 		r.NoError(err)
 		vpCreds, err := vpDecoded.MarshalledCredentials()
 		r.NoError(err)
 		r.Len(vpCreds, 1)
 
-		vcDecoded, err := parseTestCredential(t, vpCreds[0])
+		vcDecoded, err := parseTestCredential(t, vpCreds[0], WithDisabledProofCheck())
 		r.NoError(err)
 
 		r.Equal(vc.stringJSON(t), vcDecoded.stringJSON(t))
 	})
 
 	t.Run("Failed check of VC due to invalid JWS", func(t *testing.T) {
+		proofCreators, _ := testsupport.NewKMSSignersAndVerifier(t, []testsupport.SigningKey{
+			{Type: kms.RSARS256Type, PublicKeyID: "did:123#issuer-key"},
+		})
+
+		jwtVC, err := vc.CreateSignedJWTVC(true, RS256, proofCreators[0], "did:123#issuer-key")
+		r.NoError(err)
+		r.NotNil(jwtVC)
+
 		vp, err := NewPresentation(WithCredentials(jwtVC))
 		r.NoError(err)
 
 		vp.ID = "urn:uuid:0978344f-8596-4c3a-a978-8fcaba3903c"
 		vp.Holder = "did:example:ebfeb2f712ebc6f1c276e12ec21"
 
-		holderSigner := signatureutil.CryptoSigner(t, kms.ED25519Type)
-		r.NoError(err)
-
 		jwtClaims, err := vp.JWTClaims([]string{}, true)
 		require.NoError(t, err)
 
-		vpJWS, err := jwtClaims.MarshalJWS(EdDSA, holderSigner, "did:123#holder-key")
+		issuerProofCreator, proofChecker := testsupport.NewKMSSignersAndVerifier(t, []testsupport.SigningKey{
+			{Type: kms.RSARS256Type, PublicKeyID: "did:123#issuer-key"},
+			{Type: kms.ED25519Type, PublicKeyID: "did:123#holder-key"},
+		})
+		vpJWS, err := jwtClaims.MarshalJWS(EdDSA, issuerProofCreator[1], "did:123#holder-key")
 		r.NoError(err)
 
 		// Decode VP
-		vp, err = newTestPresentation(t, []byte(vpJWS), WithPresPublicKeyFetcher(
-			func(issuerID, keyID string) (*verifier.PublicKey, error) {
-				switch keyID {
-				case "holder-key":
-					return &verifier.PublicKey{
-						Type: kms.ED25519,
-						JWK:  holderSigner.PublicJWK(),
-					}, nil
-				case "issuer-key":
-					// here we return invalid public key
-					anotherPubKey, _, gerr := ed25519.GenerateKey(rand.Reader)
-					r.NoError(gerr)
-
-					return &verifier.PublicKey{
-						Type:  kms.ED25519,
-						Value: anotherPubKey,
-					}, nil
-				default:
-					r.NoError(err)
-					return nil, errors.New("unexpected key")
-				}
-			}))
+		vp, err = newTestPresentation(t, []byte(vpJWS), WithPresProofChecker(proofChecker))
 		r.Error(err)
 		r.Contains(err.Error(), "decode credentials of presentation")
 		r.Contains(err.Error(), "JWS proof check")
@@ -331,8 +284,8 @@ func TestParsePresentationWithVCJWT(t *testing.T) {
 	})
 }
 
-func createPresJWS(t *testing.T, vpBytes []byte, minimize bool, signer Signer) []byte {
-	vp, err := newTestPresentation(t, vpBytes)
+func createPresJWS(t *testing.T, vpBytes []byte, minimize bool, signer jwt.ProofCreator) []byte {
+	vp, err := newTestPresentation(t, vpBytes, WithPresDisabledProofCheck())
 	require.NoError(t, err)
 
 	jwtClaims, err := vp.JWTClaims([]string{}, minimize)
@@ -345,7 +298,7 @@ func createPresJWS(t *testing.T, vpBytes []byte, minimize bool, signer Signer) [
 }
 
 func createPresUnsecuredJWT(t *testing.T, cred []byte, minimize bool) []byte {
-	vp, err := newTestPresentation(t, cred)
+	vp, err := newTestPresentation(t, cred, WithPresDisabledProofCheck())
 	require.NoError(t, err)
 
 	jwtClaims, err := vp.JWTClaims([]string{}, minimize)

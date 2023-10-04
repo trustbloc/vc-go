@@ -126,7 +126,7 @@ func VerifyDisclosuresInSDJWT(
 		return err
 	}
 
-	// If the digest cannot be found in the SD-JWT payload, the Verifier MUST reject the Presentation.
+	// If the digest cannot be found in the SD-JWT payload, the ProofChecker MUST reject the Presentation.
 	for _, disclosure := range parsedDisclosureClaims {
 		if !disclosure.IsValueParsed {
 			return fmt.Errorf("disclosure digest '%s' not found in SD-JWT disclosure digests", disclosure.Digest)

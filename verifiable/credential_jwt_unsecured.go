@@ -13,7 +13,7 @@ import (
 
 // MarshalUnsecuredJWT serialized JWT into unsecured JWT.
 func (jcc *JWTCredClaims) MarshalUnsecuredJWT() (string, error) {
-	return marshalUnsecuredJWT(nil, jcc)
+	return marshalUnsecuredJWT(jcc)
 }
 
 func unmarshalUnsecuredJWTClaims(rawJWT string) (jose.Headers, *JWTCredClaims, error) {

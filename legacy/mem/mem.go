@@ -262,7 +262,7 @@ type queryResult struct {
 
 // Query returns all data that satisfies the expression. Expression format: TagName:TagValue.
 // If TagValue is not provided, then all data associated with the TagName will be returned.
-// For now, expression can only be a single tag Name + Value pair.
+// For now, expression can only be a single tag Name + Bytes pair.
 // None of the current query options are supported
 // spi.WithPageSize will simply be ignored since it only relates to performance and not the actual end result.
 // spi.WithInitialPageNum and spi.WithSortOrder will result in an error being returned since those options do

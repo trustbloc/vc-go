@@ -12,29 +12,25 @@ import (
 	"github.com/stretchr/testify/require"
 	ldprocessor "github.com/trustbloc/did-go/doc/ld/processor"
 	"github.com/trustbloc/kms-go/spi/kms"
-	"github.com/trustbloc/vc-go/internal/testutil/signatureutil"
 
-	"github.com/trustbloc/vc-go/signature/suite"
-	"github.com/trustbloc/vc-go/signature/suite/ed25519signature2018"
+	"github.com/trustbloc/vc-go/proof/testsupport"
 	jsonutil "github.com/trustbloc/vc-go/util/json"
 )
 
 func TestParsePresentationFromLinkedDataProof(t *testing.T) {
 	r := require.New(t)
 
-	signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
-
-	ss := ed25519signature2018.New(suite.WithSigner(signer),
-		suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier())) // todo use crypto verifier
+	proofCreator, proofChecker := testsupport.NewKMSSigVerPair(t, kms.ED25519Type, "did:example:123456#key1")
 
 	ldpContext := &LinkedDataProofContext{
 		SignatureType:           "Ed25519Signature2018",
+		KeyType:                 kms.ED25519Type,
 		SignatureRepresentation: SignatureJWS,
-		Suite:                   ss,
+		ProofCreator:            proofCreator,
 		VerificationMethod:      "did:example:123456#key1",
 	}
 
-	vc, err := newTestPresentation(t, []byte(validPresentation))
+	vc, err := newTestPresentation(t, []byte(validPresentation), WithPresDisabledProofCheck())
 	r.NoError(err)
 
 	err = vc.AddLinkedDataProof(ldpContext, ldprocessor.WithDocumentLoader(createTestDocumentLoader(t)))
@@ -43,9 +39,7 @@ func TestParsePresentationFromLinkedDataProof(t *testing.T) {
 	vcBytes, err := json.Marshal(vc)
 	r.NoError(err)
 
-	vcWithLdp, err := newTestPresentation(t, vcBytes,
-		WithPresEmbeddedSignatureSuites(ss),
-		WithPresPublicKeyFetcher(SingleJWK(signer.PublicJWK(), kms.ED25519)))
+	vcWithLdp, err := newTestPresentation(t, vcBytes, WithPresProofChecker(proofChecker))
 	r.NoError(err)
 
 	r.NoError(err)
@@ -60,16 +54,17 @@ func TestParsePresentationFromLinkedDataProof(t *testing.T) {
 func TestPresentation_AddLinkedDataProof(t *testing.T) {
 	r := require.New(t)
 
-	signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
+	proofCreator, _ := testsupport.NewKMSSigVerPair(t, kms.ED25519Type, "not used")
 
 	ldpContext := &LinkedDataProofContext{
 		SignatureType:           "Ed25519Signature2018",
+		KeyType:                 kms.ED25519Type,
 		SignatureRepresentation: SignatureProofValue,
-		Suite:                   ed25519signature2018.New(suite.WithSigner(signer)),
+		ProofCreator:            proofCreator,
 	}
 
 	t.Run("Add a valid Linked Data proof to VC", func(t *testing.T) {
-		vp, err := newTestPresentation(t, []byte(validPresentation))
+		vp, err := newTestPresentation(t, []byte(validPresentation), WithPresDisabledProofCheck())
 		r.NoError(err)
 
 		err = vp.AddLinkedDataProof(ldpContext, ldprocessor.WithDocumentLoader(createTestDocumentLoader(t)))

@@ -31,7 +31,7 @@ type Signer interface {
 
 // Verifier is an implementation of a data integrity cryptographic suite that
 // provides the transform, hash, and proof verification steps of the data
-// integrity Verify Proof algorithm.
+// integrity CheckJWTProof Proof algorithm.
 type Verifier interface {
 	// VerifyProof performs data integrity proof verification steps: transform,
 	// hash, and proof verification, using this implementation's cryptographic

@@ -30,7 +30,7 @@ type Claim struct {
 // jwtParseOpts holds options for the SD-JWT parsing.
 type parseOpts struct {
 	detachedPayload []byte
-	sigVerifier     jose.SignatureVerifier
+	sigVerifier     afgjwt.ProofChecker
 
 	issuerSigningAlgorithms []string
 	sdjwtV5Validation       bool
@@ -50,7 +50,7 @@ func WithJWTDetachedPayload(payload []byte) ParseOpt {
 }
 
 // WithSignatureVerifier option is for definition of JWT detached payload.
-func WithSignatureVerifier(signatureVerifier jose.SignatureVerifier) ParseOpt {
+func WithSignatureVerifier(signatureVerifier afgjwt.ProofChecker) ParseOpt {
 	return func(opts *parseOpts) {
 		opts.sigVerifier = signatureVerifier
 	}
@@ -115,7 +115,7 @@ func Parse(combinedFormatForIssuance string, opts ...ParseOpt) ([]*Claim, error)
 
 	// Validate the signature over the Issuer-signed JWT.
 	signedJWT, _, err := afgjwt.Parse(cfi.SDJWT,
-		afgjwt.WithSignatureVerifier(pOpts.sigVerifier),
+		afgjwt.WithProofChecker(pOpts.sigVerifier),
 		afgjwt.WithJWTDetachedPayload(pOpts.detachedPayload))
 	if err != nil {
 		return nil, err
@@ -245,11 +245,11 @@ func WithHolderVerification(info *BindingInfo) Option {
 // using selected disclosures (claimsToDisclose) and optional holder verification.
 // This call assumes that combinedFormatForIssuance has already been parsed and verified using Parse() function.
 //
-// For presentation to a Verifier, the Holder MUST perform the following (or equivalent) steps:
-//   - Decide which Disclosures to release to the Verifier, obtaining proper End-User consent if necessary.
+// For presentation to a ProofChecker, the Holder MUST perform the following (or equivalent) steps:
+//   - Decide which Disclosures to release to the ProofChecker, obtaining proper End-User consent if necessary.
 //   - If Holder Binding is required, create a Holder Binding JWT.
 //   - Create the Combined Format for Presentation from selected Disclosures and Holder Verification JWT(if applicable).
-//   - Send the Presentation to the Verifier.
+//   - Send the Presentation to the ProofChecker.
 func CreatePresentation(combinedFormatForIssuance string, claimsToDisclose []string, opts ...Option) (string, error) {
 	hOpts := &options{}
 
@@ -293,7 +293,7 @@ func CreatePresentation(combinedFormatForIssuance string, claimsToDisclose []str
 
 // CreateHolderVerification will create holder verification from binding info.
 func CreateHolderVerification(info *BindingInfo) (string, error) {
-	hbJWT, err := afgjwt.NewSigned(info.Payload, info.Headers, info.Signer)
+	hbJWT, err := afgjwt.NewJoseSigned(info.Payload, info.Headers, info.Signer)
 	if err != nil {
 		return "", err
 	}
@@ -306,6 +306,6 @@ type NoopSignatureVerifier struct {
 }
 
 // Verify implements signature verification.
-func (sv *NoopSignatureVerifier) Verify(joseHeaders jose.Headers, payload, signingInput, signature []byte) error {
+func (sv *NoopSignatureVerifier) CheckJWTProof(joseHeaders jose.Headers, payload, signingInput, signature []byte) error {
 	return nil
 }

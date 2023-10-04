@@ -14,6 +14,7 @@ import (
 	"github.com/trustbloc/did-go/doc/did"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	kmsapi "github.com/trustbloc/kms-go/spi/kms"
+
 	"github.com/trustbloc/vc-go/dataintegrity"
 	"github.com/trustbloc/vc-go/dataintegrity/suite/ecdsa2019"
 	"github.com/trustbloc/vc-go/internal/testutil/kmscryptoutil"
@@ -101,13 +102,14 @@ func Test_DataIntegrity_SignVerify(t *testing.T) {
 		vcBytes, e := vc.MarshalJSON()
 		require.NoError(t, e)
 
-		_, e = parseTestCredential(t, vcBytes, WithDataIntegrityVerifier(verifier), WithStrictValidation())
+		_, e = parseTestCredential(t, vcBytes, WithDataIntegrityVerifier(verifier),
+			WithStrictValidation(), WithDisabledProofCheck())
 		require.NoError(t, e)
 
-		t.Run("fail if not provided verifier", func(t *testing.T) {
+		t.Run("fail if not provided proofChecker", func(t *testing.T) {
 			_, e = parseTestCredential(t, vcBytes, WithDataIntegrityVerifier(nil))
 			require.Error(t, e)
-			require.Contains(t, e.Error(), "needs data integrity verifier")
+			require.Contains(t, e.Error(), "needs data integrity proofChecker")
 		})
 	})
 
@@ -127,10 +129,10 @@ func Test_DataIntegrity_SignVerify(t *testing.T) {
 		)
 		require.NoError(t, e)
 
-		t.Run("fail if not provided verifier", func(t *testing.T) {
+		t.Run("fail if not provided proofChecker", func(t *testing.T) {
 			_, e = newTestPresentation(t, vpBytes)
 			require.Error(t, e)
-			require.Contains(t, e.Error(), "needs data integrity verifier")
+			require.Contains(t, e.Error(), "needs data integrity proofChecker")
 		})
 	})
 

@@ -28,15 +28,15 @@ import (
 	ldprocessor "github.com/trustbloc/did-go/doc/ld/processor"
 	ldtestutil "github.com/trustbloc/did-go/doc/ld/testutil"
 	utiltime "github.com/trustbloc/did-go/doc/util/time"
-	"github.com/trustbloc/kms-go/doc/jose/jwk"
-	"github.com/trustbloc/kms-go/doc/util/fingerprint"
 	"github.com/trustbloc/kms-go/spi/kms"
 
-	"github.com/trustbloc/vc-go/internal/testutil/signatureutil"
+	"github.com/trustbloc/vc-go/jwt"
 	. "github.com/trustbloc/vc-go/presexch"
-	"github.com/trustbloc/vc-go/signature/suite"
-	"github.com/trustbloc/vc-go/signature/suite/bbsblssignature2020"
-	"github.com/trustbloc/vc-go/signature/verifier"
+	"github.com/trustbloc/vc-go/proof/creator"
+	"github.com/trustbloc/vc-go/proof/defaults"
+	"github.com/trustbloc/vc-go/proof/ldproofs/bbsblssignature2020"
+	"github.com/trustbloc/vc-go/proof/ldproofs/bbsblssignatureproof2020"
+	"github.com/trustbloc/vc-go/proof/testsupport"
 	"github.com/trustbloc/vc-go/verifiable"
 )
 
@@ -103,11 +103,11 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			// vc as jwt does not use proof, do not set it here.
 		})
 
-		ed25519Signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
+		ed25519ProofCreator, _ := testsupport.NewKMSSigVerPair(t, kms.ED25519Type, testsupport.AnyPubKeyID)
 
 		vc1JWT, err := vc1.CreateSignedJWTVC(true,
 			verifiable.EdDSA,
-			ed25519Signer,
+			ed25519ProofCreator,
 			issuerID+"#keys-76e12ec712ebc6f1c221ebfeb1f")
 		require.NoError(t, err)
 
@@ -480,7 +480,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 					"info":       "Info",
 				},
 			}),
-		}, lddl, verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t)))
+		}, lddl, WithSDCredentialOptions(verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t))))
 
 		require.NoError(t, err)
 		require.NotNil(t, vp)
@@ -544,7 +544,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 					"info":       "Info",
 				},
 			}),
-		}, lddl, verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t)))
+		}, lddl, WithSDCredentialOptions(verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t))))
 
 		require.NoError(t, err)
 		require.NotNil(t, vp)
@@ -593,7 +593,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 					"info":       "Info",
 				},
 			}),
-		}, lddl, verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t)))
+		}, lddl, WithSDCredentialOptions(verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t))))
 
 		require.NoError(t, err)
 		require.NotNil(t, vp)
@@ -658,7 +658,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		require.NoError(t, err)
 
 		vp, err := pd.CreateVP([]*verifiable.Credential{cred},
-			lddl, verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t)))
+			lddl, WithSDCredentialOptions(verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t))))
 
 		require.NoError(t, err)
 		require.NotNil(t, vp)
@@ -715,12 +715,12 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			}},
 		}
 
-		ed25519Signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
+		ed25519ProofCreator, proofChecker := testsupport.NewKMSSigVerPair(t, kms.ED25519Type, testsupport.AnyPubKeyID)
 
-		sdJwtVC := newSdJwtVC(t, ed25519Signer)
+		sdJwtVC := newSdJwtVC(t, ed25519ProofCreator, proofChecker)
 
 		vp, err := pd.CreateVP([]*verifiable.Credential{sdJwtVC},
-			lddl, verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t)))
+			lddl, WithSDCredentialOptions(verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t))))
 
 		require.NoError(t, err)
 		require.NotNil(t, vp)
@@ -784,12 +784,12 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			}},
 		}
 
-		ed25519Signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
+		ed25519ProofCreator, proofChecker := testsupport.NewKMSSigVerPair(t, kms.ED25519Type, testsupport.AnyPubKeyID)
 
-		sdJwtVC := newSdJwtVC(t, ed25519Signer)
+		sdJwtVC := newSdJwtVC(t, ed25519ProofCreator, proofChecker)
 
 		vp, err := pd.CreateVP([]*verifiable.Credential{sdJwtVC},
-			lddl, verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t)))
+			lddl, WithSDCredentialOptions(verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t))))
 
 		require.NoError(t, err)
 		require.NotNil(t, vp)
@@ -841,12 +841,12 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			}},
 		}
 
-		ed25519Signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
+		ed25519ProofCreator, proofChecker := testsupport.NewKMSSigVerPair(t, kms.ED25519Type, testsupport.AnyPubKeyID)
 
-		sdJwtVC := newSdJwtVC(t, ed25519Signer)
+		sdJwtVC := newSdJwtVC(t, ed25519ProofCreator, proofChecker)
 
 		vp, err := pd.CreateVP([]*verifiable.Credential{sdJwtVC},
-			lddl, verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t)))
+			lddl, WithSDCredentialOptions(verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t))))
 
 		require.NoError(t, err)
 		require.NotNil(t, vp)
@@ -896,12 +896,12 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			}},
 		}
 
-		ed25519Signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
+		ed25519ProofCreator, proofChecker := testsupport.NewKMSSigVerPair(t, kms.ED25519Type, testsupport.AnyPubKeyID)
 
-		sdJwtVC := newSdJwtVC(t, ed25519Signer)
+		sdJwtVC := newSdJwtVC(t, ed25519ProofCreator, proofChecker)
 
 		vp, err := pd.CreateVP([]*verifiable.Credential{sdJwtVC},
-			lddl, verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t)))
+			lddl, WithSDCredentialOptions(verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t))))
 
 		require.NoError(t, err)
 		require.NotNil(t, vp)
@@ -954,14 +954,14 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			}},
 		}
 
-		ed25519Signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
+		ed25519ProofCreator, proofChecker := testsupport.NewKMSSigVerPair(t,  kms.ED25519Type)
 
-		sdJwtVC := newSdJwtVC(t, ed25519Signer)
+		sdJwtVC := newSdJwtVC(t, ed25519ProofCreator, proofChecker)
 
 		sdJwtVC.SDJWTHashAlg = "sha-128"
 
 		vp, err := pd.CreateVP([]*verifiable.Credential{sdJwtVC},
-			lddl, verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t)))
+			lddl, WithSDCredentialOptions(verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t))))
 
 		require.Error(t, err)
 		require.Nil(t, vp)
@@ -989,12 +989,12 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			}},
 		}
 
-		ed25519Signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
+		ed25519ProofCreator, proofChecker := testsupport.NewKMSSigVerPair(t, kms.ED25519Type, testsupport.AnyPubKeyID)
 
-		sdJwtVC := newSdJwtVC(t, ed25519Signer)
+		sdJwtVC := newSdJwtVC(t, ed25519ProofCreator, proofChecker)
 
 		vp, err := pd.CreateVP([]*verifiable.Credential{sdJwtVC},
-			lddl, verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t)))
+			lddl, WithSDCredentialOptions(verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t))))
 
 		require.Error(t, err)
 		require.Nil(t, vp)
@@ -1026,12 +1026,12 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			}},
 		}
 
-		ed25519Signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
+		ed25519ProofCreator, proofChecker := testsupport.NewKMSSigVerPair(t, kms.ED25519Type, testsupport.AnyPubKeyID)
 
-		sdJwtVC := newSdJwtVC(t, ed25519Signer)
+		sdJwtVC := newSdJwtVC(t, ed25519ProofCreator, proofChecker)
 
 		vp, err := pd.CreateVP([]*verifiable.Credential{sdJwtVC},
-			lddl, verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t)))
+			lddl, WithSDCredentialOptions(verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t))))
 
 		require.Error(t, err)
 		require.Nil(t, vp)
@@ -1062,12 +1062,12 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			}},
 		}
 
-		ed25519Signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
+		ed25519ProofCreator, proofChecker := testsupport.NewKMSSigVerPair(t, kms.ED25519Type, testsupport.AnyPubKeyID)
 
-		sdJwtVC := newSdJwtVC(t, ed25519Signer)
+		sdJwtVC := newSdJwtVC(t, ed25519ProofCreator, proofChecker)
 
 		vp, err := pd.CreateVP([]*verifiable.Credential{sdJwtVC},
-			lddl, verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t)))
+			lddl, WithSDCredentialOptions(verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t))))
 
 		require.Error(t, err)
 		require.Nil(t, vp)
@@ -1095,12 +1095,12 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			}},
 		}
 
-		ed25519Signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
+		ed25519ProofCreator, proofChecker := testsupport.NewKMSSigVerPair(t, kms.ED25519Type, testsupport.AnyPubKeyID)
 
-		sdJwtVC := newSdJwtVC(t, ed25519Signer)
+		sdJwtVC := newSdJwtVC(t, ed25519ProofCreator, proofChecker)
 
 		vp, err := pd.CreateVP([]*verifiable.Credential{sdJwtVC},
-			lddl, verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t)))
+			lddl, WithSDCredentialOptions(verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t))))
 
 		require.Error(t, err)
 		require.Nil(t, vp)
@@ -1177,14 +1177,21 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 		require.NoError(t, vc.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
 			SignatureType:           "BbsBlsSignature2020",
+			KeyType:                 kms.BLS12381G2Type,
 			SignatureRepresentation: verifiable.SignatureProofValue,
-			Suite:                   bbsblssignature2020.New(suite.WithSigner(signer)),
+			ProofCreator:            creator.New(creator.WithProofType(bbsblssignature2020.New(), signer)),
 			VerificationMethod:      "did:example:123456#key1",
 		}, ldprocessor.WithDocumentLoader(createTestJSONLDDocumentLoader(t))))
 
 		vp, err := pd.CreateVP([]*verifiable.Credential{vc}, lddl,
-			verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t)),
-			verifiable.WithPublicKeyFetcher(verifiable.SingleKey(srcPublicKey, "Bls12381G2Key2020")),
+			WithSDBBSProofCreator(&bbsblssignatureproof2020.Creator{
+				ProofDelivery: bbs12381g2pub.New(),
+				VerificationMethodResolver: testsupport.NewSingleKeyResolver(
+					"did:example:123456#key1", srcPublicKey, "Bls12381G2Key2020"),
+			}),
+			WithSDCredentialOptions(
+				verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t)),
+			),
 		)
 		require.NoError(t, err)
 		require.NotNil(t, vp)
@@ -1294,14 +1301,18 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 		require.NoError(t, vc.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
 			SignatureType:           "BbsBlsSignature2020",
+			KeyType:                 kms.BLS12381G2Type,
 			SignatureRepresentation: verifiable.SignatureProofValue,
-			Suite:                   bbsblssignature2020.New(suite.WithSigner(signer)),
+			ProofCreator:            creator.New(creator.WithProofType(bbsblssignature2020.New(), signer)),
 			VerificationMethod:      "did:example:123456#key1",
 		}, ldprocessor.WithDocumentLoader(createTestJSONLDDocumentLoader(t))))
 
 		vp, err := pd.CreateVP([]*verifiable.Credential{vc}, lddl,
-			verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t)),
-			verifiable.WithPublicKeyFetcher(verifiable.SingleKey(srcPublicKey, "Bls12381G2Key2020")),
+			WithSDCredentialOptions(
+				verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t)),
+				verifiable.WithProofChecker(defaults.NewDefaultProofChecker(testsupport.NewSingleKeyResolver(
+					"did:example:123456#key1", srcPublicKey, "Bls12381G2Key2020"))),
+			),
 		)
 		require.NoError(t, err)
 		require.NotNil(t, vp)
@@ -1562,7 +1573,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 					},
 				},
 			}),
-		}, lddl, verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t)))
+		}, lddl, WithSDCredentialOptions(verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t))))
 
 		require.NoError(t, err)
 		require.NotNil(t, vp)
@@ -2270,14 +2281,12 @@ func getTestVCWithContext(t *testing.T, issuerID string, ctx []string) *verifiab
 
 func newSdJwtVC(
 	t *testing.T,
-	signer signatureutil.Signer,
+	signer jwt.ProofCreator,
+	checker jwt.ProofChecker,
 ) *verifiable.Credential {
 	t.Helper()
 
-	pubKey := signer.PublicJWK()
-
-	issuer, verMethod, err := fingerprint.CreateDIDKeyByJwk(pubKey)
-	require.NoError(t, err)
+	issuer, verMethod := "did:test:1234567", "did:test:1234567#key-1"
 
 	vc := getTestVCWithContext(t, issuer, nil)
 
@@ -2287,24 +2296,21 @@ func newSdJwtVC(
 	algName, err := jwsAlgo.Name()
 	require.NoError(t, err)
 
+	joseSig, err := jwt.NewJOSESigner(jwt.SignParameters{
+		KeyID:  verMethod,
+		JWTAlg: algName,
+	}, signer)
+	require.NoError(t, err)
+
 	combinedFormatForIssuance, err := vc.MakeSDJWT(
-		verifiable.GetJWTSigner(signer, algName), verMethod)
+		joseSig, verMethod)
 	require.NoError(t, err)
 
 	parsed, err := verifiable.ParseCredential([]byte(combinedFormatForIssuance),
-		verifiable.WithPublicKeyFetcher(holderPublicKeyFetcher(pubKey)))
+		verifiable.WithJWTProofChecker(checker))
 	require.NoError(t, err)
 
 	return parsed
-}
-
-func holderPublicKeyFetcher(pubKey *jwk.JWK) verifiable.PublicKeyFetcher {
-	return func(issuerID, keyID string) (*verifier.PublicKey, error) {
-		return &verifier.PublicKey{
-			Type: kms.RSARS256,
-			JWK:  pubKey,
-		}, nil
-	}
 }
 
 func checkSubmission(t *testing.T, vp *verifiable.Presentation, pd *PresentationDefinition) {
@@ -2417,7 +2423,7 @@ func newBBSSigner(key *bbs12381g2pub.PrivateKey) (*bbsSigner, error) {
 	return &bbsSigner{privateKey: src}, nil
 }
 
-func (s *bbsSigner) Sign(data []byte) ([]byte, error) {
+func (s *bbsSigner) Sign(data []byte, _ kms.KeyType) ([]byte, error) {
 	return bbs12381g2pub.New().Sign(s.textToLines(string(data)), s.privateKey)
 }
 

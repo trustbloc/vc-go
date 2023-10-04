@@ -17,23 +17,15 @@ package verifiable
 import (
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/piprate/json-gold/ld"
 	util "github.com/trustbloc/did-go/doc/util/time"
 	"github.com/xeipuuv/gojsonschema"
 
-	"github.com/trustbloc/did-go/doc/did"
-	vdrapi "github.com/trustbloc/did-go/vdr/api"
-	"github.com/trustbloc/kms-go/doc/jose/jwk"
 	kmsapi "github.com/trustbloc/kms-go/spi/kms"
 
-	"github.com/trustbloc/vc-go/jwt/didsignjwt"
-	"github.com/trustbloc/vc-go/signature/verifier"
 	jsonutil "github.com/trustbloc/vc-go/util/json"
 )
-
-// TODO https://github.com/square/go-jose/issues/263 support ES256K
 
 // JWSAlgorithm defines JWT signature algorithms of Verifiable Credential.
 type JWSAlgorithm int
@@ -109,74 +101,6 @@ type jsonldCredentialOpts struct {
 	jsonldDocumentLoader ld.DocumentLoader
 	externalContext      []string
 	jsonldOnlyValidRDF   bool
-}
-
-// PublicKeyFetcher fetches public key for JWT signing verification based on Issuer ID (possibly DID)
-// and Key ID.
-// If not defined, JWT encoding is not tested.
-type PublicKeyFetcher = didsignjwt.PublicKeyFetcher
-
-// SingleKey defines the case when only one verification key is used and we don't need to pick the one.
-func SingleKey(pubKey []byte, pubKeyType string) PublicKeyFetcher {
-	return func(_, _ string) (*verifier.PublicKey, error) {
-		return &verifier.PublicKey{
-			Type:  pubKeyType,
-			Value: pubKey,
-		}, nil
-	}
-}
-
-// SingleJWK defines the case where only one verification key is used, where it's a JWK.
-func SingleJWK(pubJWK *jwk.JWK, pubKeyType string) PublicKeyFetcher {
-	return func(_, _ string) (*verifier.PublicKey, error) {
-		return &verifier.PublicKey{
-			Type: pubKeyType,
-			JWK:  pubJWK,
-		}, nil
-	}
-}
-
-// VDRKeyResolver resolves DID in order to find public keys for VC verification using vdr.Registry.
-// A source of DID could be issuer of VC or holder of VP. It can be also obtained from
-// JWS "issuer" claim or "verificationMethod" of Linked Data Proof.
-type VDRKeyResolver struct {
-	vdr didResolver
-}
-
-type didResolver interface {
-	Resolve(did string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error)
-}
-
-// NewVDRKeyResolver creates VDRKeyResolver.
-func NewVDRKeyResolver(vdr didResolver) *VDRKeyResolver {
-	return &VDRKeyResolver{vdr: vdr}
-}
-
-func (r *VDRKeyResolver) resolvePublicKey(issuerDID, keyID string) (*verifier.PublicKey, error) {
-	docResolution, err := r.vdr.Resolve(issuerDID)
-	if err != nil {
-		return nil, fmt.Errorf("resolve DID %s: %w", issuerDID, err)
-	}
-
-	for _, verifications := range docResolution.DIDDocument.VerificationMethods() {
-		for _, verification := range verifications {
-			if strings.Contains(verification.VerificationMethod.ID, keyID) &&
-				verification.Relationship != did.KeyAgreement {
-				return &verifier.PublicKey{
-					Type:  verification.VerificationMethod.Type,
-					Value: verification.VerificationMethod.Value,
-					JWK:   verification.VerificationMethod.JSONWebKey(),
-				}, nil
-			}
-		}
-	}
-
-	return nil, fmt.Errorf("public key with KID %s is not found for DID %s", keyID, issuerDID)
-}
-
-// PublicKeyFetcher returns Public Key Fetcher via DID resolution mechanism.
-func (r *VDRKeyResolver) PublicKeyFetcher() PublicKeyFetcher {
-	return r.resolvePublicKey
 }
 
 // Proof defines embedded proof of Verifiable Credential.

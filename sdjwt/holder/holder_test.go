@@ -22,7 +22,7 @@ import (
 
 	"github.com/trustbloc/kms-go/doc/jose"
 
-	afjwt "github.com/trustbloc/vc-go/jwt"
+	"github.com/trustbloc/vc-go/proof/testsupport"
 	"github.com/trustbloc/vc-go/sdjwt/common"
 	"github.com/trustbloc/vc-go/sdjwt/issuer"
 )
@@ -37,7 +37,7 @@ func TestParse(t *testing.T) {
 	pubKey, privKey, e := ed25519.GenerateKey(rand.Reader)
 	r.NoError(e)
 
-	signer := afjwt.NewEd25519Signer(privKey)
+	signer := testsupport.NewEd25519Signer(privKey)
 	claims := map[string]interface{}{"given_name": "Albert"}
 
 	token, e := issuer.New(testIssuer, claims, nil, signer)
@@ -45,8 +45,7 @@ func TestParse(t *testing.T) {
 	combinedFormatForIssuance, e := token.Serialize(false)
 	r.NoError(e)
 
-	verifier, e := afjwt.NewEd25519Verifier(pubKey)
-	r.NoError(e)
+	verifier := testsupport.NewEd25519Verifier(pubKey)
 
 	t.Run("success", func(t *testing.T) {
 		claims, err := Parse(combinedFormatForIssuance, WithSignatureVerifier(verifier))
@@ -212,7 +211,7 @@ func TestCreatePresentation(t *testing.T) {
 	_, privKey, e := ed25519.GenerateKey(rand.Reader)
 	r.NoError(e)
 
-	signer := afjwt.NewEd25519Signer(privKey)
+	signer := testsupport.NewEd25519Signer(privKey)
 	claims := map[string]interface{}{"given_name": "Albert"}
 
 	token, e := issuer.New(testIssuer, claims, nil, signer)
@@ -235,7 +234,7 @@ func TestCreatePresentation(t *testing.T) {
 		_, holderPrivKey, e := ed25519.GenerateKey(rand.Reader)
 		r.NoError(e)
 
-		holderSigner := afjwt.NewEd25519Signer(holderPrivKey)
+		holderSigner := testsupport.NewEd25519Signer(holderPrivKey)
 
 		combinedFormatForPresentation, err := CreatePresentation(combinedFormatForIssuance, claimsToDisclose,
 			WithHolderBinding(&BindingInfo{

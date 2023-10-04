@@ -7,39 +7,14 @@ package verifiable
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	ldprocessor "github.com/trustbloc/did-go/doc/ld/processor"
 	"github.com/trustbloc/did-go/doc/ld/proof"
+	"github.com/trustbloc/kms-go/spi/kms"
 
-	"github.com/trustbloc/vc-go/signature/signer"
-	"github.com/trustbloc/vc-go/signature/verifier"
+	"github.com/trustbloc/vc-go/verifiable/lddocument"
 )
-
-const (
-	resolveIDParts = 2
-)
-
-type keyResolverAdapter struct {
-	pubKeyFetcher PublicKeyFetcher
-}
-
-func (k *keyResolverAdapter) Resolve(id string) (*verifier.PublicKey, error) {
-	// id will contain didID#keyID
-	idSplit := strings.Split(id, "#")
-	if len(idSplit) != resolveIDParts {
-		return nil, fmt.Errorf("wrong id %s to resolve", idSplit)
-	}
-	// idSplit[0] is didID
-	// idSplit[1] is keyID
-	pubKey, err := k.pubKeyFetcher(idSplit[0], fmt.Sprintf("#%s", idSplit[1]))
-	if err != nil {
-		return nil, err
-	}
-
-	return pubKey, nil
-}
 
 // SignatureRepresentation is a signature value holder type (e.g. "proofValue" or "jws").
 type SignatureRepresentation int
@@ -54,8 +29,10 @@ const (
 
 // LinkedDataProofContext holds options needed to build a Linked Data Proof.
 type LinkedDataProofContext struct {
+	// TODO: rename to ProofType
 	SignatureType           string                  // required
-	Suite                   signer.SignatureSuite   // required
+	ProofCreator            lddocument.ProofCreator // required
+	KeyType                 kms.KeyType             // required
 	SignatureRepresentation SignatureRepresentation // required
 	Created                 *time.Time              // optional
 	VerificationMethod      string                  // optional
@@ -66,16 +43,13 @@ type LinkedDataProofContext struct {
 	CapabilityChain []interface{}
 }
 
-func checkLinkedDataProof(jsonldBytes map[string]interface{}, suites []verifier.SignatureSuite,
-	pubKeyFetcher PublicKeyFetcher, jsonldOpts *jsonldCredentialOpts) error {
-	documentVerifier, err := verifier.New(&keyResolverAdapter{pubKeyFetcher}, suites...)
-	if err != nil {
-		return fmt.Errorf("create new signature verifier: %w", err)
-	}
+func checkLinkedDataProof(jsonldBytes map[string]interface{},
+	proofChecker lddocument.ProofChecker, jsonldOpts *jsonldCredentialOpts) error {
+	documentVerifier := lddocument.NewDocumentVerifier(proofChecker)
 
 	processorOpts := mapJSONLDProcessorOpts(jsonldOpts)
 
-	err = documentVerifier.VerifyObject(jsonldBytes, processorOpts...)
+	err := documentVerifier.VerifyObject(jsonldBytes, processorOpts...)
 	if err != nil {
 		return fmt.Errorf("check linked data proof: %w", err)
 	}
@@ -107,7 +81,7 @@ type rawProof struct {
 // of the proofs which were already present appended with a newly created proof.
 func addLinkedDataProof(context *LinkedDataProofContext, jsonld JSONObject,
 	opts ...ldprocessor.Opts) ([]Proof, error) {
-	documentSigner := signer.New(context.Suite)
+	documentSigner := lddocument.NewDocumentSigner(context.ProofCreator)
 
 	err := documentSigner.Sign(mapContext(context), jsonld, opts...)
 	if err != nil {
@@ -122,10 +96,11 @@ func addLinkedDataProof(context *LinkedDataProofContext, jsonld JSONObject,
 	return proofs, nil
 }
 
-func mapContext(context *LinkedDataProofContext) *signer.Context {
-	return &signer.Context{
+func mapContext(context *LinkedDataProofContext) *lddocument.SigningContext {
+	return &lddocument.SigningContext{
 		SignatureType:           context.SignatureType,
 		SignatureRepresentation: proof.SignatureRepresentation(context.SignatureRepresentation),
+		KeyType:                 context.KeyType,
 		Created:                 context.Created,
 		VerificationMethod:      context.VerificationMethod,
 		Challenge:               context.Challenge,

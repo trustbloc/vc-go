@@ -23,6 +23,7 @@ import (
 	"github.com/xeipuuv/gojsonschema"
 
 	"github.com/trustbloc/vc-go/presexch/internal/requirementlogic"
+	"github.com/trustbloc/vc-go/proof/ldproofs/bbsblssignatureproof2020"
 	jsonutil "github.com/trustbloc/vc-go/util/json"
 
 	"github.com/trustbloc/vc-go/sdjwt/common"
@@ -221,6 +222,7 @@ type MatchedInputDescriptor struct {
 // matchRequirementsOpts holds options for the MatchSubmissionRequirement.
 type matchRequirementsOpts struct {
 	applySelectiveDisclosure bool
+	sdBBSProofCreator        *bbsblssignatureproof2020.Creator
 	credOpts                 []verifiable.CredentialOpt
 }
 
@@ -238,6 +240,13 @@ func WithSelectiveDisclosureApply() MatchRequirementsOpt {
 func WithSDCredentialOptions(options ...verifiable.CredentialOpt) MatchRequirementsOpt {
 	return func(opts *matchRequirementsOpts) {
 		opts.credOpts = options
+	}
+}
+
+// WithSDBBSProofCreator used when applying selective disclosure.
+func WithSDBBSProofCreator(sdBBSProofCreator *bbsblssignatureproof2020.Creator) MatchRequirementsOpt {
+	return func(opts *matchRequirementsOpts) {
+		opts.sdBBSProofCreator = sdBBSProofCreator
 	}
 }
 
@@ -442,8 +451,14 @@ func makeRequirement(requirements []*SubmissionRequirement, descriptors []*Input
 
 // CreateVP creates verifiable presentation.
 func (pd *PresentationDefinition) CreateVP(credentials []*verifiable.Credential,
-	documentLoader ld.DocumentLoader, opts ...verifiable.CredentialOpt) (*verifiable.Presentation, error) {
-	applicableCredentials, submission, err := presentationData(pd, credentials, documentLoader, false, opts...)
+	documentLoader ld.DocumentLoader, opts ...MatchRequirementsOpt) (*verifiable.Presentation, error) {
+	matchOpts := &matchRequirementsOpts{}
+	for _, opt := range opts {
+		opt(matchOpts)
+	}
+
+	applicableCredentials, submission, err := presentationData(pd, credentials, documentLoader, false,
+		matchOpts.sdBBSProofCreator, matchOpts.credOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -465,9 +480,15 @@ func (pd *PresentationDefinition) CreateVP(credentials []*verifiable.Credential,
 func (pd *PresentationDefinition) CreateVPArray(
 	credentials []*verifiable.Credential,
 	documentLoader ld.DocumentLoader,
-	opts ...verifiable.CredentialOpt,
+	opts ...MatchRequirementsOpt,
 ) ([]*verifiable.Presentation, *PresentationSubmission, error) {
-	applicableCredentials, submission, err := presentationData(pd, credentials, documentLoader, true, opts...)
+	matchOpts := &matchRequirementsOpts{}
+	for _, opt := range opts {
+		opt(matchOpts)
+	}
+
+	applicableCredentials, submission, err := presentationData(pd, credentials, documentLoader, true,
+		matchOpts.sdBBSProofCreator, matchOpts.credOpts...)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -491,6 +512,7 @@ func presentationData(
 	credentials []*verifiable.Credential,
 	documentLoader ld.DocumentLoader,
 	separatePresentations bool,
+	sdBBSProofCreator *bbsblssignatureproof2020.Creator,
 	opts ...verifiable.CredentialOpt,
 ) ([]*verifiable.Credential, *PresentationSubmission, error) {
 	if err := pd.ValidateSchema(); err != nil {
@@ -502,7 +524,7 @@ func presentationData(
 		return nil, nil, err
 	}
 
-	format, result, err := pd.applyRequirement(req, credentials, documentLoader, opts...)
+	format, result, err := pd.applyRequirement(req, credentials, documentLoader, sdBBSProofCreator, opts...)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -612,7 +634,7 @@ func (pd *PresentationDefinition) matchRequirement(req *requirement, creds []*ve
 		var err error
 
 		if opts.applySelectiveDisclosure {
-			framedCreds, err = frameCreds(pd.Frame, creds, opts.credOpts...)
+			framedCreds, err = frameCreds(pd.Frame, creds, opts.sdBBSProofCreator, opts.credOpts...)
 			if err != nil {
 				return nil, err
 			}
@@ -627,7 +649,7 @@ func (pd *PresentationDefinition) matchRequirement(req *requirement, creds []*ve
 		var matchedVCs []*verifiable.Credential
 
 		if opts.applySelectiveDisclosure {
-			limitedVCs, err := limitDisclosure(filtered, opts.credOpts...)
+			limitedVCs, err := limitDisclosure(filtered, opts.sdBBSProofCreator, opts.credOpts...)
 			if err != nil {
 				return nil, err
 			}
@@ -672,6 +694,7 @@ func (pd *PresentationDefinition) applyRequirement( // nolint:funlen,gocyclo
 	req *requirement,
 	creds []*verifiable.Credential,
 	documentLoader ld.DocumentLoader,
+	sdBBSProofCreator *bbsblssignatureproof2020.Creator,
 	opts ...verifiable.CredentialOpt,
 ) (string, map[string][]*credWrapper, error) {
 	reqLogic := req.toLogic()
@@ -686,7 +709,7 @@ func (pd *PresentationDefinition) applyRequirement( // nolint:funlen,gocyclo
 
 	descs := req.getAllDescriptors()
 
-	framedCreds, e := frameCreds(pd.Frame, creds, opts...)
+	framedCreds, e := frameCreds(pd.Frame, creds, sdBBSProofCreator, opts...)
 	if e != nil {
 		return "", nil, e
 	}
@@ -721,7 +744,7 @@ func (pd *PresentationDefinition) applyRequirement( // nolint:funlen,gocyclo
 				return "", nil, err
 			}
 
-			filteredCreds, err := limitDisclosure(filtered, opts...)
+			filteredCreds, err := limitDisclosure(filtered, sdBBSProofCreator, opts...)
 			if err != nil {
 				return "", nil, err
 			}
@@ -942,7 +965,7 @@ func filterConstraints(constraints *Constraints, creds []*verifiable.Credential)
 
 // nolint: gocyclo, funlen
 func limitDisclosure(filterResults []constraintsFilterResult,
-	opts ...verifiable.CredentialOpt) ([]*credWrapper, error) {
+	sdBBSProofCreator *bbsblssignatureproof2020.Creator, opts ...verifiable.CredentialOpt) ([]*credWrapper, error) {
 	var result []*credWrapper
 
 	for _, filtered := range filterResults {
@@ -1009,7 +1032,8 @@ func limitDisclosure(filterResults []constraintsFilterResult,
 
 			isJWTVC := credential.IsJWT()
 
-			credential, err = createNewCredential(constraints, credentialSrc, template, credential, opts...)
+			credential, err = createNewCredential(constraints,
+				credentialSrc, template, credential, sdBBSProofCreator, opts...)
 			if err != nil {
 				return nil, fmt.Errorf("create new credential: %w", err)
 			}
@@ -1101,6 +1125,7 @@ func getLimitedDisclosures(constraints *Constraints, displaySrc []byte, credenti
 }
 
 func frameCreds(frame map[string]interface{}, creds []*verifiable.Credential,
+	sdBBSProofCreator *bbsblssignatureproof2020.Creator,
 	opts ...verifiable.CredentialOpt) ([]*verifiable.Credential, error) {
 	if frame == nil {
 		return creds, nil
@@ -1109,7 +1134,7 @@ func frameCreds(frame map[string]interface{}, creds []*verifiable.Credential,
 	var result []*verifiable.Credential
 
 	for _, credential := range creds {
-		bbsVC, err := credential.GenerateBBSSelectiveDisclosure(frame, nil, opts...)
+		bbsVC, err := credential.GenerateBBSSelectiveDisclosure(frame, nil, sdBBSProofCreator, opts...)
 		if err != nil {
 			return nil, err
 		}
@@ -1144,7 +1169,7 @@ func tmpID(id string) string {
 
 // nolint: funlen,gocognit,gocyclo
 func createNewCredential(constraints *Constraints, src, limitedCred []byte,
-	credential *verifiable.Credential, opts ...verifiable.CredentialOpt) (*verifiable.Credential, error) {
+	credential *verifiable.Credential, sdBBSProofCreator *bbsblssignatureproof2020.Creator, opts ...verifiable.CredentialOpt) (*verifiable.Credential, error) {
 	var (
 		doBBS               = hasBBS(credential) && constraints.LimitDisclosure.isRequired()
 		modifiedByPredicate bool
@@ -1197,7 +1222,7 @@ func createNewCredential(constraints *Constraints, src, limitedCred []byte,
 		return nil, err
 	}
 
-	return credential.GenerateBBSSelectiveDisclosure(doc, []byte(uuid.New().String()), opts...)
+	return credential.GenerateBBSSelectiveDisclosure(doc, []byte(uuid.New().String()), sdBBSProofCreator, opts...)
 }
 
 // splitLast finds the final occurrence of split in text, and returns (everything before, everything after).

@@ -7,8 +7,6 @@ package verifiable
 
 import (
 	"crypto"
-	"crypto/ed25519"
-	"crypto/rand"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -20,16 +18,12 @@ import (
 	"github.com/stretchr/testify/require"
 	jsonld "github.com/trustbloc/did-go/doc/ld/processor"
 	afgotime "github.com/trustbloc/did-go/doc/util/time"
-	"github.com/trustbloc/kms-go/doc/jose"
 	"github.com/trustbloc/kms-go/spi/kms"
 	"github.com/xeipuuv/gojsonschema"
 	"golang.org/x/exp/slices"
 
-	"github.com/trustbloc/vc-go/internal/testutil/signatureutil"
+	"github.com/trustbloc/vc-go/proof/testsupport"
 
-	"github.com/trustbloc/vc-go/signature/suite"
-	"github.com/trustbloc/vc-go/signature/suite/ed25519signature2018"
-	"github.com/trustbloc/vc-go/signature/verifier"
 	jsonutil "github.com/trustbloc/vc-go/util/json"
 )
 
@@ -94,7 +88,7 @@ var vccProto = CredentialContents{
 
 func TestParseCredential(t *testing.T) {
 	t.Run("test creation of new Verifiable Credential from JSON with valid structure", func(t *testing.T) {
-		vc, err := parseTestCredential(t, []byte(validCredential), WithStrictValidation())
+		vc, err := parseTestCredential(t, []byte(validCredential), WithStrictValidation(), WithDisabledProofCheck())
 		require.NoError(t, err)
 		require.NotNil(t, vc)
 
@@ -168,14 +162,16 @@ func TestParseCredentialWithoutIssuanceDate(t *testing.T) {
 	t.Run("test creation of new Verifiable Credential with disabled issuance date check", func(t *testing.T) {
 		schema := JSONSchemaLoader(WithDisableRequiredField("issuanceDate"))
 
-		vc, err := parseTestCredential(t, []byte(credentialWithoutIssuanceDate), WithStrictValidation(),
+		vc, err := parseTestCredential(t, []byte(credentialWithoutIssuanceDate), WithDisabledProofCheck(),
+			WithStrictValidation(),
 			WithSchema(schema))
 		require.NoError(t, err)
 		require.NotNil(t, vc)
 	})
 
 	t.Run("'issuanceDate is required' error", func(t *testing.T) {
-		_, err := parseTestCredential(t, []byte(credentialWithoutIssuanceDate), WithStrictValidation())
+		_, err := parseTestCredential(t, []byte(credentialWithoutIssuanceDate), WithDisabledProofCheck(),
+			WithStrictValidation())
 		require.Error(t, err)
 	})
 }
@@ -652,7 +648,7 @@ func TestValidateVerCredRefreshService(t *testing.T) {
 	})
 
 	t.Run("test verifiable credential with undefined id of refresh service", func(t *testing.T) {
-		vc, err := parseTestCredential(t, []byte(validCredential))
+		vc, err := parseTestCredential(t, []byte(validCredential), WithDisabledProofCheck())
 		require.NoError(t, err)
 
 		raw := vc.ToRawJSON()
@@ -665,7 +661,7 @@ func TestValidateVerCredRefreshService(t *testing.T) {
 	})
 
 	t.Run("test verifiable credential with undefined type of refresh service", func(t *testing.T) {
-		vc, err := parseTestCredential(t, []byte(validCredential))
+		vc, err := parseTestCredential(t, []byte(validCredential), WithDisabledProofCheck())
 		require.NoError(t, err)
 
 		raw := vc.ToRawJSON()
@@ -678,7 +674,7 @@ func TestValidateVerCredRefreshService(t *testing.T) {
 	})
 
 	t.Run("test verifiable credential with invalid URL of id of credential schema", func(t *testing.T) {
-		vc, err := parseTestCredential(t, []byte(validCredential))
+		vc, err := parseTestCredential(t, []byte(validCredential), WithDisabledProofCheck())
 		require.NoError(t, err)
 
 		raw := vc.ToRawJSON()
@@ -694,7 +690,7 @@ func TestValidateVerCredRefreshService(t *testing.T) {
 func TestCredential_MarshalJSON(t *testing.T) {
 	t.Run("round trip conversion of credential with plain issuer", func(t *testing.T) {
 		// setup -> create verifiable credential from json byte data
-		vc, err := parseTestCredential(t, []byte(validCredential))
+		vc, err := parseTestCredential(t, []byte(validCredential), WithDisabledProofCheck())
 		require.NoError(t, err)
 		require.NotEmpty(t, vc)
 
@@ -704,7 +700,7 @@ func TestCredential_MarshalJSON(t *testing.T) {
 		require.NotEmpty(t, byteCred)
 
 		// convert json byte data to verifiable credential
-		cred2, err := parseTestCredential(t, byteCred)
+		cred2, err := parseTestCredential(t, byteCred, WithDisabledProofCheck())
 		require.NoError(t, err)
 		require.NotEmpty(t, cred2)
 
@@ -714,13 +710,10 @@ func TestCredential_MarshalJSON(t *testing.T) {
 
 	t.Run("round trip conversion of SD-JWT credential", func(t *testing.T) {
 		// setup -> create verifiable credential from SD-JWT
-		pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
-		require.NoError(t, err)
 
-		sdJWTString, issuerID := createTestSDJWTCred(t, privKey)
+		sdJWTString, proofChecker := createTestSDJWTCred(t)
 
-		vc, err := ParseCredential([]byte(sdJWTString),
-			WithPublicKeyFetcher(createDIDKeyFetcher(t, pubKey, issuerID)))
+		vc, err := ParseCredential([]byte(sdJWTString), WithProofChecker(proofChecker))
 		require.NoError(t, err)
 		require.NotEmpty(t, vc)
 
@@ -740,8 +733,7 @@ func TestCredential_MarshalJSON(t *testing.T) {
 		require.Equal(t, sdJWTSegments, byteCredSegments)
 
 		// convert SD-JWT json string to verifiable credential
-		cred2, err := ParseCredential(byteCred,
-			WithPublicKeyFetcher(createDIDKeyFetcher(t, pubKey, issuerID)))
+		cred2, err := ParseCredential(byteCred, WithJWTProofChecker(proofChecker))
 		require.NoError(t, err)
 		require.NotEmpty(t, cred2)
 
@@ -769,7 +761,7 @@ func TestCredential_MarshalJSON(t *testing.T) {
 
 	t.Run("round trip conversion of credential with composite issuer", func(t *testing.T) {
 		// setup -> create verifiable credential from json byte data
-		vc, err := parseTestCredential(t, []byte(validCredential))
+		vc, err := parseTestCredential(t, []byte(validCredential), WithDisabledProofCheck())
 		require.NoError(t, err)
 		require.NotEmpty(t, vc)
 
@@ -785,7 +777,7 @@ func TestCredential_MarshalJSON(t *testing.T) {
 		require.NotEmpty(t, byteCred)
 
 		// convert json byte data to verifiable credential
-		cred2, err := parseTestCredential(t, byteCred)
+		cred2, err := parseTestCredential(t, byteCred, WithDisabledProofCheck())
 		require.NoError(t, err)
 		require.NotEmpty(t, cred2)
 
@@ -824,9 +816,10 @@ func TestCredential_CreateSignedJWTVC(t *testing.T) {
 		vc, err := CreateCredential(vcc, nil)
 		require.NoError(t, err)
 
-		issuerSigner := signatureutil.CryptoSigner(t, kms.RSARS256Type)
+		pubKeyID := "did:123#issuer-key"
+		issuerSigner, _ := testsupport.NewKMSSigVerPair(t, kms.RSARS256Type, keyID)
 
-		jwtVC, err := vc.CreateSignedJWTVC(true, RS256, issuerSigner, "did:123#issuer-key")
+		jwtVC, err := vc.CreateSignedJWTVC(true, RS256, issuerSigner, pubKeyID)
 		require.NoError(t, err)
 		require.NotNil(t, jwtVC)
 
@@ -842,9 +835,10 @@ func TestCredential_CreateSignedJWTVC(t *testing.T) {
 		vc, err := CreateCredential(vcc, nil)
 		require.NoError(t, err)
 
-		issuerSigner := signatureutil.CryptoSigner(t, kms.RSARS256Type)
+		pubKeyID := "did:123#issuer-key"
+		issuerSigner, _ := testsupport.NewKMSSigVerPair(t, kms.RSARS256Type, keyID)
 
-		_, err = vc.CreateSignedJWTVC(true, RS256, issuerSigner, "did:123#issuer-key")
+		_, err = vc.CreateSignedJWTVC(true, RS256, issuerSigner, pubKeyID)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "no subject is defined")
 
@@ -986,15 +980,6 @@ func TestCredential_parseCredentialContents(t *testing.T) {
 	})
 }
 
-func TestWithPublicKeyFetcher(t *testing.T) {
-	credentialOpt := WithPublicKeyFetcher(SingleKey([]byte("test pubKey"), kms.ED25519))
-	require.NotNil(t, credentialOpt)
-
-	opts := &credentialOpts{}
-	credentialOpt(opts)
-	require.NotNil(t, opts.publicKeyFetcher)
-}
-
 func TestWithDisabledExternalSchemaCheck(t *testing.T) {
 	credentialOpt := WithNoCustomSchemaCheck()
 	require.NotNil(t, credentialOpt)
@@ -1121,17 +1106,6 @@ func TestWithStrictValidation(t *testing.T) {
 	require.True(t, opts.strictValidation)
 }
 
-func TestWithEmbeddedSignatureSuites(t *testing.T) {
-	ss := ed25519signature2018.New()
-
-	credentialOpt := WithEmbeddedSignatureSuites(ss)
-	require.NotNil(t, credentialOpt)
-
-	opts := &credentialOpts{}
-	credentialOpt(opts)
-	require.Equal(t, []verifier.SignatureSuite{ss}, opts.ldpSuites)
-}
-
 func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
 	testServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		rawMap := make(map[string]interface{})
@@ -1181,16 +1155,17 @@ func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
 		customValidSchema, err := json.Marshal(raw)
 		require.NoError(t, err)
 
-		vc, err := parseTestCredential(t, customValidSchema, WithBaseContextExtendedValidation([]string{
-			"https://www.w3.org/2018/credentials/v1",
-			"https://www.w3.org/2018/credentials/examples/v1",
-			"https://w3id.org/security/jws/v1",
-			"https://trustbloc.github.io/context/vc/examples-v1.jsonld",
-			"https://w3id.org/security/suites/ed25519-2020/v1",
-		}, []string{
-			"VerifiableCredential",
-			"UniversityDegreeCredential",
-		}))
+		vc, err := parseTestCredential(t, customValidSchema, WithDisabledProofCheck(),
+			WithBaseContextExtendedValidation([]string{
+				"https://www.w3.org/2018/credentials/v1",
+				"https://www.w3.org/2018/credentials/examples/v1",
+				"https://w3id.org/security/jws/v1",
+				"https://trustbloc.github.io/context/vc/examples-v1.jsonld",
+				"https://w3id.org/security/suites/ed25519-2020/v1",
+			}, []string{
+				"VerifiableCredential",
+				"UniversityDegreeCredential",
+			}))
 		require.NoError(t, err)
 
 		vcc := vc.Contents()
@@ -1230,7 +1205,7 @@ func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
 		unsupportedCredentialTypeOfSchema, err := json.Marshal(raw)
 		require.NoError(t, err)
 
-		vc, err := parseTestCredential(t, unsupportedCredentialTypeOfSchema)
+		vc, err := parseTestCredential(t, unsupportedCredentialTypeOfSchema, WithDisabledProofCheck())
 		require.NoError(t, err)
 
 		vcc := vc.Contents()
@@ -1242,7 +1217,7 @@ func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
 	})
 
 	t.Run("Fallback to default schema validation when custom schemas usage is disabled", func(t *testing.T) {
-		_, err := parseTestCredential(t, missingReqFieldSchema, WithNoCustomSchemaCheck())
+		_, err := parseTestCredential(t, missingReqFieldSchema, WithDisabledProofCheck(), WithNoCustomSchemaCheck())
 
 		// without disabling external schema check we would get an error here
 		require.NoError(t, err)
@@ -1697,15 +1672,16 @@ func TestContextToSerialize(t *testing.T) {
 }
 
 func Test_JWTVCToJSON(t *testing.T) {
-	signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
+	issuerKeyID := "did:example:76e12ec712ebc6f1c221ebfeb1f"
+	proofCreator, _ := testsupport.NewKMSSigVerPair(t, kms.ED25519Type, issuerKeyID)
 
-	vcSource, err := parseTestCredential(t, []byte(validCredential))
+	vcSource, err := parseTestCredential(t, []byte(validCredential), WithDisabledProofCheck())
 	require.NoError(t, err)
 
 	jwtClaims, err := vcSource.JWTClaims(true)
 	require.NoError(t, err)
 
-	jws, err := jwtClaims.MarshalJWSString(EdDSA, signer, "any")
+	jws, err := jwtClaims.MarshalJWSString(EdDSA, proofCreator, issuerKeyID)
 	require.NoError(t, err)
 
 	t.Run("success", func(t *testing.T) {
@@ -1821,7 +1797,7 @@ func TestCredential_validateCredential(t *testing.T) {
 	r := require.New(t)
 
 	t.Run("test jsonldValidation constraint", func(t *testing.T) {
-		vc, err := parseTestCredential(t, []byte(validCredential))
+		vc, err := parseTestCredential(t, []byte(validCredential), WithDisabledProofCheck())
 		r.NoError(err)
 
 		vcOpts := []CredentialOpt{
@@ -1855,7 +1831,7 @@ func TestCredential_validateCredential(t *testing.T) {
 	})
 
 	t.Run("test baseContextValidation constraint", func(t *testing.T) {
-		vc, err := parseTestCredential(t, []byte(validCredential))
+		vc, err := parseTestCredential(t, []byte(validCredential), WithDisabledProofCheck())
 		require.NoError(t, err)
 
 		raw := vc.ToRawJSON()
@@ -1892,7 +1868,7 @@ func TestCredential_validateCredential(t *testing.T) {
 	})
 
 	t.Run("test baseContextExtendedValidation constraint", func(t *testing.T) {
-		vc, err := parseTestCredential(t, []byte(validCredential))
+		vc, err := parseTestCredential(t, []byte(validCredential), WithDisabledProofCheck())
 		require.NoError(t, err)
 
 		raw := vc.ToRawJSON()
@@ -1968,23 +1944,24 @@ func TestDecodeWithNullValues(t *testing.T) {
 }
 `
 
-	vc, err := parseTestCredential(t, []byte(vcJSON))
+	vc, err := parseTestCredential(t, []byte(vcJSON), WithDisabledProofCheck())
 	require.NoError(t, err)
 	require.NotNil(t, vc)
 }
 
 func TestParseCredentialWithDisabledProofCheck(t *testing.T) {
-	signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
+	issuerKeyID := "did:example:76e12ec712ebc6f1c221ebfeb1f"
+	proofCreator, _ := testsupport.NewKMSSigVerPair(t, kms.ED25519Type, issuerKeyID)
 
 	t.Run("ParseUnverifiedCredential() for JWS", func(t *testing.T) {
 		// Prepare JWS.
-		vc, err := parseTestCredential(t, []byte(validCredential))
+		vc, err := parseTestCredential(t, []byte(validCredential), WithDisabledProofCheck())
 		require.NoError(t, err)
 
 		credClaims, err := vc.JWTClaims(true)
 		require.NoError(t, err)
 
-		jws, err := credClaims.MarshalJWSString(EdDSA, signer, "any")
+		jws, err := credClaims.MarshalJWSString(EdDSA, proofCreator, issuerKeyID)
 		require.NoError(t, err)
 
 		// Parse VC with JWS proof.
@@ -2000,7 +1977,7 @@ func TestParseCredentialWithDisabledProofCheck(t *testing.T) {
 	})
 
 	t.Run("ParseUnverifiedCredential() for JWT error cases", func(t *testing.T) {
-		validCred, err := parseTestCredential(t, []byte(validCredential))
+		validCred, err := parseTestCredential(t, []byte(validCredential), WithDisabledProofCheck())
 		require.NoError(t, err)
 
 		vcc := validCred.Contents()
@@ -2029,13 +2006,14 @@ func TestParseCredentialWithDisabledProofCheck(t *testing.T) {
 
 	t.Run("ParseUnverifiedCredential() for Linked Data proof", func(t *testing.T) {
 		// Prepare JWS.
-		vc, err := parseTestCredential(t, []byte(validCredential))
+		vc, err := parseTestCredential(t, []byte(validCredential), WithDisabledProofCheck())
 		require.NoError(t, err)
 
 		created := time.Now()
 		err = vc.AddLinkedDataProof(&LinkedDataProofContext{
 			SignatureType:           "Ed25519Signature2018",
-			Suite:                   ed25519signature2018.New(suite.WithSigner(signer)),
+			KeyType:                 kms.ED25519Type,
+			ProofCreator:            proofCreator,
 			SignatureRepresentation: SignatureJWS,
 			Created:                 &created,
 		}, jsonld.WithDocumentLoader(createTestDocumentLoader(t)))
@@ -2058,12 +2036,7 @@ func TestParseCredentialWithDisabledProofCheck(t *testing.T) {
 			"iss": 33, // JWT issuer must be a string
 		}
 
-		headers := jose.Headers{
-			"alg": "none",
-			"typ": "JWT",
-		}
-
-		invalidUnsecuredJWT, err := marshalUnsecuredJWT(headers, invalidClaims)
+		invalidUnsecuredJWT, err := marshalUnsecuredJWT(invalidClaims)
 		require.NoError(t, err)
 
 		vc, err := ParseCredential([]byte(invalidUnsecuredJWT), WithDisabledProofCheck())
@@ -2105,14 +2078,15 @@ func TestParseCredentialWithDisabledProofCheck(t *testing.T) {
 
 func TestCredential_ValidateCredential(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		vc, err := ParseCredential([]byte(validCredential), WithCredDisableValidation())
+		vc, err := ParseCredential([]byte(validCredential), WithCredDisableValidation(), WithDisabledProofCheck())
 		require.NoError(t, err)
 		require.NotNil(t, vc)
 		require.NoError(t, vc.ValidateCredential(WithJSONLDDocumentLoader(createTestDocumentLoader(t))))
 	})
 
 	t.Run("Invalid cred", func(t *testing.T) {
-		vc, err := ParseCredential([]byte(credentialWithoutIssuanceDate), WithCredDisableValidation())
+		vc, err := ParseCredential([]byte(credentialWithoutIssuanceDate),
+			WithCredDisableValidation(), WithDisabledProofCheck())
 		require.NoError(t, err)
 		require.NotNil(t, vc)
 		require.Error(t, vc.ValidateCredential(WithJSONLDDocumentLoader(createTestDocumentLoader(t))))
@@ -2121,7 +2095,7 @@ func TestCredential_ValidateCredential(t *testing.T) {
 
 func TestMarshalCredential(t *testing.T) {
 	t.Run("test marshalling VC to JSON bytes", func(t *testing.T) {
-		vc, err := parseTestCredential(t, []byte(validCredential))
+		vc, err := parseTestCredential(t, []byte(validCredential), WithDisabledProofCheck())
 		require.NoError(t, err)
 		require.NotNil(t, vc)
 

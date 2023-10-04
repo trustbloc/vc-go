@@ -6,7 +6,6 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,14 +13,7 @@ import (
 	jsonld "github.com/trustbloc/did-go/doc/ld/processor"
 
 	"github.com/trustbloc/vc-go/dataintegrity/models"
-	"github.com/trustbloc/vc-go/signature/suite"
-	"github.com/trustbloc/vc-go/signature/suite/bbsblssignature2020"
-	"github.com/trustbloc/vc-go/signature/suite/bbsblssignatureproof2020"
-	"github.com/trustbloc/vc-go/signature/suite/ecdsasecp256k1signature2019"
-	"github.com/trustbloc/vc-go/signature/suite/ed25519signature2018"
-	"github.com/trustbloc/vc-go/signature/suite/ed25519signature2020"
-	"github.com/trustbloc/vc-go/signature/suite/jsonwebsignature2020"
-	"github.com/trustbloc/vc-go/signature/verifier"
+	"github.com/trustbloc/vc-go/verifiable/lddocument"
 )
 
 const (
@@ -33,27 +25,9 @@ const (
 	bbsBlsSignatureProof2020    = "BbsBlsSignatureProof2020"
 )
 
-func getProofType(proofMap map[string]interface{}) (string, error) {
-	proofType, ok := proofMap["type"]
-	if !ok {
-		return "", errors.New("proof type is missing")
-	}
-
-	proofTypeStr := safeStringValue(proofType)
-	switch proofTypeStr {
-	case ed25519Signature2018, jsonWebSignature2020, ecdsaSecp256k1Signature2019,
-		bbsBlsSignature2020, bbsBlsSignatureProof2020, ed25519Signature2020:
-		return proofTypeStr, nil
-	default:
-		return "", fmt.Errorf("unsupported proof type: %s", proofType)
-	}
-}
-
 type embeddedProofCheckOpts struct {
-	publicKeyFetcher   PublicKeyFetcher
+	proofChecker       lddocument.ProofChecker
 	disabledProofCheck bool
-
-	ldpSuites []verifier.SignatureSuite
 
 	dataIntegrityOpts *verifyDataIntegrityOpts
 
@@ -79,8 +53,7 @@ func checkEmbeddedProofBytes(docBytes []byte, opts *embeddedProofCheckOpts) erro
 func checkEmbeddedProof(jsonldDoc map[string]interface{}, opts *embeddedProofCheckOpts) error { // nolint:gocyclo
 	proofElement, ok := jsonldDoc["proof"]
 	if !ok || proofElement == nil {
-		// do not make a check if there is no proof defined as proof presence is not mandatory
-		return nil
+		return fmt.Errorf("check embedded proof: proof is missed")
 	}
 
 	proofs, err := getProofs(proofElement)
@@ -107,76 +80,16 @@ func checkEmbeddedProof(jsonldDoc map[string]interface{}, opts *embeddedProofChe
 		}
 	}
 
-	ldpSuites, err := getSuites(proofs, opts)
-	if err != nil {
-		return err
+	if opts.proofChecker == nil {
+		return errors.New("proofChecker is not defined")
 	}
 
-	if opts.publicKeyFetcher == nil {
-		return errors.New("public key fetcher is not defined")
-	}
-
-	err = checkLinkedDataProof(jsonldDoc, ldpSuites, opts.publicKeyFetcher, &opts.jsonldCredentialOpts)
+	err = checkLinkedDataProof(jsonldDoc, opts.proofChecker, &opts.jsonldCredentialOpts)
 	if err != nil {
 		return fmt.Errorf("check embedded proof: %w", err)
 	}
 
 	return nil
-}
-
-// nolint:gocyclo
-func getSuites(proofs []map[string]interface{}, opts *embeddedProofCheckOpts) ([]verifier.SignatureSuite, error) {
-	ldpSuites := opts.ldpSuites
-
-	for i := range proofs {
-		t, err := getProofType(proofs[i])
-		if err != nil {
-			return nil, fmt.Errorf("check embedded proof: %w", err)
-		}
-
-		if len(opts.ldpSuites) == 0 {
-			switch t {
-			case ed25519Signature2018:
-				ldpSuites = append(ldpSuites, ed25519signature2018.New(
-					suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier())))
-			case ed25519Signature2020:
-				ldpSuites = append(ldpSuites, ed25519signature2020.New(
-					suite.WithVerifier(ed25519signature2020.NewPublicKeyVerifier())))
-			case jsonWebSignature2020:
-				ldpSuites = append(ldpSuites, jsonwebsignature2020.New(
-					suite.WithVerifier(jsonwebsignature2020.NewPublicKeyVerifier())))
-			case ecdsaSecp256k1Signature2019:
-				ldpSuites = append(ldpSuites, ecdsasecp256k1signature2019.New(
-					suite.WithVerifier(ecdsasecp256k1signature2019.NewPublicKeyVerifier())))
-			case bbsBlsSignature2020:
-				ldpSuites = append(ldpSuites, bbsblssignature2020.New(
-					suite.WithVerifier(bbsblssignature2020.NewG2PublicKeyVerifier())))
-			case bbsBlsSignatureProof2020:
-				nonce, err := getNonce(proofs[i])
-				if err != nil {
-					return nil, err
-				}
-
-				ldpSuites = append(ldpSuites, bbsblssignatureproof2020.New(
-					suite.WithVerifier(bbsblssignatureproof2020.NewG2PublicKeyVerifier(nonce))))
-			}
-		}
-	}
-
-	return ldpSuites, nil
-}
-
-func getNonce(proof map[string]interface{}) ([]byte, error) {
-	if nonce, ok := proof["nonce"]; ok {
-		n, err := base64.StdEncoding.DecodeString(nonce.(string))
-		if err != nil {
-			return nil, err
-		}
-
-		return n, nil
-	}
-
-	return []byte{}, nil
 }
 
 func getProofs(proofElement interface{}) ([]map[string]interface{}, error) {

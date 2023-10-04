@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package jwt
+package jwt_test
 
 import (
 	"crypto/ed25519"
@@ -22,6 +22,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/trustbloc/kms-go/doc/jose"
+
+	"github.com/trustbloc/vc-go/proof/testsupport"
+
+	. "github.com/trustbloc/vc-go/jwt"
 )
 
 type CustomClaim struct {
@@ -29,6 +33,14 @@ type CustomClaim struct {
 
 	PrivateClaim1 string `json:"privateClaim1,omitempty"`
 }
+
+const (
+	// signatureEdDSA defines EdDSA alg.
+	signatureEdDSA = "EdDSA"
+
+	// signatureRS256 defines RS256 alg.
+	signatureRS256 = "RS256"
+)
 
 func TestNewSigned(t *testing.T) {
 	claims := createClaims()
@@ -39,7 +51,14 @@ func TestNewSigned(t *testing.T) {
 		pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
 		r.NoError(err)
 
-		token, err := NewSigned(claims, nil, NewEd25519Signer(privKey))
+		signKeyID := "did:test:example#key1"
+		proofCreator, proofChecker := testsupport.NewEd25519Pair(pubKey, privKey, signKeyID)
+
+		token, err := NewSigned(claims, SignParameters{
+			KeyID:  signKeyID,
+			JWTAlg: signatureEdDSA,
+		}, proofCreator)
+
 		r.NoError(err)
 		jws, err := token.Serialize(false)
 		require.NoError(t, err)
@@ -49,7 +68,7 @@ func TestNewSigned(t *testing.T) {
 		r.NoError(err)
 		r.Equal(*claims, parsedClaims)
 
-		err = verifyEd25519(jws, pubKey)
+		_, _, err = Parse(jws, WithProofChecker(proofChecker))
 		r.NoError(err)
 	})
 
@@ -61,17 +80,23 @@ func TestNewSigned(t *testing.T) {
 
 		pubKey := &privKey.PublicKey
 
-		token, err := NewSigned(claims, nil, NewRS256Signer(privKey, nil))
+		signKeyID := "did:test:example#key1"
+		proofCreator, proofChecker := testsupport.NewRSA256Pair(privKey, signKeyID)
+
+		token, err := NewSigned(claims, SignParameters{
+			KeyID:  signKeyID,
+			JWTAlg: signatureRS256,
+		}, proofCreator)
 		r.NoError(err)
 		jws, err := token.Serialize(false)
 		require.NoError(t, err)
 
 		var parsedClaims CustomClaim
-		err = verifyRS256ViaGoJose(jws, pubKey, &parsedClaims)
+		err = VerifyRS256ViaGoJose(jws, pubKey, &parsedClaims)
 		r.NoError(err)
 		r.Equal(*claims, parsedClaims)
 
-		err = verifyRS256(jws, pubKey)
+		_, _, err = Parse(jws, WithProofChecker(proofChecker))
 		r.NoError(err)
 	})
 }
@@ -82,13 +107,13 @@ func TestNewUnsecured(t *testing.T) {
 	t.Run("Create unsecured JWT", func(t *testing.T) {
 		r := require.New(t)
 
-		token, err := NewUnsecured(claims, map[string]interface{}{"custom": "ok"})
+		token, err := NewUnsecured(claims)
 		r.NoError(err)
 		jwtUnsecured, err := token.Serialize(false)
 		r.NoError(err)
 		r.NotEmpty(jwtUnsecured)
 
-		parsedJWT, _, err := Parse(jwtUnsecured, WithSignatureVerifier(UnsecuredJWTVerifier()))
+		parsedJWT, _, err := Parse(jwtUnsecured, WithProofChecker(UnsecuredJWTVerifier()))
 		r.NoError(err)
 		r.NotNil(parsedJWT)
 
@@ -99,30 +124,16 @@ func TestNewUnsecured(t *testing.T) {
 	})
 
 	t.Run("Invalid claims", func(t *testing.T) {
-		token, err := NewUnsecured("not JSON claims", nil)
+		token, err := NewUnsecured("not JSON claims")
 		require.Error(t, err)
 		require.Nil(t, token)
 		require.Contains(t, err.Error(), "unmarshallable claims")
 
-		token, err = NewUnsecured(getUnmarshallableMap(), nil)
+		token, err = NewUnsecured(getUnmarshallableMap())
 		require.Error(t, err)
 		require.Nil(t, token)
 		require.Contains(t, err.Error(), "marshal JWT claims")
-
-		token, err = NewUnsecured(claims, getUnmarshallableMap())
-		require.Error(t, err)
-		require.Nil(t, token)
-		require.Contains(t, err.Error(), "create JWS")
 	})
-}
-
-func TestWithJWTDetachedPayload(t *testing.T) {
-	detachedPayloadOpt := WithJWTDetachedPayload([]byte("payload"))
-	require.NotNil(t, detachedPayloadOpt)
-
-	opts := &parseOpts{}
-	detachedPayloadOpt(opts)
-	require.Equal(t, []byte("payload"), opts.detachedPayload)
 }
 
 func TestParse(t *testing.T) {
@@ -131,18 +142,20 @@ func TestParse(t *testing.T) {
 	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
 	r.NoError(err)
 
-	signer := NewEd25519Signer(privKey)
+	signKeyID := "did:test:example#key1"
+	proofCreator, proofChecker := testsupport.NewEd25519Pair(pubKey, privKey, signKeyID)
+
 	claims := map[string]interface{}{"iss": "Albert"}
 
-	token, err := NewSigned(claims, nil, signer)
+	token, err := NewSigned(claims, SignParameters{
+		KeyID:  signKeyID,
+		JWTAlg: signatureEdDSA}, proofCreator)
 	r.NoError(err)
+
 	jws, err := token.Serialize(false)
 	r.NoError(err)
 
-	verifier, err := NewEd25519Verifier(pubKey)
-	r.NoError(err)
-
-	jsonWebToken, _, err := Parse(jws, WithSignatureVerifier(verifier))
+	jsonWebToken, _, err := Parse(jws, WithProofChecker(proofChecker))
 	r.NoError(err)
 
 	var parsedClaims map[string]interface{}
@@ -152,7 +165,7 @@ func TestParse(t *testing.T) {
 	r.Equal(claims, parsedClaims)
 
 	// parse without .Payload data
-	jsonWebToken, _, err = Parse(jws, WithSignatureVerifier(verifier), WithIgnoreClaimsMapDecoding(true))
+	jsonWebToken, _, err = Parse(jws, WithProofChecker(proofChecker), WithIgnoreClaimsMapDecoding(true))
 	r.NoError(err)
 	assert.Nil(t, jsonWebToken.Payload)
 
@@ -164,32 +177,34 @@ func TestParse(t *testing.T) {
 	require.NoError(t, err)
 
 	jsonWebToken, _, err = Parse(jwsDetached,
-		WithSignatureVerifier(verifier), WithJWTDetachedPayload(jwsPayload))
+		WithProofChecker(proofChecker), WithJWTDetachedPayload(jwsPayload))
 	r.NoError(err)
 	r.NotNil(r, jsonWebToken)
 
 	// claims is not JSON
-	jws, err = buildJWS(signer, "not JSON")
+	jws, err = buildJWS(proofCreator, map[string]interface{}{"alg": "EdDSA"}, "not JSON")
 	r.NoError(err)
-	token, _, err = Parse(jws, WithSignatureVerifier(verifier))
+	token, _, err = Parse(jws, WithProofChecker(proofChecker))
 	r.Error(err)
 	r.Contains(err.Error(), "read JWT claims from JWS payload")
 	r.Nil(token)
 
 	// type is not JWT
-	signer.headers = map[string]interface{}{"alg": "EdDSA", "typ": "JWM"}
-	jws, err = buildJWS(signer, map[string]interface{}{"iss": "Albert"})
+	jws, err = buildJWS(proofCreator,
+		map[string]interface{}{"alg": "EdDSA", "typ": "JWM"},
+		map[string]interface{}{"iss": "Albert"})
 	r.NoError(err)
-	token, _, err = Parse(jws, WithSignatureVerifier(verifier))
+	token, _, err = Parse(jws, WithProofChecker(proofChecker))
 	r.Error(err)
 	r.Contains(err.Error(), "typ is not JWT")
 	r.Nil(token)
 
 	// content type is not empty (equals to JWT)
-	signer.headers = map[string]interface{}{"alg": "EdDSA", "typ": "JWT", "cty": "JWT"}
-	jws, err = buildJWS(signer, map[string]interface{}{"iss": "Albert"})
+	jws, err = buildJWS(proofCreator,
+		map[string]interface{}{"alg": "EdDSA", "typ": "JWT", "cty": "JWT"},
+		map[string]interface{}{"iss": "Albert"})
 	r.NoError(err)
-	token, _, err = Parse(jws, WithSignatureVerifier(verifier))
+	token, _, err = Parse(jws, WithProofChecker(proofChecker))
 	r.Error(err)
 	r.Contains(err.Error(), "nested JWT is not supported")
 	r.Nil(token)
@@ -207,13 +222,17 @@ func TestParse(t *testing.T) {
 	r.Nil(token)
 }
 
-func buildJWS(signer jose.Signer, claims interface{}) (string, error) {
+func buildJWS(signer ProofCreator, headers jose.Headers, claims interface{}) (string, error) {
 	claimsBytes, err := json.Marshal(claims)
 	if err != nil {
 		return "", err
 	}
 
-	jws, err := jose.NewJWS(nil, nil, claimsBytes, signer)
+	joseSign, err := NewJOSESigner(SignParameters{
+		KeyID:  "did:test:example#key1",
+		JWTAlg: signatureEdDSA}, signer)
+
+	jws, err := jose.NewJWS(headers, nil, claimsBytes, joseSign)
 	if err != nil {
 		return "", err
 	}
@@ -263,30 +282,23 @@ func TestJSONWebToken_Serialize(t *testing.T) {
 	tokenSerialized, err := token.Serialize(false)
 	require.NoError(t, err)
 	require.NotEmpty(t, tokenSerialized)
-
-	// cannot serialize without signature
-	token.jws = nil
-	tokenSerialized, err = token.Serialize(false)
-	require.Error(t, err)
-	require.EqualError(t, err, "JWS serialization is supported only")
-	require.Empty(t, tokenSerialized)
 }
 
 func TestUnsecuredJWTVerifier(t *testing.T) {
 	verifier := UnsecuredJWTVerifier()
 
-	err := verifier.Verify(map[string]interface{}{"alg": "none"}, nil, nil, nil)
+	err := verifier.CheckJWTProof(map[string]interface{}{"alg": "none"}, nil, nil, nil)
 	require.NoError(t, err)
 
-	err = verifier.Verify(map[string]interface{}{}, nil, nil, nil)
+	err = verifier.CheckJWTProof(map[string]interface{}{}, nil, nil, nil)
 	require.Error(t, err)
 	require.EqualError(t, err, "alg is not defined")
 
-	err = verifier.Verify(map[string]interface{}{"alg": "EdDSA"}, nil, nil, nil)
+	err = verifier.CheckJWTProof(map[string]interface{}{"alg": "EdDSA"}, nil, nil, nil)
 	require.Error(t, err)
 	require.EqualError(t, err, "alg value is not 'none'")
 
-	err = verifier.Verify(map[string]interface{}{"alg": "none"}, nil, nil, []byte("unexpected signature"))
+	err = verifier.CheckJWTProof(map[string]interface{}{"alg": "none"}, nil, nil, []byte("unexpected signature"))
 	require.Error(t, err)
 	require.EqualError(t, err, "not empty signature")
 }
@@ -464,17 +476,19 @@ func Test_toMap(t *testing.T) {
 }
 
 func getValidJSONWebToken() (*JSONWebToken, error) {
-	headers := map[string]interface{}{"typ": "JWT", "alg": "EdDSA"}
 	claims := map[string]interface{}{"iss": "Albert"}
 
-	_, privKey, err := ed25519.GenerateKey(rand.Reader)
+	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		return nil, err
 	}
+	signKeyID := "did:test:example#key1"
+	proofCreator, _ := testsupport.NewEd25519Pair(pubKey, privKey, signKeyID)
 
-	signer := NewEd25519Signer(privKey)
-
-	return NewSigned(claims, headers, signer)
+	return NewSigned(claims, SignParameters{
+		JWTAlg:            signatureEdDSA,
+		AdditionalHeaders: map[string]interface{}{"typ": "JWT"},
+	}, proofCreator)
 }
 
 func getJSONWebTokenWithInvalidPayload() (*JSONWebToken, error) {
@@ -502,7 +516,7 @@ func verifyEd25519ViaGoJose(jws string, pubKey ed25519.PublicKey, claims interfa
 	return nil
 }
 
-func verifyRS256ViaGoJose(jws string, pubKey *rsa.PublicKey, claims interface{}) error {
+func VerifyRS256ViaGoJose(jws string, pubKey *rsa.PublicKey, claims interface{}) error {
 	jwtToken, err := jwt.ParseSigned(jws)
 	if err != nil {
 		return fmt.Errorf("parse VC from signed JWS: %w", err)
@@ -629,7 +643,27 @@ func Test_checkHeaders(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tt.wantErr(t, checkHeaders(tt.args.headers), fmt.Sprintf("checkHeaders(%v)", tt.args.headers))
+			tt.wantErr(t, CheckHeaders(tt.args.headers), fmt.Sprintf("CheckHeaders(%v)", tt.args.headers))
 		})
 	}
+}
+
+type creatorCustomHeaders struct {
+	signer  ProofCreator
+	headers jose.Headers
+}
+
+func NewCreatorWithCustomHeaders(signer ProofCreator, headers jose.Headers) *creatorCustomHeaders {
+	return &creatorCustomHeaders{
+		signer:  signer,
+		headers: headers,
+	}
+}
+
+func (c *creatorCustomHeaders) SignJWT(params SignParameters, data []byte) ([]byte, error) {
+	return c.SignJWT(params, data)
+}
+
+func (c *creatorCustomHeaders) CreateJWTHeaders(params SignParameters) (jose.Headers, error) {
+	return c.headers, nil
 }

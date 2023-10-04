@@ -7,8 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package verifier
 
 import (
-	"crypto/ed25519"
-	"crypto/rand"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -20,11 +18,10 @@ import (
 	afgotime "github.com/trustbloc/did-go/doc/util/time"
 	"github.com/trustbloc/did-go/method/key"
 	"github.com/trustbloc/did-go/vdr"
-	"github.com/trustbloc/kms-go/doc/jose"
 	"github.com/trustbloc/kms-go/spi/kms"
 
-	"github.com/trustbloc/vc-go/internal/testutil/signatureutil"
 	afgjwt "github.com/trustbloc/vc-go/jwt"
+	"github.com/trustbloc/vc-go/proof/testsupport"
 	"github.com/trustbloc/vc-go/verifiable"
 )
 
@@ -210,9 +207,9 @@ func TestIsValidDomainCredentialJWT(t *testing.T) {
 		}, nil)
 		require.NoError(t, err)
 
-		ed25519Signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
+		ed25519ProofCreator, _ := testsupport.NewKMSSigVerPair(t, kms.ED25519Type, "")
 
-		dlcJWT = createEdDSAJWS(t, dlcJWT, ed25519Signer, testKID, false)
+		dlcJWT = createEdDSAJWS(t, dlcJWT, ed25519ProofCreator, testKID, false)
 
 		jwt, err := dlcJWT.MarshalJSON()
 		require.NoError(t, err)
@@ -254,14 +251,12 @@ func TestIsValidDomainCredentialJWT(t *testing.T) {
 		jwtClaims, err := dlcJWT.JWTClaims(false)
 		require.NoError(t, err)
 
-		_, privKey, err := ed25519.GenerateKey(rand.Reader)
-		require.NoError(t, err)
+		ed25519ProofCreator, _ := testsupport.NewKMSSigVerPair(t, kms.ED25519Type, testKID)
 
-		headers := map[string]interface{}{
-			jose.HeaderKeyID: testKID,
-		}
-
-		token, err := afgjwt.NewSigned(jwtClaims, headers, afgjwt.NewEd25519Signer(privKey))
+		token, err := afgjwt.NewSigned(jwtClaims, afgjwt.SignParameters{
+			KeyID:  testKID,
+			JWTAlg: "EdDSA",
+		}, ed25519ProofCreator)
 		require.NoError(t, err)
 
 		jwt, err := token.Serialize(false)
@@ -270,9 +265,11 @@ func TestIsValidDomainCredentialJWT(t *testing.T) {
 		vcParsed, err := verifiable.ParseCredential([]byte("\""+jwt+"\""), credOpts...)
 		require.NoError(t, err)
 
-		headers["typ"] = "whatever"
-
-		token, err = afgjwt.NewSigned(jwtClaims, headers, afgjwt.NewEd25519Signer(privKey))
+		token, err = afgjwt.NewSigned(jwtClaims, afgjwt.SignParameters{
+			KeyID:             testKID,
+			JWTAlg:            "EdDSA",
+			AdditionalHeaders: map[string]interface{}{"typ": "whatever"},
+		}, ed25519ProofCreator)
 		require.NoError(t, err)
 
 		jwt, err = token.Serialize(false)
@@ -299,15 +296,12 @@ func TestIsValidDomainCredentialJWT(t *testing.T) {
 		jwtClaims, err := dlcJWT.JWTClaims(false)
 		require.NoError(t, err)
 
-		_, privKey, err := ed25519.GenerateKey(rand.Reader)
-		require.NoError(t, err)
+		ed25519ProofCreator, _ := testsupport.NewKMSSigVerPair(t, kms.ED25519Type, testKID)
 
-		headers := map[string]interface{}{
-			jose.HeaderKeyID: testKID,
-		}
-
-		token, err := afgjwt.NewSigned(jwtClaims, headers, afgjwt.NewEd25519Signer(privKey))
-		require.NoError(t, err)
+		token, err := afgjwt.NewSigned(jwtClaims, afgjwt.SignParameters{
+			KeyID:  testKID,
+			JWTAlg: "EdDSA",
+		}, ed25519ProofCreator)
 
 		jwt, err := token.Serialize(false)
 		require.NoError(t, err)
@@ -315,9 +309,10 @@ func TestIsValidDomainCredentialJWT(t *testing.T) {
 		vcParsed, err := verifiable.ParseCredential([]byte("\""+jwt+"\""), credOpts...)
 		require.NoError(t, err)
 
-		headers["alg"] = nil
+		joseSig, err := afgjwt.NewJOSESigner(afgjwt.SignParameters{JWTAlg: "EdDSA"}, ed25519ProofCreator)
+		require.NoError(t, err)
 
-		token, err = afgjwt.NewSigned(jwtClaims, headers, afgjwt.NewEd25519Signer(privKey))
+		token, err = afgjwt.NewJoseSigned(jwtClaims, map[string]interface{}{"alg": nil}, joseSig)
 		require.NoError(t, err)
 
 		jwt, err = token.Serialize(false)
@@ -346,15 +341,12 @@ func TestIsValidDomainCredentialJWT(t *testing.T) {
 
 		jwtClaims.ID = "https://domain.com"
 
-		_, privKey, err := ed25519.GenerateKey(rand.Reader)
-		require.NoError(t, err)
+		ed25519ProofCreator, _ := testsupport.NewKMSSigVerPair(t, kms.ED25519Type, testKID)
 
-		headers := map[string]interface{}{
-			jose.HeaderKeyID: testKID,
-		}
-
-		token, err := afgjwt.NewSigned(jwtClaims, headers, afgjwt.NewEd25519Signer(privKey))
-		require.NoError(t, err)
+		token, err := afgjwt.NewSigned(jwtClaims, afgjwt.SignParameters{
+			KeyID:  testKID,
+			JWTAlg: "EdDSA",
+		}, ed25519ProofCreator)
 
 		jwt, err := token.Serialize(false)
 		require.NoError(t, err)
@@ -381,15 +373,13 @@ func TestIsValidDomainCredentialJWT(t *testing.T) {
 		jwtClaims, err := dlcJWT.JWTClaims(false)
 		require.NoError(t, err)
 
-		_, privKey, err := ed25519.GenerateKey(rand.Reader)
-		require.NoError(t, err)
+		ed25519ProofCreator, _ := testsupport.NewKMSSigVerPair(t, kms.ED25519Type, testKID)
 
-		headers := map[string]interface{}{
-			jose.HeaderKeyID: testKID,
-			"extra":          "value",
-		}
-
-		token, err := afgjwt.NewSigned(jwtClaims, headers, afgjwt.NewEd25519Signer(privKey))
+		token, err := afgjwt.NewSigned(jwtClaims, afgjwt.SignParameters{
+			KeyID:             testKID,
+			JWTAlg:            "EdDSA",
+			AdditionalHeaders: map[string]interface{}{"extra": "value"},
+		}, ed25519ProofCreator)
 		require.NoError(t, err)
 
 		jwt, err := token.Serialize(false)
@@ -455,9 +445,9 @@ func TestIsValidDomainCredentialJWT(t *testing.T) {
 		}, nil)
 		require.NoError(t, err)
 
-		ed25519Signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
+		ed25519ProofCreator, _ := testsupport.NewKMSSigVerPair(t, kms.ED25519Type, "")
 
-		dlcJWT = createEdDSAJWS(t, dlcJWT, ed25519Signer, testKID, false)
+		dlcJWT = createEdDSAJWS(t, dlcJWT, ed25519ProofCreator, testKID, false)
 
 		e = isValidDomainLinkageCredential(dlcJWT, testDID, testJWTDomain)
 		require.Error(t, e)
@@ -476,9 +466,9 @@ func TestIsValidDomainCredentialJWT(t *testing.T) {
 		}, nil)
 		require.NoError(t, err)
 
-		ed25519Signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
+		ed25519ProofCreator, _ := testsupport.NewKMSSigVerPair(t, kms.ED25519Type, "")
 
-		dlcJWT = createEdDSAJWS(t, dlcJWT, ed25519Signer, testKID, false)
+		dlcJWT = createEdDSAJWS(t, dlcJWT, ed25519ProofCreator, testKID, false)
 
 		borkenJWT, err := verifiable.CreateCredential(verifiable.CredentialContents{}, nil)
 		require.NoError(t, err)
@@ -664,7 +654,7 @@ func TestSetDebugOutput(t *testing.T) {
 	require.Contains(t, output.String(), "Test")
 }
 
-func createEdDSAJWS(t *testing.T, cred *verifiable.Credential, signer verifiable.Signer,
+func createEdDSAJWS(t *testing.T, cred *verifiable.Credential, signer afgjwt.ProofCreator,
 	keyID string, minimize bool) *verifiable.Credential {
 	t.Helper()
 

@@ -12,11 +12,11 @@ import (
 	"encoding/json"
 	"fmt"
 
-	afjwt "github.com/trustbloc/vc-go/jwt"
+	"github.com/trustbloc/vc-go/proof/testsupport"
 )
 
 func ExampleNew() {
-	signer, _, err := setUp()
+	signer, err := setUp()
 	if err != nil {
 		fmt.Println("failed to set-up test: %w", err.Error())
 	}
@@ -69,20 +69,15 @@ func ExampleNew() {
 	// }
 }
 
-func setUp() (*afjwt.JoseED25519Signer, *afjwt.JoseEd25519Verifier, error) {
-	issuerPublicKey, issuerPrivateKey, err := ed25519.GenerateKey(rand.Reader)
+func setUp() (*testsupport.Ed25519Signer, error) {
+	_, issuerPrivateKey, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	signer := afjwt.NewEd25519Signer(issuerPrivateKey)
+	signer := testsupport.NewEd25519Signer(issuerPrivateKey)
 
-	signatureVerifier, err := afjwt.NewEd25519Verifier(issuerPublicKey)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return signer, signatureVerifier, nil
+	return signer, nil
 }
 
 func marshalObj(obj interface{}) (string, error) {

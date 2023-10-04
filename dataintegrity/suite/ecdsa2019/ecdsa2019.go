@@ -20,11 +20,13 @@ import (
 	"github.com/piprate/json-gold/ld"
 	"github.com/trustbloc/did-go/doc/ld/processor"
 	"github.com/trustbloc/kms-go/doc/jose/jwk"
+	"github.com/trustbloc/kms-go/spi/kms"
 	"github.com/trustbloc/kms-go/wrapper"
 
+	"github.com/trustbloc/vc-go/crypto-ext/pubkey"
+	"github.com/trustbloc/vc-go/crypto-ext/verifiers/ecdsa"
 	"github.com/trustbloc/vc-go/dataintegrity/models"
 	"github.com/trustbloc/vc-go/dataintegrity/suite"
-	signatureverifier "github.com/trustbloc/vc-go/signature/verifier"
 )
 
 const (
@@ -100,7 +102,7 @@ type Verifier interface {
 	// a public key
 	// returns:
 	// 		error in case of errors or nil if signature verification was successful
-	Verify(pubKey *signatureverifier.PublicKey, msg, signature []byte) error
+	Verify(signature, msg []byte, pubKey *pubkey.PublicKey) error
 }
 
 // Suite implements the ecdsa-2019 data integrity cryptographic suite.
@@ -180,11 +182,11 @@ func NewVerifierInitializer(options *VerifierInitializerOptions) suite.VerifierI
 	p256Verifier, p384Verifier := options.P256Verifier, options.P384Verifier
 
 	if p256Verifier == nil {
-		p256Verifier = signatureverifier.NewECDSAES256SignatureVerifier()
+		p256Verifier = ecdsa.NewES256()
 	}
 
 	if p384Verifier == nil {
-		p384Verifier = signatureverifier.NewECDSAES384SignatureVerifier()
+		p384Verifier = ecdsa.NewES384()
 	}
 
 	return initializer(New(&Options{
@@ -206,7 +208,7 @@ func (s *Suite) CreateProof(doc []byte, opts *models.ProofOptions) (*models.Proo
 		return nil, err
 	}
 
-	sig, err := sign(docHash, vmKey, s.signerGetter)
+	sig, err := sign(docHash, vmKey.JWK, s.signerGetter)
 	if err != nil {
 		return nil, err
 	}
@@ -230,7 +232,7 @@ func (s *Suite) CreateProof(doc []byte, opts *models.ProofOptions) (*models.Proo
 	return p, nil
 }
 
-func (s *Suite) transformAndHash(doc []byte, opts *models.ProofOptions) ([]byte, *jwk.JWK, Verifier, error) {
+func (s *Suite) transformAndHash(doc []byte, opts *models.ProofOptions) ([]byte, *pubkey.PublicKey, Verifier, error) {
 	docData := make(map[string]interface{})
 
 	err := json.Unmarshal(doc, &docData)
@@ -242,6 +244,7 @@ func (s *Suite) transformAndHash(doc []byte, opts *models.ProofOptions) ([]byte,
 	if vmKey == nil {
 		return nil, nil, nil, errors.New("verification method needs JWK")
 	}
+	var keyType kms.KeyType
 
 	var (
 		h        hash.Hash
@@ -252,9 +255,11 @@ func (s *Suite) transformAndHash(doc []byte, opts *models.ProofOptions) ([]byte,
 	case "P-256":
 		h = sha256.New()
 		verifier = s.p256Verifier
+		keyType = kms.ECDSAP256TypeIEEEP1363
 	case "P-384":
 		h = sha512.New384()
 		verifier = s.p384Verifier
+		keyType = kms.ECDSAP384TypeIEEEP1363
 	default:
 		return nil, nil, nil, errors.New("unsupported ECDSA curve")
 	}
@@ -277,10 +282,10 @@ func (s *Suite) transformAndHash(doc []byte, opts *models.ProofOptions) ([]byte,
 
 	docHash := hashData(canonDoc, canonConf, h)
 
-	return docHash, vmKey, verifier, nil
+	return docHash, &pubkey.PublicKey{Type: keyType, JWK: vmKey}, verifier, nil
 }
 
-// VerifyProof implements the ecdsa-2019 cryptographic suite for Verify Proof:
+// VerifyProof implements the ecdsa-2019 cryptographic suite for CheckJWTProof Proof:
 // https://www.w3.org/TR/vc-di-ecdsa/#verify-proof-ecdsa-2019
 func (s *Suite) VerifyProof(doc []byte, proof *models.Proof, opts *models.ProofOptions) error {
 	message, vmKey, verifier, err := s.transformAndHash(doc, opts)
@@ -293,7 +298,7 @@ func (s *Suite) VerifyProof(doc []byte, proof *models.Proof, opts *models.ProofO
 		return fmt.Errorf("decoding proofValue: %w", err)
 	}
 
-	err = verifier.Verify(&signatureverifier.PublicKey{JWK: vmKey}, message, signature)
+	err = verifier.Verify(signature, message, vmKey)
 	if err != nil {
 		return fmt.Errorf("failed to verify ecdsa-2019 DI proof: %w", err)
 	}
