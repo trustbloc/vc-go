@@ -21,7 +21,8 @@ import (
 
 	"github.com/trustbloc/kms-go/doc/jose/jwk/jwksupport"
 
-	afjwt "github.com/trustbloc/vc-go/jwt"
+	"github.com/trustbloc/vc-go/crypto-ext/testutil"
+	"github.com/trustbloc/vc-go/proof/testsupport"
 	"github.com/trustbloc/vc-go/sdjwt/common"
 	"github.com/trustbloc/vc-go/sdjwt/holder"
 	"github.com/trustbloc/vc-go/sdjwt/issuer"
@@ -40,10 +41,9 @@ func TestSDJWTFlow(t *testing.T) {
 	issuerPublicKey, issuerPrivateKey, e := ed25519.GenerateKey(rand.Reader)
 	r.NoError(e)
 
-	signer := afjwt.NewEd25519Signer(issuerPrivateKey)
+	signer := testutil.NewEd25519Signer(issuerPrivateKey)
 
-	signatureVerifier, e := afjwt.NewEd25519Verifier(issuerPublicKey)
-	r.NoError(e)
+	signatureVerifier := testsupport.NewEd25519Verifier(issuerPublicKey)
 
 	claims := map[string]interface{}{
 		"given_name": "Albert",
@@ -131,7 +131,7 @@ func TestSDJWTFlow(t *testing.T) {
 		// expected disclosures given_name and last_name
 		r.Equal(2, len(claims))
 
-		holderSigner := afjwt.NewEd25519Signer(holderPrivateKey)
+		holderSigner := testutil.NewEd25519Signer(holderPrivateKey)
 
 		const testAudience = "https://test.com/verifier"
 		const testNonce = "nonce"
@@ -301,7 +301,7 @@ func TestSDJWTFlow(t *testing.T) {
 		const testAudience = "https://test.com/verifier"
 		const testNonce = "nonce"
 
-		holderSigner := afjwt.NewEd25519Signer(holderPrivateKey)
+		holderSigner := testutil.NewEd25519Signer(holderPrivateKey)
 
 		selectedDisclosures := getDisclosuresFromClaimNames([]string{"degree", "id", "name"}, claims)
 
@@ -405,7 +405,7 @@ func TestSDJWTFlow(t *testing.T) {
 		const testAudience = "https://test.com/verifier"
 		const testNonce = "nonce"
 
-		holderSigner := afjwt.NewEd25519Signer(holderPrivateKey)
+		holderSigner := testutil.NewEd25519Signer(holderPrivateKey)
 
 		selectedDisclosures := getDisclosuresFromClaimNames([]string{"degree", "id", "name"}, claims)
 

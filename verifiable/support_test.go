@@ -18,10 +18,8 @@ import (
 	ldtestutil "github.com/trustbloc/did-go/doc/ld/testutil"
 	kmsapi "github.com/trustbloc/kms-go/spi/kms"
 
-	"github.com/trustbloc/vc-go/internal/testutil/signatureutil"
-	"github.com/trustbloc/vc-go/signature/suite"
-	"github.com/trustbloc/vc-go/signature/suite/ed25519signature2018"
-	"github.com/trustbloc/vc-go/signature/verifier"
+	"github.com/trustbloc/vc-go/proof/checker"
+	"github.com/trustbloc/vc-go/proof/testsupport"
 )
 
 //go:embed testdata/valid_credential.jsonld
@@ -58,7 +56,7 @@ func (vp *Presentation) stringJSON(t *testing.T) string {
 	return string(bytes)
 }
 
-func createVCWithLinkedDataProof(t *testing.T) (*Credential, PublicKeyFetcher) {
+func createVCWithLinkedDataProof(t *testing.T) (*Credential, *checker.ProofChecker) {
 	t.Helper()
 
 	vc, err := ParseCredential([]byte(validCredential),
@@ -69,11 +67,12 @@ func createVCWithLinkedDataProof(t *testing.T) (*Credential, PublicKeyFetcher) {
 
 	created := time.Now()
 
-	signer := signatureutil.CryptoSigner(t, kmsapi.ED25519Type)
+	proofCreator, proofChecker := testsupport.NewKMSSigVerPair(t, kmsapi.ED25519Type, "did:123#any")
 
 	err = vc.AddLinkedDataProof(&LinkedDataProofContext{
 		SignatureType:           "Ed25519Signature2018",
-		Suite:                   ed25519signature2018.New(suite.WithSigner(signer)),
+		KeyType:                 kmsapi.ED25519Type,
+		ProofCreator:            proofCreator,
 		SignatureRepresentation: SignatureJWS,
 		Created:                 &created,
 		VerificationMethod:      "did:123#any",
@@ -81,10 +80,10 @@ func createVCWithLinkedDataProof(t *testing.T) (*Credential, PublicKeyFetcher) {
 
 	require.NoError(t, err)
 
-	return vc, SingleJWK(signer.PublicJWK(), kmsapi.ED25519)
+	return vc, proofChecker
 }
 
-func createVCWithTwoLinkedDataProofs(t *testing.T) (*Credential, PublicKeyFetcher) {
+func createVCWithTwoLinkedDataProofs(t *testing.T) (*Credential, *checker.ProofChecker) {
 	t.Helper()
 
 	vc, err := ParseCredential([]byte(validCredential),
@@ -95,11 +94,21 @@ func createVCWithTwoLinkedDataProofs(t *testing.T) (*Credential, PublicKeyFetche
 
 	created := time.Now()
 
-	signer1 := signatureutil.CryptoSigner(t, kmsapi.ED25519Type)
+	proofCreators, proofChecker := testsupport.NewKMSSignersAndVerifier(t, []testsupport.SigningKey{
+		{
+			Type:        kmsapi.ED25519Type,
+			PublicKeyID: "did:123#key1",
+		},
+		{
+			Type:        kmsapi.ED25519Type,
+			PublicKeyID: "did:123#key2",
+		},
+	})
 
 	err = vc.AddLinkedDataProof(&LinkedDataProofContext{
 		SignatureType:           "Ed25519Signature2018",
-		Suite:                   ed25519signature2018.New(suite.WithSigner(signer1)),
+		KeyType:                 kmsapi.ED25519Type,
+		ProofCreator:            proofCreators[0],
 		SignatureRepresentation: SignatureJWS,
 		Created:                 &created,
 		VerificationMethod:      "did:123#key1",
@@ -107,11 +116,10 @@ func createVCWithTwoLinkedDataProofs(t *testing.T) (*Credential, PublicKeyFetche
 
 	require.NoError(t, err)
 
-	signer2 := signatureutil.CryptoSigner(t, kmsapi.ED25519Type)
-
 	err = vc.AddLinkedDataProof(&LinkedDataProofContext{
 		SignatureType:           "Ed25519Signature2018",
-		Suite:                   ed25519signature2018.New(suite.WithSigner(signer2)),
+		KeyType:                 kmsapi.ED25519Type,
+		ProofCreator:            proofCreators[1],
 		SignatureRepresentation: SignatureJWS,
 		Created:                 &created,
 		VerificationMethod:      "did:123#key2",
@@ -119,23 +127,7 @@ func createVCWithTwoLinkedDataProofs(t *testing.T) (*Credential, PublicKeyFetche
 
 	require.NoError(t, err)
 
-	return vc, func(issuerID, keyID string) (*verifier.PublicKey, error) {
-		switch keyID {
-		case "#key1":
-			return &verifier.PublicKey{
-				Type: "Ed25519Signature2018",
-				JWK:  signer1.PublicJWK(),
-			}, nil
-
-		case "#key2":
-			return &verifier.PublicKey{
-				Type: "Ed25519Signature2018",
-				JWK:  signer2.PublicJWK(),
-			}, nil
-		}
-
-		panic("invalid keyID")
-	}
+	return vc, proofChecker
 }
 
 func createTestDocumentLoader(t *testing.T, extraContexts ...ldcontext.Document) *lddocloader.DocumentLoader {

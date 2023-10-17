@@ -11,7 +11,7 @@ import (
 
 // MarshalUnsecuredJWT serializes JWT presentation claims into unsecured JWT.
 func (jpc *JWTPresClaims) MarshalUnsecuredJWT() (string, error) {
-	return marshalUnsecuredJWT(nil, jpc)
+	return marshalUnsecuredJWT(jpc)
 }
 
 func unmarshalUnsecuredJWTPresClaims(vpJWT string) (*JWTPresClaims, error) {

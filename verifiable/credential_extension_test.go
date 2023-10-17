@@ -143,14 +143,14 @@ func TestCredentialExtensibility(t *testing.T) {
   "evidence": [{
     "id": "https://example.edu/evidence/f2aeec97-fc0d-42bf-8ca7-0548192d4231",
     "type": ["DocumentVerification"],
-    "verifier": "https://example.edu/issuers/14",
+    "proofChecker": "https://example.edu/issuers/14",
     "evidenceDocument": "DriversLicense",
     "subjectPresence": "Physical",
     "documentPresence": "Physical"
   },{
     "id": "https://example.edu/evidence/f2aeec97-fc0d-42bf-8ca7-0548192dxyzab",
     "type": ["SupportingActivity"],
-    "verifier": "https://example.edu/issuers/14",
+    "proofChecker": "https://example.edu/issuers/14",
     "evidenceDocument": "Fluid Dynamics Focus",
     "subjectPresence": "Digital",
     "documentPresence": "Digital"
@@ -181,11 +181,11 @@ func TestCredentialExtensibility(t *testing.T) {
 }
 `
 
-	cred, err := parseTestCredential(t, []byte(udCredential))
+	cred, err := parseTestCredential(t, []byte(udCredential), WithDisabledProofCheck())
 	require.NoError(t, err)
 	require.NotNil(t, cred)
 
-	udc, err := NewUniversityDegreeCredential(t, []byte(udCredential))
+	udc, err := NewUniversityDegreeCredential(t, []byte(udCredential), WithDisabledProofCheck())
 	require.NoError(t, err)
 
 	// base Credential part is the same

@@ -30,7 +30,7 @@ type Claim struct {
 // jwtParseOpts holds options for the SD-JWT parsing.
 type parseOpts struct {
 	detachedPayload []byte
-	sigVerifier     jose.SignatureVerifier
+	sigVerifier     afgjwt.ProofChecker
 
 	issuerSigningAlgorithms []string
 	sdjwtV5Validation       bool
@@ -50,7 +50,7 @@ func WithJWTDetachedPayload(payload []byte) ParseOpt {
 }
 
 // WithSignatureVerifier option is for definition of JWT detached payload.
-func WithSignatureVerifier(signatureVerifier jose.SignatureVerifier) ParseOpt {
+func WithSignatureVerifier(signatureVerifier afgjwt.ProofChecker) ParseOpt {
 	return func(opts *parseOpts) {
 		opts.sigVerifier = signatureVerifier
 	}
@@ -115,7 +115,7 @@ func Parse(combinedFormatForIssuance string, opts ...ParseOpt) ([]*Claim, error)
 
 	// Validate the signature over the Issuer-signed JWT.
 	signedJWT, _, err := afgjwt.Parse(cfi.SDJWT,
-		afgjwt.WithSignatureVerifier(pOpts.sigVerifier),
+		afgjwt.WithProofChecker(pOpts.sigVerifier),
 		afgjwt.WithJWTDetachedPayload(pOpts.detachedPayload))
 	if err != nil {
 		return nil, err
@@ -293,7 +293,7 @@ func CreatePresentation(combinedFormatForIssuance string, claimsToDisclose []str
 
 // CreateHolderVerification will create holder verification from binding info.
 func CreateHolderVerification(info *BindingInfo) (string, error) {
-	hbJWT, err := afgjwt.NewSigned(info.Payload, info.Headers, info.Signer)
+	hbJWT, err := afgjwt.NewJoseSigned(info.Payload, info.Headers, info.Signer)
 	if err != nil {
 		return "", err
 	}
@@ -305,7 +305,8 @@ func CreateHolderVerification(info *BindingInfo) (string, error) {
 type NoopSignatureVerifier struct {
 }
 
-// Verify implements signature verification.
-func (sv *NoopSignatureVerifier) Verify(joseHeaders jose.Headers, payload, signingInput, signature []byte) error {
+// CheckJWTProof implements signature verification.
+func (sv *NoopSignatureVerifier) CheckJWTProof(joseHeaders jose.Headers,
+	payload, signingInput, signature []byte) error {
 	return nil
 }

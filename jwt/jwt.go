@@ -36,7 +36,7 @@ type Claims jwt.Claims
 // jwtParseOpts holds options for the JWT parsing.
 type parseOpts struct {
 	detachedPayload         []byte
-	sigVerifier             jose.SignatureVerifier
+	proofChecker            ProofChecker
 	ignoreClaimsMapDecoding bool
 }
 
@@ -58,20 +58,17 @@ func WithIgnoreClaimsMapDecoding(ignoreClaimsMapDecoding bool) ParseOpt {
 	}
 }
 
-// WithSignatureVerifier option is for definition of JWT detached payload.
-func WithSignatureVerifier(signatureVerifier jose.SignatureVerifier) ParseOpt {
+// WithProofChecker option is for definition of JWT detached payload.
+func WithProofChecker(proofChecker ProofChecker) ParseOpt {
 	return func(opts *parseOpts) {
-		opts.sigVerifier = signatureVerifier
+		opts.proofChecker = proofChecker
 	}
 }
 
-type signatureVerifierFunc func(joseHeaders jose.Headers, payload, signingInput, signature []byte) error
-
-func (v signatureVerifierFunc) Verify(joseHeaders jose.Headers, payload, signingInput, signature []byte) error {
-	return v(joseHeaders, payload, signingInput, signature)
+type unsecuredJWTVerifier struct {
 }
 
-func verifyUnsecuredJWT(joseHeaders jose.Headers, _, _, signature []byte) error {
+func (*unsecuredJWTVerifier) CheckJWTProof(joseHeaders jose.Headers, _, _, signature []byte) error {
 	alg, ok := joseHeaders.Algorithm()
 	if !ok {
 		return errors.New("alg is not defined")
@@ -89,8 +86,8 @@ func verifyUnsecuredJWT(joseHeaders jose.Headers, _, _, signature []byte) error 
 }
 
 // UnsecuredJWTVerifier provides verifier for unsecured JWT.
-func UnsecuredJWTVerifier() jose.SignatureVerifier {
-	return signatureVerifierFunc(verifyUnsecuredJWT)
+func UnsecuredJWTVerifier() ProofChecker {
+	return &unsecuredJWTVerifier{}
 }
 
 type unsecuredJWTSigner struct{}
@@ -167,7 +164,7 @@ func parseJWS(jwtSerialized string, opts *parseOpts) (*JSONWebToken, []byte, err
 		jwsOpts = append(jwsOpts, jose.WithJWSDetachedPayload(opts.detachedPayload))
 	}
 
-	jws, err := jose.ParseJWS(jwtSerialized, opts.sigVerifier, jwsOpts...)
+	jws, err := jose.ParseJWS(jwtSerialized, &joseVerifier{proofChecker: opts.proofChecker}, jwsOpts...)
 	if err != nil {
 		return nil, nil, fmt.Errorf("parse JWT from compact JWS: %w", err)
 	}
@@ -178,7 +175,7 @@ func parseJWS(jwtSerialized string, opts *parseOpts) (*JSONWebToken, []byte, err
 func mapJWSToJWT(jws *jose.JSONWebSignature, opts *parseOpts) (*JSONWebToken, []byte, error) {
 	headers := jws.ProtectedHeaders
 
-	err := checkHeaders(headers)
+	err := CheckHeaders(headers)
 	if err != nil {
 		return nil, nil, fmt.Errorf("check JWT headers: %w", err)
 	}
@@ -201,16 +198,22 @@ func mapJWSToJWT(jws *jose.JSONWebSignature, opts *parseOpts) (*JSONWebToken, []
 }
 
 // NewSigned creates new signed JSON Web Token based on input claims.
-func NewSigned(claims interface{}, headers jose.Headers, signer jose.Signer) (*JSONWebToken, error) {
-	return newSigned(claims, headers, signer)
+func NewSigned(claims interface{}, signParams SignParameters, signer ProofCreator) (*JSONWebToken, error) {
+	joseSignr, err := NewJOSESigner(signParams, signer)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewJoseSigned(claims, signParams.AdditionalHeaders, joseSignr)
 }
 
 // NewUnsecured creates new unsecured JSON Web Token based on input claims.
-func NewUnsecured(claims interface{}, headers jose.Headers) (*JSONWebToken, error) {
-	return newSigned(claims, headers, &unsecuredJWTSigner{})
+func NewUnsecured(claims interface{}) (*JSONWebToken, error) {
+	return NewJoseSigned(claims, nil, &unsecuredJWTSigner{})
 }
 
-func newSigned(claims interface{}, headers jose.Headers, signer jose.Signer) (*JSONWebToken, error) {
+// NewJoseSigned creates new signed JSON Web Token based on input claims.
+func NewJoseSigned(claims interface{}, headers jose.Headers, signer jose.Signer) (*JSONWebToken, error) {
 	payloadMap, err := PayloadToMap(claims)
 	if err != nil {
 		return nil, fmt.Errorf("unmarshallable claims: %w", err)
@@ -266,7 +269,8 @@ func isValidJSON(s string) bool {
 	return err == nil
 }
 
-func checkHeaders(headers map[string]interface{}) error {
+// CheckHeaders checks jwt headers.
+func CheckHeaders(headers map[string]interface{}) error {
 	if _, ok := headers[jose.HeaderAlgorithm]; !ok {
 		return errors.New("alg header is not defined")
 	}

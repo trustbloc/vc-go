@@ -18,40 +18,43 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/trustbloc/vc-go/internal/testutil/signatureutil"
+	"github.com/trustbloc/vc-go/crypto-ext/testutil"
+	afgjwt "github.com/trustbloc/vc-go/jwt"
+	"github.com/trustbloc/vc-go/proof/checker"
+	"github.com/trustbloc/vc-go/proof/testsupport"
 
 	"github.com/trustbloc/kms-go/doc/jose"
 	"github.com/trustbloc/kms-go/spi/kms"
 
-	afgojwt "github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/sdjwt/common"
 	"github.com/trustbloc/vc-go/sdjwt/holder"
 )
 
+const (
+	signingKeyID = "did:example:76e12ec712ebc6f1c221ebfeb1f#keys-1"
+)
+
 func TestParseSDJWT(t *testing.T) {
-	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
-	require.NoError(t, err)
-
-	sdJWTString, issuerID := createTestSDJWTCred(t, privKey)
-
 	t.Run("success", func(t *testing.T) {
-		newVC, e := ParseCredential([]byte(sdJWTString),
-			WithPublicKeyFetcher(createDIDKeyFetcher(t, pubKey, issuerID)))
+		sdJWTString, proofChecker := createTestSDJWTCred(t)
+
+		newVC, e := ParseCredential([]byte(sdJWTString), WithProofChecker(proofChecker))
 		require.NoError(t, e)
 		require.NotNil(t, newVC)
 	})
 
 	t.Run("success with SD JWT Version 5", func(t *testing.T) {
-		sdJWTCredFormatString, issuerCredFormatID := createTestSDJWTCred(t, privKey,
+		sdJWTString, proofChecker := createTestSDJWTCred(t,
 			MakeSDJWTWithVersion(common.SDJWTVersionV5))
 
-		newVC, e := ParseCredential([]byte(sdJWTCredFormatString),
-			WithPublicKeyFetcher(createDIDKeyFetcher(t, pubKey, issuerCredFormatID)))
+		newVC, e := ParseCredential([]byte(sdJWTString), WithProofChecker(proofChecker))
 		require.NoError(t, e)
 		require.NotNil(t, newVC)
 	})
 
 	t.Run("success with sd alg in subject", func(t *testing.T) {
+		sdJWTString, _ := createTestSDJWTCred(t)
+
 		vc, e := ParseCredential([]byte(sdJWTString), WithDisabledProofCheck())
 		require.NoError(t, e)
 
@@ -61,27 +64,25 @@ func TestParseSDJWT(t *testing.T) {
 		claims.VC["credentialSubject"].(map[string]interface{})["_sd_alg"] = claims.VC["_sd_alg"]
 		delete(claims.VC, "_sd_alg")
 
-		ed25519Signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
+		ed25519Signer, proofChecker := testsupport.NewKMSSigVerPair(t, kms.ED25519Type, signingKeyID)
 		require.NoError(t, e)
 
 		// TODO: rewrite tests to not directly manipulate JWTEnvelope. And make JWTEnvelope private.
 		vc.JWTEnvelope.JWT, vc.JWTEnvelope.JWTHeaders,
-			e = claims.MarshalJWS(EdDSA, ed25519Signer, issuerID+"#keys-1")
+			e = claims.MarshalJWS(EdDSA, ed25519Signer, signingKeyID)
 		require.NoError(t, e)
 
 		modifiedCred, e := vc.MarshalWithDisclosure(DiscloseAll())
 		require.NoError(t, e)
 
-		pub, e := ed25519Signer.PublicJWK().PublicKeyBytes()
-		require.NoError(t, e)
-
-		newVC, e := ParseCredential([]byte(modifiedCred),
-			WithPublicKeyFetcher(createDIDKeyFetcher(t, pub, issuerID)))
+		newVC, e := ParseCredential([]byte(modifiedCred), WithProofChecker(proofChecker))
 		require.NoError(t, e)
 		require.NotNil(t, newVC)
 	})
 
 	t.Run("success with sd alg in subject and v5", func(t *testing.T) {
+		sdJWTString, _ := createTestSDJWTCred(t)
+
 		vc, e := ParseCredential([]byte(sdJWTString), WithDisabledProofCheck())
 		require.NoError(t, e)
 
@@ -92,36 +93,34 @@ func TestParseSDJWT(t *testing.T) {
 		claims.VC["credentialSubject"].(map[string]interface{})["_sd_alg"] = claims.VC["_sd_alg"]
 		delete(claims.VC, "_sd_alg")
 
-		ed25519Signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
+		ed25519Signer, proofChecker := testsupport.NewKMSSigVerPair(t, kms.ED25519Type, signingKeyID)
 		require.NoError(t, e)
 
 		vc.JWTEnvelope.JWT, vc.JWTEnvelope.JWTHeaders, e = claims.MarshalJWS(
-			EdDSA, ed25519Signer, issuerID+"#keys-1")
+			EdDSA, ed25519Signer, signingKeyID)
 		require.NoError(t, e)
 
 		vc.JWTEnvelope.SDJWTVersion = 100500
 		modifiedCred, e := vc.MarshalWithDisclosure(DiscloseAll(), MarshalWithSDJWTVersion(common.SDJWTVersionV5))
 		require.NoError(t, e)
 
-		pub, e := ed25519Signer.PublicJWK().PublicKeyBytes()
-		require.NoError(t, e)
-
-		newVC, e := ParseCredential([]byte(modifiedCred),
-			WithPublicKeyFetcher(createDIDKeyFetcher(t, pub, issuerID)))
+		newVC, e := ParseCredential([]byte(modifiedCred), WithProofChecker(proofChecker))
 		require.NoError(t, e)
 		require.NotNil(t, newVC)
 	})
 
 	t.Run("success with mock holder binding", func(t *testing.T) {
+		sdJWTString, proofChecker := createTestSDJWTCred(t)
 		mockHolderBinding := "e30.e30.mockHolderBinding"
 
 		newVC, e := ParseCredential([]byte(sdJWTString+common.CombinedFormatSeparator+mockHolderBinding),
-			WithPublicKeyFetcher(createDIDKeyFetcher(t, pubKey, issuerID)))
+			WithProofChecker(proofChecker))
 		require.NoError(t, e)
 		require.Equal(t, mockHolderBinding, newVC.JWTEnvelope.SDHolderBinding)
 	})
 
 	t.Run("invalid SDJWT disclosures", func(t *testing.T) {
+		sdJWTString, _ := createTestSDJWTCred(t)
 		sdJWTWithUnknownDisclosure := sdJWTString +
 			common.CombinedFormatSeparator + base64.RawURLEncoding.EncodeToString([]byte("blah blah"))
 
@@ -133,10 +132,7 @@ func TestParseSDJWT(t *testing.T) {
 }
 
 func TestMarshalWithDisclosure(t *testing.T) {
-	_, privKey, err := ed25519.GenerateKey(rand.Reader)
-	require.NoError(t, err)
-
-	sourceCred, _ := createTestSDJWTCred(t, privKey)
+	sourceCred, _ := createTestSDJWTCred(t)
 
 	t.Run("success", func(t *testing.T) {
 		newVC, e2 := ParseCredential([]byte(sourceCred), WithDisabledProofCheck())
@@ -154,7 +150,7 @@ func TestMarshalWithDisclosure(t *testing.T) {
 					Audience: "foo",
 					IssuedAt: &iat,
 				},
-				Signer: afgojwt.NewEd25519Signer(privKey),
+				Signer: testutil.NewEd25519Signer(privKey),
 			}))
 			require.NoError(t, err)
 
@@ -199,21 +195,21 @@ func TestMarshalWithDisclosure(t *testing.T) {
 			_, privKey, err := ed25519.GenerateKey(rand.Reader)
 			require.NoError(t, err)
 
-			vc, err := parseTestCredential(t, []byte(jwtTestCredential))
+			vc, err := parseTestCredential(t, []byte(jwtTestCredential), WithDisabledProofCheck())
 			require.NoError(t, err)
 
 			var iat jwt.NumericDate = 0
 
 			resultCred, err := vc.MarshalWithDisclosure(
 				DiscloseGivenRequired([]string{"university"}),
-				DisclosureSigner(afgojwt.NewEd25519Signer(privKey), "did:example:abc123#key-1"),
+				DisclosureSigner(testutil.NewEd25519Signer(privKey), "did:example:abc123#key-1"),
 				DisclosureHolderBinding(&holder.BindingInfo{
 					Payload: holder.BindingPayload{
 						Nonce:    "abc123",
 						Audience: "foo",
 						IssuedAt: &iat,
 					},
-					Signer: afgojwt.NewEd25519Signer(privKey),
+					Signer: testutil.NewEd25519Signer(privKey),
 				}))
 			require.NoError(t, err)
 
@@ -268,12 +264,12 @@ func TestMarshalWithDisclosure(t *testing.T) {
 				_, privKey, err := ed25519.GenerateKey(rand.Reader)
 				require.NoError(t, err)
 
-				vc, err := parseTestCredential(t, []byte(jwtTestCredential))
+				vc, err := parseTestCredential(t, []byte(jwtTestCredential), WithDisabledProofCheck())
 				require.NoError(t, err)
 
 				resultCred, err := vc.MarshalWithDisclosure(
 					DiscloseGivenRequired([]string{"favourite-animal"}),
-					DisclosureSigner(afgojwt.NewEd25519Signer(privKey), "did:example:abc123#key-1"),
+					DisclosureSigner(testutil.NewEd25519Signer(privKey), "did:example:abc123#key-1"),
 				)
 				require.Error(t, err)
 				require.Empty(t, resultCred)
@@ -298,7 +294,7 @@ func TestMarshalWithDisclosure(t *testing.T) {
 		})
 
 		t.Run("missing signer when creating fresh SD-JWT credential", func(t *testing.T) {
-			vc, err := parseTestCredential(t, []byte(jwtTestCredential))
+			vc, err := parseTestCredential(t, []byte(jwtTestCredential), WithDisabledProofCheck())
 			require.NoError(t, err)
 
 			resultCred, err := vc.MarshalWithDisclosure(DiscloseAll())
@@ -310,7 +306,7 @@ func TestMarshalWithDisclosure(t *testing.T) {
 		t.Run("signer error creating fresh SD-JWT credential", func(t *testing.T) {
 			expectErr := fmt.Errorf("expected error")
 
-			vc, err := parseTestCredential(t, []byte(jwtTestCredential))
+			vc, err := parseTestCredential(t, []byte(jwtTestCredential), WithDisabledProofCheck())
 			require.NoError(t, err)
 
 			resultCred, err := vc.MarshalWithDisclosure(
@@ -327,12 +323,12 @@ func TestMarshalWithDisclosure(t *testing.T) {
 			_, privKey, err := ed25519.GenerateKey(rand.Reader)
 			require.NoError(t, err)
 
-			vc, err := parseTestCredential(t, []byte(jwtTestCredential))
+			vc, err := parseTestCredential(t, []byte(jwtTestCredential), WithDisabledProofCheck())
 			require.NoError(t, err)
 
 			resultCred, err := vc.MarshalWithDisclosure(
 				DiscloseAll(),
-				DisclosureSigner(afgojwt.NewEd25519Signer(privKey), "did:example:abc123#key-1"),
+				DisclosureSigner(testutil.NewEd25519Signer(privKey), "did:example:abc123#key-1"),
 				DisclosureHolderBinding(&holder.BindingInfo{
 					Payload: holder.BindingPayload{
 						Nonce:    "abc123",
@@ -356,41 +352,41 @@ func TestMakeSDJWT(t *testing.T) {
 
 	t.Run("success", func(t *testing.T) {
 		t.Run("with default hash", func(t *testing.T) {
-			vc, e := parseTestCredential(t, testCred)
+			vc, e := parseTestCredential(t, testCred, WithDisabledProofCheck())
 			require.NoError(t, e)
 
-			sdjwt, err := vc.MakeSDJWT(afgojwt.NewEd25519Signer(privKey), "did:example:abc123#key-1")
+			sdjwt, err := vc.MakeSDJWT(testutil.NewEd25519Signer(privKey), "did:example:abc123#key-1")
 			require.NoError(t, err)
 
-			_, err = ParseCredential([]byte(sdjwt), WithPublicKeyFetcher(SingleKey(pubKey, kms.ED25519)))
+			_, err = ParseCredential([]byte(sdjwt), WithJWTProofChecker(testsupport.NewEd25519Verifier(pubKey)))
 			require.NoError(t, err)
 		})
 
 		t.Run("with SD JWT V5", func(t *testing.T) {
-			vc, e := parseTestCredential(t, testCred)
+			vc, e := parseTestCredential(t, testCred, WithDisabledProofCheck())
 			require.NoError(t, e)
 
 			sdjwt, err := vc.MakeSDJWT(
-				afgojwt.NewEd25519Signer(privKey), "did:example:abc123#key-1",
+				testutil.NewEd25519Signer(privKey), "did:example:abc123#key-1",
 				MakeSDJWTWithVersion(common.SDJWTVersionV5),
 				MakeSDJWTWithRecursiveClaimsObjects([]string{"degree"}),
 				MakeSDJWTWithAlwaysIncludeObjects([]string{"degree"}),
 			)
 			require.NoError(t, err)
 
-			_, err = ParseCredential([]byte(sdjwt), WithPublicKeyFetcher(SingleKey(pubKey, kms.ED25519)))
+			_, err = ParseCredential([]byte(sdjwt), WithJWTProofChecker(testsupport.NewEd25519Verifier(pubKey)))
 			require.NoError(t, err)
 		})
 
 		t.Run("with hash option", func(t *testing.T) {
-			vc, e := parseTestCredential(t, testCred)
+			vc, e := parseTestCredential(t, testCred, WithDisabledProofCheck())
 			require.NoError(t, e)
 
-			sdjwt, err := vc.MakeSDJWT(afgojwt.NewEd25519Signer(privKey), "did:example:abc123#key-1",
+			sdjwt, err := vc.MakeSDJWT(testutil.NewEd25519Signer(privKey), "did:example:abc123#key-1",
 				MakeSDJWTWithHash(crypto.SHA512))
 			require.NoError(t, err)
 
-			_, err = ParseCredential([]byte(sdjwt), WithPublicKeyFetcher(SingleKey(pubKey, kms.ED25519)))
+			_, err = ParseCredential([]byte(sdjwt), WithJWTProofChecker(testsupport.NewEd25519Verifier(pubKey)))
 			require.NoError(t, err)
 		})
 	})
@@ -399,14 +395,14 @@ func TestMakeSDJWT(t *testing.T) {
 		t.Run("prepare claims", func(t *testing.T) {
 			badVC := &Credential{}
 
-			sdjwt, err := badVC.MakeSDJWT(afgojwt.NewEd25519Signer(privKey), "did:example:abc123#key-1")
+			sdjwt, err := badVC.MakeSDJWT(testutil.NewEd25519Signer(privKey), "did:example:abc123#key-1")
 			require.Error(t, err)
 			require.Empty(t, sdjwt)
 			require.Contains(t, err.Error(), "constructing VC JWT claims")
 		})
 
 		t.Run("creating SD-JWT", func(t *testing.T) {
-			vc, e := parseTestCredential(t, testCred)
+			vc, e := parseTestCredential(t, testCred, WithDisabledProofCheck())
 			require.NoError(t, e)
 
 			expectErr := fmt.Errorf("expected error")
@@ -440,19 +436,14 @@ func TestOptions(t *testing.T) {
 }
 
 func TestCreateDisplayCredential(t *testing.T) {
-	ed25519Signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
-
-	_, privKey, err := ed25519.GenerateKey(rand.Reader)
-	require.NoError(t, err)
-
-	sourceCred, _ := createTestSDJWTCred(t, privKey)
+	sourceCred, _ := createTestSDJWTCred(t)
 
 	t.Run("success", func(t *testing.T) {
 		vc, e2 := ParseCredential([]byte(sourceCred), WithDisabledProofCheck())
 		require.NoError(t, e2)
 
 		t.Run("not a SD-JWT credential", func(t *testing.T) {
-			vc2, err := parseTestCredential(t, []byte(jwtTestCredential))
+			vc2, err := parseTestCredential(t, []byte(jwtTestCredential), WithDisabledProofCheck())
 			require.NoError(t, err)
 
 			displayVC, err := vc2.CreateDisplayCredential(DisplayAllDisclosures())
@@ -477,7 +468,7 @@ func TestCreateDisplayCredential(t *testing.T) {
 		})
 
 		t.Run("not a SD-JWT credential map", func(t *testing.T) {
-			vc2, err := parseTestCredential(t, []byte(jwtTestCredential))
+			vc2, err := parseTestCredential(t, []byte(jwtTestCredential), WithDisabledProofCheck())
 			require.NoError(t, err)
 
 			displayVC, err := vc2.CreateDisplayCredentialMap(DisplayAllDisclosures())
@@ -569,8 +560,9 @@ func TestCreateDisplayCredential(t *testing.T) {
 				require.NoError(t, err)
 
 				claims.VC["credentialSubject"].(map[string]interface{})["_sd"] = testCase
+				proofCreator, _ := testsupport.NewKMSSigVerPair(t, kms.ED25519Type, "did:foo:bar#key-1")
 
-				badJWS, headers, err := claims.MarshalJWS(EdDSA, ed25519Signer, "did:foo:bar#key-1")
+				badJWS, headers, err := claims.MarshalJWS(EdDSA, proofCreator, "did:foo:bar#key-1")
 				require.NoError(t, err)
 
 				vc.JWTEnvelope.JWT = badJWS
@@ -592,8 +584,10 @@ func TestCreateDisplayCredential(t *testing.T) {
 
 			claims.VC["@context"] = 5
 
+			proofCreator, _ := testsupport.NewKMSSigVerPair(t, kms.ED25519Type, "did:foo:bar#key-1")
+
 			vc.JWTEnvelope.JWT, vc.JWTEnvelope.JWTHeaders, err = claims.MarshalJWS(
-				EdDSA, ed25519Signer, "did:foo:bar#key-1")
+				EdDSA, proofCreator, "did:foo:bar#key-1")
 			require.NoError(t, err)
 
 			displayVC, err := vc.CreateDisplayCredential(DisplayAllDisclosures())
@@ -617,18 +611,27 @@ func (m *mockSigner) Headers() jose.Headers {
 }
 
 func createTestSDJWTCred(
-	t *testing.T, privKey ed25519.PrivateKey, opts ...MakeSDJWTOption) (sdJWTCred string, issuerID string) {
+	t *testing.T, opts ...MakeSDJWTOption) (string, *checker.ProofChecker) {
 	t.Helper()
+
+	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+
+	proofCreator, proofChecker := testsupport.NewEd25519Pair(pubKey, privKey, signingKeyID)
 
 	testCred := []byte(jwtTestCredential)
 
-	srcVC, err := parseTestCredential(t, testCred)
+	srcVC, err := parseTestCredential(t, testCred, WithDisabledProofCheck())
 	require.NoError(t, err)
 
-	srcVCC := srcVC.Contents()
-
-	sdjwt, err := srcVC.MakeSDJWT(afgojwt.NewEd25519Signer(privKey), srcVCC.Issuer.ID+"#keys-1", opts...)
+	joseSigner, err := afgjwt.NewJOSESigner(afgjwt.SignParameters{
+		KeyID:  signingKeyID,
+		JWTAlg: "EdDSA",
+	}, proofCreator)
 	require.NoError(t, err)
 
-	return sdjwt, srcVCC.Issuer.ID
+	sdjwt, err := srcVC.MakeSDJWT(joseSigner, signingKeyID, opts...)
+	require.NoError(t, err)
+
+	return sdjwt, proofChecker
 }

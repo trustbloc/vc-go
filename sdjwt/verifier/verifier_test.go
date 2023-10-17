@@ -25,7 +25,9 @@ import (
 	afjose "github.com/trustbloc/kms-go/doc/jose"
 	"github.com/trustbloc/kms-go/doc/jose/jwk/jwksupport"
 
+	"github.com/trustbloc/vc-go/crypto-ext/testutil"
 	afjwt "github.com/trustbloc/vc-go/jwt"
+	"github.com/trustbloc/vc-go/proof/testsupport"
 	"github.com/trustbloc/vc-go/sdjwt/common"
 	"github.com/trustbloc/vc-go/sdjwt/holder"
 	"github.com/trustbloc/vc-go/sdjwt/issuer"
@@ -47,7 +49,7 @@ func TestParse(t *testing.T) {
 	pubKey, privKey, e := ed25519.GenerateKey(rand.Reader)
 	r.NoError(e)
 
-	signer := afjwt.NewEd25519Signer(privKey)
+	signer := testutil.NewEd25519Signer(privKey)
 	selectiveClaims := map[string]interface{}{"given_name": "Albert"}
 
 	now := time.Now()
@@ -70,8 +72,7 @@ func TestParse(t *testing.T) {
 
 	combinedFormatForPresentation := combinedFormatForIssuance + common.CombinedFormatSeparator
 
-	verifier, e := afjwt.NewEd25519Verifier(pubKey)
-	r.NoError(e)
+	verifier := testsupport.NewEd25519Verifier(pubKey)
 
 	t.Run("success - EdDSA signing algorithm", func(t *testing.T) {
 		claims, err := Parse(combinedFormatForPresentation,
@@ -85,7 +86,7 @@ func TestParse(t *testing.T) {
 	})
 
 	t.Run("success - VC sample", func(t *testing.T) {
-		token, _, err := afjwt.Parse(vcSDJWT, afjwt.WithSignatureVerifier(&holder.NoopSignatureVerifier{}))
+		token, _, err := afjwt.Parse(vcSDJWT, afjwt.WithProofChecker(&holder.NoopSignatureVerifier{}))
 		r.NoError(err)
 
 		var payload map[string]interface{}
@@ -110,9 +111,9 @@ func TestParse(t *testing.T) {
 
 		pubKey := &privKey.PublicKey
 
-		v := afjwt.NewRS256Verifier(pubKey)
+		v := testsupport.NewRS256Verifier(pubKey)
 
-		rsaToken, err := issuer.New(testIssuer, selectiveClaims, headers, afjwt.NewRS256Signer(privKey, nil))
+		rsaToken, err := issuer.New(testIssuer, selectiveClaims, headers, testutil.NewRS256Signer(privKey))
 		r.NoError(err)
 		rsaCombinedFormatForIssuance, err := rsaToken.Serialize(false)
 		require.NoError(t, err)
@@ -269,10 +270,9 @@ func TestHolderVerification(t *testing.T) {
 	issuerPubKey, issuerPrivateKey, e := ed25519.GenerateKey(rand.Reader)
 	r.NoError(e)
 
-	signer := afjwt.NewEd25519Signer(issuerPrivateKey)
+	signer := testutil.NewEd25519Signer(issuerPrivateKey)
 
-	signatureVerifier, e := afjwt.NewEd25519Verifier(issuerPubKey)
-	r.NoError(e)
+	signatureVerifier := testsupport.NewEd25519Verifier(issuerPubKey)
 
 	claims := map[string]interface{}{
 		"given_name": "Albert",
@@ -295,7 +295,7 @@ func TestHolderVerification(t *testing.T) {
 	_, e = holder.Parse(combinedFormatForIssuance, holder.WithSignatureVerifier(signatureVerifier))
 	r.NoError(e)
 
-	holderSigner := afjwt.NewEd25519Signer(holderPrivKey)
+	holderSigner := testutil.NewEd25519Signer(holderPrivKey)
 
 	cfi := common.ParseCombinedFormatForIssuance(combinedFormatForIssuance)
 
@@ -758,7 +758,8 @@ func TestHolderVerification(t *testing.T) {
 				r.Nil(verifiedClaims)
 
 				r.Contains(err.Error(),
-					"run holder verification: parse holder verification JWT: parse JWT from compact JWS: no verifier found for EdDSA algorithm") // nolint:lll
+					"run holder verification: parse holder verification JWT:"+
+						" parse JWT from compact JWS: jwt with alg EdDSA check:")
 			})
 		})
 	}
@@ -770,7 +771,7 @@ func TestGetVerifiedPayload(t *testing.T) {
 	_, privKey, e := ed25519.GenerateKey(rand.Reader)
 	r.NoError(e)
 
-	signer := afjwt.NewEd25519Signer(privKey)
+	signer := testutil.NewEd25519Signer(privKey)
 	selectiveClaims := map[string]interface{}{"given_name": "Albert"}
 
 	now := time.Now()

@@ -10,12 +10,10 @@ import (
 
 	"github.com/go-jose/go-jose/v3/jwt"
 	"github.com/stretchr/testify/require"
-
-	"github.com/trustbloc/kms-go/doc/jose"
 )
 
 func TestJWTPresClaims_MarshalUnsecuredJWT(t *testing.T) {
-	vp, err := newTestPresentation(t, []byte(validPresentation))
+	vp, err := newTestPresentation(t, []byte(validPresentation), WithPresDisabledProofCheck())
 	require.NoError(t, err)
 
 	jws := createCredUnsecuredJWT(t, vp)
@@ -28,7 +26,7 @@ func TestJWTPresClaims_MarshalUnsecuredJWT(t *testing.T) {
 
 func TestDecodeVPFromUnsecuredJWT(t *testing.T) {
 	t.Run("Successful unsecured JWT decoding", func(t *testing.T) {
-		vp, err := newTestPresentation(t, []byte(validPresentation))
+		vp, err := newTestPresentation(t, []byte(validPresentation), WithPresDisabledProofCheck())
 		require.NoError(t, err)
 
 		jws := createCredUnsecuredJWT(t, vp)
@@ -53,7 +51,7 @@ func TestDecodeVPFromUnsecuredJWT(t *testing.T) {
 			Presentation: 55, // "vp" claim of invalid format
 		}
 
-		rawJWT, err := marshalUnsecuredJWT(jose.Headers{}, claims)
+		rawJWT, err := marshalUnsecuredJWT(claims)
 		require.NoError(t, err)
 
 		vpBytes, vpRaw, err := decodeVPFromUnsecuredJWT(rawJWT)

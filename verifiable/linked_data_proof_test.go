@@ -6,9 +6,6 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
-	"crypto/ed25519"
-	"crypto/rand"
-	"errors"
 	"testing"
 	"time"
 
@@ -16,44 +13,9 @@ import (
 	ldprocessor "github.com/trustbloc/did-go/doc/ld/processor"
 	"github.com/trustbloc/kms-go/spi/kms"
 
-	"github.com/trustbloc/vc-go/internal/testutil/signatureutil"
-
-	"github.com/trustbloc/vc-go/signature/suite"
-	"github.com/trustbloc/vc-go/signature/suite/ecdsasecp256k1signature2019"
-	"github.com/trustbloc/vc-go/signature/suite/ed25519signature2018"
-	"github.com/trustbloc/vc-go/signature/verifier"
+	"github.com/trustbloc/vc-go/proof/testsupport"
+	"github.com/trustbloc/vc-go/verifiable/lddocument"
 )
-
-func Test_keyResolverAdapter_Resolve(t *testing.T) {
-	t.Run("successful public key resolving", func(t *testing.T) {
-		pubKey, _, err := ed25519.GenerateKey(rand.Reader)
-		require.NoError(t, err)
-		kra := &keyResolverAdapter{pubKeyFetcher: SingleKey(pubKey, kms.ED25519)}
-		resolvedPubKey, err := kra.Resolve("did1#key1")
-		require.NoError(t, err)
-		require.Equal(t, []byte(pubKey), resolvedPubKey.Value)
-	})
-
-	t.Run("error wrong key format", func(t *testing.T) {
-		kra := &keyResolverAdapter{pubKeyFetcher: func(issuerID, keyID string) (*verifier.PublicKey, error) {
-			return nil, nil
-		}}
-		resolvedPubKey, err := kra.Resolve("any")
-		require.Error(t, err)
-		require.EqualError(t, err, "wrong id [any] to resolve")
-		require.Nil(t, resolvedPubKey)
-	})
-
-	t.Run("error at public key resolving (e.g. not found)", func(t *testing.T) {
-		kra := &keyResolverAdapter{pubKeyFetcher: func(issuerID, keyID string) (*verifier.PublicKey, error) {
-			return nil, errors.New("no key found")
-		}}
-		resolvedPubKey, err := kra.Resolve("did1#key1")
-		require.Error(t, err)
-		require.EqualError(t, err, "no key found")
-		require.Nil(t, resolvedPubKey)
-	})
-}
 
 // This example is generated using https://transmute-industries.github.io/vc-greeting-card
 func TestLinkedDataProofSignerAndVerifier(t *testing.T) {
@@ -81,83 +43,54 @@ func TestLinkedDataProofSignerAndVerifier(t *testing.T) {
 }
 `
 
-	ed25519Signer := signatureutil.CryptoSigner(t, kms.ED25519Type)
+	proofCreators, proofCheker := testsupport.NewKMSSignersAndVerifier(t, []testsupport.SigningKey{
+		{Type: kms.ED25519Type, PublicKeyID: "did:example:123456#key1"},
+		{Type: kms.ECDSASecp256k1TypeIEEEP1363, PublicKeyID: "did:example:123456#key2"},
+	})
 
-	vcWithEd25519Proof := prepareVCWithEd25519LDP(t, vcJSON, ed25519Signer)
+	vcWithEd25519Proof := prepareVCWithEd25519LDP(t, vcJSON, proofCreators[0])
 
 	vcWithEd25519ProofBytes, err := vcWithEd25519Proof.MarshalJSON()
 	require.NoError(t, err)
 
-	ecdsaSigner := signatureutil.CryptoSigner(t, kms.ECDSASecp256k1TypeIEEEP1363)
-	require.NoError(t, err)
-	vcWithSecp256k1Proof := prepareVCWithSecp256k1LDP(t, vcJSON, ecdsaSigner)
+	vcWithSecp256k1Proof := prepareVCWithSecp256k1LDP(t, vcJSON, proofCreators[1])
 
 	vcWithSecp256k1ProofBytes, err := vcWithSecp256k1Proof.MarshalJSON()
 	require.NoError(t, err)
 	require.NotEmpty(t, vcWithSecp256k1ProofBytes)
 
 	t.Run("Single signature suite", func(t *testing.T) {
-		verifierSuite := ed25519signature2018.New(
-			suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier()),
-			suite.WithCompactProof())
 		vcDecoded, err := parseTestCredential(t, vcWithEd25519ProofBytes,
-			WithEmbeddedSignatureSuites(verifierSuite),
-			WithPublicKeyFetcher(SingleJWK(ed25519Signer.PublicJWK(), kms.ED25519)))
+			WithProofChecker(proofCheker))
 		require.NoError(t, err)
 		require.Equal(t, vcWithEd25519Proof.ToRawJSON(), vcDecoded.ToRawJSON())
 	})
 
 	t.Run("Several signature suites", func(t *testing.T) {
-		verifierSuites := []verifier.SignatureSuite{
-			ed25519signature2018.New(
-				suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier()),
-				suite.WithCompactProof()),
-			ecdsasecp256k1signature2019.New(
-				suite.WithVerifier(ecdsasecp256k1signature2019.NewPublicKeyVerifier())),
-		}
-
 		vcDecoded, err := parseTestCredential(t, vcWithEd25519ProofBytes,
-			WithEmbeddedSignatureSuites(verifierSuites...),
-			WithPublicKeyFetcher(SingleJWK(ed25519Signer.PublicJWK(), kms.ED25519)))
+			WithProofChecker(proofCheker))
 		require.NoError(t, err)
 		require.Equal(t, vcWithEd25519Proof.ToRawJSON(), vcDecoded.ToRawJSON())
 
 		vcDecoded, err = parseTestCredential(t, vcWithSecp256k1ProofBytes,
-			WithEmbeddedSignatureSuites(verifierSuites...),
-			WithPublicKeyFetcher(func(issuerID, keyID string) (*verifier.PublicKey, error) {
-				return &verifier.PublicKey{
-					Type: "EcdsaSecp256k1VerificationKey2019",
-					JWK:  ecdsaSigner.PublicJWK(),
-				}, nil
-			}))
+			WithProofChecker(proofCheker))
 		require.NoError(t, err)
 		require.Equal(t, vcWithSecp256k1Proof.ToRawJSON(), vcDecoded.ToRawJSON())
 	})
-
-	t.Run("no signature suite defined", func(t *testing.T) {
-		vcDecoded, err := parseTestCredential(t, vcWithEd25519ProofBytes,
-			WithPublicKeyFetcher(SingleJWK(ed25519Signer.PublicJWK(), kms.ED25519)))
-		require.NoError(t, err)
-		require.NotNil(t, vcDecoded)
-	})
 }
 
-func prepareVCWithEd25519LDP(t *testing.T, vcJSON string, signer Signer) *Credential {
+func prepareVCWithEd25519LDP(t *testing.T, vcJSON string, signer lddocument.ProofCreator) *Credential {
 	vc, err := ParseCredential([]byte(vcJSON),
 		WithJSONLDDocumentLoader(createTestDocumentLoader(t)),
 		WithDisabledProofCheck())
 	require.NoError(t, err)
-
-	ed25519SignerSuite := ed25519signature2018.New(
-		suite.WithSigner(signer),
-		suite.WithCompactProof())
-
 	created, err := time.Parse(time.RFC3339, "2018-03-15T00:00:00Z")
 	require.NoError(t, err)
 
 	err = vc.AddLinkedDataProof(&LinkedDataProofContext{
 		SignatureType:           "Ed25519Signature2018",
-		Suite:                   ed25519SignerSuite,
+		KeyType:                 kms.ED25519Type,
+		ProofCreator:            signer,
 		SignatureRepresentation: SignatureJWS,
 		Created:                 &created,
 		VerificationMethod:      "did:example:123456#key1",
@@ -169,20 +102,18 @@ func prepareVCWithEd25519LDP(t *testing.T, vcJSON string, signer Signer) *Creden
 	return vc
 }
 
-func prepareVCWithSecp256k1LDP(t *testing.T, vcJSON string, signer Signer) *Credential {
+func prepareVCWithSecp256k1LDP(t *testing.T, vcJSON string, signer lddocument.ProofCreator) *Credential {
 	vc, err := ParseCredential([]byte(vcJSON),
 		WithJSONLDDocumentLoader(createTestDocumentLoader(t)),
 		WithDisabledProofCheck())
 	require.NoError(t, err)
 
-	ed25519SignerSuite := ecdsasecp256k1signature2019.New(
-		suite.WithSigner(signer))
-
 	err = vc.AddLinkedDataProof(&LinkedDataProofContext{
 		SignatureType:           "EcdsaSecp256k1Signature2019",
-		Suite:                   ed25519SignerSuite,
+		KeyType:                 kms.ECDSASecp256k1TypeIEEEP1363,
+		ProofCreator:            signer,
 		SignatureRepresentation: SignatureJWS,
-		VerificationMethod:      "did:example:123456#key1",
+		VerificationMethod:      "did:example:123456#key2",
 	}, ldprocessor.WithDocumentLoader(createTestDocumentLoader(t)))
 	require.NoError(t, err)
 

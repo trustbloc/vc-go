@@ -19,6 +19,10 @@ import (
 	"github.com/trustbloc/vc-go/jwt"
 )
 
+const (
+	issuerID = "did:example:76e12ec712ebc6f1c221ebfeb1f"
+)
+
 func TestDecodeJWT(t *testing.T) {
 	joseHeaders, vcBytes, err := decodeCredJWT("", func(string) (jose.Headers, *JWTCredClaims, error) {
 		return nil, nil, errors.New("cannot parse JWT claims")
@@ -30,7 +34,6 @@ func TestDecodeJWT(t *testing.T) {
 }
 
 func TestRefineVcFromJwtClaims(t *testing.T) {
-	issuerID := "did:example:76e12ec712ebc6f1c221ebfeb1f"
 	issued := time.Date(2019, time.August, 10, 0, 0, 0, 0, time.UTC)
 	vcID := "http://example.edu/credentials/3732"
 	expired := time.Date(2029, time.August, 10, 0, 0, 0, 0, time.UTC)
