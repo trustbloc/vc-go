@@ -42,6 +42,20 @@ func New() *Proof {
 			JWKCurve:               JWKCurve,
 			RequireJWK:             true,
 		},
+
+		{
+			VerificationMethodType: VerificationMethodType,
+			KMSKeyType:             kms.ECDSASecp256k1TypeDER,
+			JWKKeyType:             JWKKeyType,
+			JWKCurve:               JWKCurve,
+		},
+		{
+			VerificationMethodType: "JsonWebKey2020",
+			KMSKeyType:             kms.ECDSASecp256k1TypeDER,
+			JWKKeyType:             JWKKeyType,
+			JWKCurve:               JWKCurve,
+			RequireJWK:             true,
+		},
 	}
 
 	return p

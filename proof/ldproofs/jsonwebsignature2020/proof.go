@@ -64,7 +64,7 @@ func (s *Proof) ProofType() string {
 }
 
 // New an instance of JsonWebSignature2020 proof descriptor.
-func New() *Proof {
+func New() *Proof { //nolint:funlen
 	p := &Proof{jsonldProcessor: processor.NewProcessor(rdfDataSetAlg)}
 	p.supportedVMs = []proof.SupportedVerificationMethod{
 		{
@@ -77,6 +77,13 @@ func New() *Proof {
 		{
 			VerificationMethodType: VerificationMethodType,
 			KMSKeyType:             kms.ECDSASecp256k1TypeIEEEP1363,
+			JWKKeyType:             ECDSASecp256k1JWKKeyType,
+			JWKCurve:               ECDSASecp256k1JWKCurve,
+			RequireJWK:             true,
+		},
+		{
+			VerificationMethodType: VerificationMethodType,
+			KMSKeyType:             kms.ECDSASecp256k1TypeDER,
 			JWKKeyType:             ECDSASecp256k1JWKKeyType,
 			JWKCurve:               ECDSASecp256k1JWKCurve,
 			RequireJWK:             true,
@@ -96,6 +103,13 @@ func New() *Proof {
 		},
 		{
 			VerificationMethodType: VerificationMethodType,
+			KMSKeyType:             kms.ECDSAP256TypeDER,
+			JWKKeyType:             ECDSAES256JWKKeyType,
+			JWKCurve:               ECDSAES256JWKCurve,
+			RequireJWK:             true,
+		},
+		{
+			VerificationMethodType: VerificationMethodType,
 			KMSKeyType:             kms.ECDSAP384TypeIEEEP1363,
 			JWKKeyType:             ECDSAES384JWKKeyType,
 			JWKCurve:               ECDSAES384JWKCurve,
@@ -103,7 +117,21 @@ func New() *Proof {
 		},
 		{
 			VerificationMethodType: VerificationMethodType,
+			KMSKeyType:             kms.ECDSAP384TypeDER,
+			JWKKeyType:             ECDSAES384JWKKeyType,
+			JWKCurve:               ECDSAES384JWKCurve,
+			RequireJWK:             true,
+		},
+		{
+			VerificationMethodType: VerificationMethodType,
 			KMSKeyType:             kms.ECDSAP521TypeIEEEP1363,
+			JWKKeyType:             ECDSAES521JWKKeyType,
+			JWKCurve:               ECDSAES521JWKCurve,
+			RequireJWK:             true,
+		},
+		{
+			VerificationMethodType: VerificationMethodType,
+			KMSKeyType:             kms.ECDSAP521TypeDER,
 			JWKKeyType:             ECDSAES521JWKKeyType,
 			JWKCurve:               ECDSAES521JWKCurve,
 			RequireJWK:             true,

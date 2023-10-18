@@ -623,7 +623,7 @@ func TestParseCredentialFromLinkedDataProof_JsonWebSignature2020_ecdsaP256(t *te
 
 	ldpContext := &LinkedDataProofContext{
 		SignatureType:           "JsonWebSignature2020",
-		KeyType:                 kms.ECDSAP256TypeIEEEP1363,
+		KeyType:                 kms.ECDSAP256TypeDER,
 		SignatureRepresentation: SignatureJWS,
 		ProofCreator:            proofCreator,
 		VerificationMethod:      "did:example:123456#key1",
