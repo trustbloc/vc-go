@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"slices"
 
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/trustbloc/kms-go/spi/kms"
@@ -37,12 +38,12 @@ type ellipticCurve struct {
 // Verifier verifies elliptic curve signatures.
 type Verifier struct {
 	ec         ellipticCurve
-	kmsKeyType kms.KeyType
+	kmsKeyType []kms.KeyType
 }
 
 // SupportedKeyType checks if verifier supports given key.
 func (sv *Verifier) SupportedKeyType(keyType kms.KeyType) bool {
-	return keyType == sv.kmsKeyType
+	return slices.Contains(sv.kmsKeyType, keyType)
 }
 
 func (sv *Verifier) parseKey(pubKey *pubkey.PublicKey) (*ecdsa.PublicKey, error) {
@@ -147,7 +148,7 @@ func NewSecp256k1() *Verifier {
 			keySize: secp256k1KeySize,
 			hash:    crypto.SHA256,
 		},
-		kmsKeyType: kms.ECDSASecp256k1TypeIEEEP1363,
+		kmsKeyType: []kms.KeyType{kms.ECDSASecp256k1TypeIEEEP1363, kms.ECDSASecp256k1TypeDER},
 	}
 }
 
@@ -160,7 +161,7 @@ func NewES256() *Verifier {
 			keySize: p256KeySize,
 			hash:    crypto.SHA256,
 		},
-		kmsKeyType: kms.ECDSAP256TypeIEEEP1363,
+		kmsKeyType: []kms.KeyType{kms.ECDSAP256TypeIEEEP1363, kms.ECDSAP256TypeDER},
 	}
 }
 
@@ -173,7 +174,7 @@ func NewES384() *Verifier {
 			keySize: p384KeySize,
 			hash:    crypto.SHA384,
 		},
-		kmsKeyType: kms.ECDSAP384TypeIEEEP1363,
+		kmsKeyType: []kms.KeyType{kms.ECDSAP384TypeIEEEP1363, kms.ECDSAP384TypeDER},
 	}
 }
 
@@ -186,6 +187,6 @@ func NewES521() *Verifier {
 			keySize: p521KeySize,
 			hash:    crypto.SHA512,
 		},
-		kmsKeyType: kms.ECDSAP521TypeIEEEP1363,
+		kmsKeyType: []kms.KeyType{kms.ECDSAP521TypeIEEEP1363, kms.ECDSAP521TypeDER},
 	}
 }

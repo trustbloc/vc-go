@@ -44,14 +44,26 @@ func New() *Proof {
 	p.supportedVMs = []proof.SupportedVerificationMethod{
 		{
 			VerificationMethodType: VerificationMethodType,
-			// TODO: verify if this kms.ECDSASecp256k1TypeDER or kms.ECDSASecp256k1TypeIEEEP1363
-			KMSKeyType: kms.ECDSASecp256k1TypeIEEEP1363,
-			JWKKeyType: JWKKeyType,
-			JWKCurve:   JWKCurve,
+			KMSKeyType:             kms.ECDSASecp256k1TypeIEEEP1363,
+			JWKKeyType:             JWKKeyType,
+			JWKCurve:               JWKCurve,
 		},
 		{
 			VerificationMethodType: "JsonWebKey2020",
 			KMSKeyType:             kms.ECDSASecp256k1TypeIEEEP1363,
+			JWKKeyType:             JWKKeyType,
+			JWKCurve:               JWKCurve,
+			RequireJWK:             true,
+		},
+		{
+			VerificationMethodType: VerificationMethodType,
+			KMSKeyType:             kms.ECDSASecp256k1TypeDER,
+			JWKKeyType:             JWKKeyType,
+			JWKCurve:               JWKCurve,
+		},
+		{
+			VerificationMethodType: "JsonWebKey2020",
+			KMSKeyType:             kms.ECDSASecp256k1TypeDER,
 			JWKKeyType:             JWKKeyType,
 			JWKCurve:               JWKCurve,
 			RequireJWK:             true,
