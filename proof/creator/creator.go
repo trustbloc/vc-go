@@ -170,10 +170,15 @@ func (c *ProofCreator) SignJWT(params jwt.SignParameters, data []byte) ([]byte, 
 
 // CreateJWTHeaders creates correct jwt headers.
 func (c *ProofCreator) CreateJWTHeaders(params jwt.SignParameters) (jose.Headers, error) {
-	return map[string]interface{}{
-		jose.HeaderKeyID:     params.KeyID,
+	headers := map[string]interface{}{
 		jose.HeaderAlgorithm: params.JWTAlg,
-	}, nil
+	}
+
+	if params.KeyID != "" {
+		headers[jose.HeaderKeyID] = params.KeyID
+	}
+
+	return headers, nil
 }
 
 func (c *ProofCreator) getSupportedProof(proofType string) (ldProofCreateDescriptor, error) {
