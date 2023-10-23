@@ -46,6 +46,7 @@ type jwtCheckDescriptor struct {
 	proofDescriptor proofdesc.JWTProofDescriptor
 }
 
+// nolint: gochecknoglobals
 var possibleIssuerPath = []string{
 	"vc.issuer.id",
 	"vc.issuer",
