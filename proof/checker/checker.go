@@ -8,6 +8,7 @@ package checker
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/tidwall/gjson"
 	"github.com/trustbloc/did-go/doc/ld/processor"
@@ -131,7 +132,8 @@ func (c *ProofChecker) CheckLDProof(proof *proof.Proof, msg, signature []byte) e
 		return fmt.Errorf("proof missing public key id: %w", err)
 	}
 
-	vm, err := c.verificationMethodResolver.ResolveVerificationMethod(publicKeyID, "") // todo is that ok?
+	vm, err := c.verificationMethodResolver.ResolveVerificationMethod(publicKeyID,
+		strings.Split(publicKeyID, "#")[0])
 	if err != nil {
 		return fmt.Errorf("proof invalid public key id: %w", err)
 	}
