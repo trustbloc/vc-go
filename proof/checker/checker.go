@@ -9,6 +9,7 @@ package checker
 import (
 	"fmt"
 
+	"github.com/tidwall/gjson"
 	"github.com/trustbloc/did-go/doc/ld/processor"
 	"github.com/trustbloc/did-go/doc/ld/proof"
 	"github.com/trustbloc/kms-go/doc/jose"
@@ -21,7 +22,7 @@ import (
 )
 
 type verificationMethodResolver interface {
-	ResolveVerificationMethod(verificationMethod string) (*vermethod.VerificationMethod, error)
+	ResolveVerificationMethod(verificationMethod string, issuer string) (*vermethod.VerificationMethod, error)
 }
 
 type signatureVerifier interface {
@@ -121,7 +122,7 @@ func (c *ProofChecker) CheckLDProof(proof *proof.Proof, msg, signature []byte) e
 		return fmt.Errorf("proof missing public key id: %w", err)
 	}
 
-	vm, err := c.verificationMethodResolver.ResolveVerificationMethod(publicKeyID)
+	vm, err := c.verificationMethodResolver.ResolveVerificationMethod(publicKeyID, "") // todo is that ok?
 	if err != nil {
 		return fmt.Errorf("proof invalid public key id: %w", err)
 	}
@@ -170,7 +171,7 @@ func (c *ProofCheckerBase) GetLDPDigest(proof *proof.Proof, doc []byte) ([]byte,
 }
 
 // CheckJWTProof check jwt proof.
-func (c *ProofChecker) CheckJWTProof(headers jose.Headers, _, msg, signature []byte) error {
+func (c *ProofChecker) CheckJWTProof(headers jose.Headers, payload, msg, signature []byte) error {
 	keyID, ok := headers.KeyID()
 	if !ok {
 		return fmt.Errorf("missed kid in jwt header")
@@ -181,7 +182,8 @@ func (c *ProofChecker) CheckJWTProof(headers jose.Headers, _, msg, signature []b
 		return fmt.Errorf("missed alg in jwt header")
 	}
 
-	vm, err := c.verificationMethodResolver.ResolveVerificationMethod(keyID)
+	vm, err := c.verificationMethodResolver.ResolveVerificationMethod(keyID,
+		gjson.Get(string(payload), "iss").String())
 	if err != nil {
 		return fmt.Errorf("invalid public key id: %w", err)
 	}

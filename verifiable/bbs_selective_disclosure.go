@@ -30,7 +30,10 @@ type bbsProofDerivation interface {
 }
 
 type verificationMethodResolver interface {
-	ResolveVerificationMethod(verificationMethod string) (*vermethod.VerificationMethod, error)
+	ResolveVerificationMethod(
+		verificationMethod string,
+		issuer string,
+	) (*vermethod.VerificationMethod, error)
 }
 
 // BBSProofCreator used to create bbs proof during selective disclosure.
@@ -138,7 +141,7 @@ func getPublicKeyAndSignature(blsSignatureMap map[string]interface{},
 		return nil, nil, fmt.Errorf("get public KID from BBS+ signature: %w", err)
 	}
 
-	vm, err := resolver.ResolveVerificationMethod(publicKeyID)
+	vm, err := resolver.ResolveVerificationMethod(publicKeyID, "")
 	if err != nil {
 		return nil, nil, fmt.Errorf("resolve public key of BBS+ signature: %w", err)
 	}

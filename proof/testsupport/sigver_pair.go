@@ -88,7 +88,10 @@ func NewSingleJWKResolver(lookupID string, j *jwk.JWK, keyType string) *VMResolv
 }
 
 // ResolveVerificationMethod resolves verification method.
-func (r *VMResolver) ResolveVerificationMethod(verificationMethod string) (*vermethod.VerificationMethod, error) {
+func (r *VMResolver) ResolveVerificationMethod(
+	verificationMethod string,
+	_ string,
+) (*vermethod.VerificationMethod, error) {
 	for _, mocked := range r.mockedVerificationMethods {
 		if mocked.lookupID == AnyPubKeyID || mocked.lookupID == verificationMethod {
 			return mocked.verificationMethodValue, nil
