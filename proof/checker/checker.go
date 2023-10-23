@@ -46,6 +46,14 @@ type jwtCheckDescriptor struct {
 	proofDescriptor proofdesc.JWTProofDescriptor
 }
 
+var possibleIssuerPath = []string{
+	"vc.issuer.id",
+	"vc.issuer",
+	"issuer.id",
+	"issuer",
+	"iss",
+}
+
 // ProofCheckerBase basic implementation of proof checker.
 type ProofCheckerBase struct {
 	supportedLDProofs  []ldCheckDescriptor
@@ -182,8 +190,7 @@ func (c *ProofChecker) CheckJWTProof(headers jose.Headers, payload, msg, signatu
 		return fmt.Errorf("missed alg in jwt header")
 	}
 
-	vm, err := c.verificationMethodResolver.ResolveVerificationMethod(keyID,
-		gjson.Get(string(payload), "iss").String())
+	vm, err := c.verificationMethodResolver.ResolveVerificationMethod(keyID, c.FindIssuer(payload))
 	if err != nil {
 		return fmt.Errorf("invalid public key id: %w", err)
 	}
@@ -204,6 +211,19 @@ func (c *ProofChecker) CheckJWTProof(headers jose.Headers, payload, msg, signatu
 	}
 
 	return verifier.Verify(signature, msg, pubKey)
+}
+
+// FindIssuer finds issuer in payload.
+func (c *ProofChecker) FindIssuer(payload []byte) string {
+	parsed := gjson.ParseBytes(payload)
+
+	for _, p := range possibleIssuerPath {
+		if str := parsed.Get(p).Str; str != "" {
+			return str
+		}
+	}
+
+	return ""
 }
 
 func convertToPublicKey(

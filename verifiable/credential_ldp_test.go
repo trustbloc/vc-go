@@ -95,9 +95,7 @@ func TestParseCredentialFromLinkedDataProof_JSONLD_Validation(t *testing.T) {
 
 	pubKeyBytes := base58.Decode("DqS5F3GVe3rCxucgi4JBNagjv4dKoHc8TDLDw9kR58Pz")
 
-	proofChecker := defaults.NewDefaultProofChecker(testsupport.NewSingleKeyResolver(
-		"did:web:vc.transmute.world#z6MksHh7qHWvybLg5QTPPdG2DgEjjduBDArV9EF9mRiRzMBN",
-		pubKeyBytes, "Ed25519VerificationKey2018"))
+	proofChecker := defaults.NewDefaultProofChecker(testsupport.NewSingleKeyResolver("did:web:vc.transmute.world#z6MksHh7qHWvybLg5QTPPdG2DgEjjduBDArV9EF9mRiRzMBN", pubKeyBytes, "Ed25519VerificationKey2018", ""))
 
 	vcOptions := []CredentialOpt{
 		WithProofChecker(proofChecker),
@@ -330,9 +328,8 @@ func TestWithStrictValidationOfJsonWebSignature2020(t *testing.T) {
 	j, err := jwksupport.JWKFromKey(rv)
 	require.NoError(t, err)
 
-	proofChecker := defaults.NewDefaultProofChecker(testsupport.NewSingleJWKResolver(
-		testsupport.AnyPubKeyID,
-		j, "JsonWebKey2020"))
+	proofChecker := defaults.NewDefaultProofChecker(testsupport.NewSingleJWKResolver(testsupport.AnyPubKeyID, j,
+		"JsonWebKey2020", ""))
 
 	vcWithLdp, err := parseTestCredential(t, []byte(vcJSON),
 		WithProofChecker(proofChecker),
@@ -529,8 +526,7 @@ func TestParseCredentialFromLinkedDataProof_BbsBlsSignature2020(t *testing.T) {
 	r.NoError(err)
 
 	vcVerified, err := parseTestCredential(t, vcBytes,
-		WithProofChecker(defaults.NewDefaultProofChecker(testsupport.NewSingleKeyResolver(
-			"did:example:123456#key1", pubKeyBytes, "Bls12381G2Key2020"))),
+		WithProofChecker(defaults.NewDefaultProofChecker(testsupport.NewSingleKeyResolver("did:example:123456#key1", pubKeyBytes, "Bls12381G2Key2020", ""))),
 	)
 	r.NoError(err)
 	r.NotNil(vcVerified)
@@ -582,8 +578,7 @@ func TestParseCredentialFromLinkedDataProof_BbsBlsSignatureProof2020(t *testing.
 	pubKeyBytes := base58.Decode(pkBase58)
 
 	vcVerified, err := parseTestCredential(t, []byte(vcJSON),
-		WithProofChecker(defaults.NewDefaultProofChecker(testsupport.NewSingleKeyResolver(
-			vm, pubKeyBytes, "Bls12381G2Key2020"))),
+		WithProofChecker(defaults.NewDefaultProofChecker(testsupport.NewSingleKeyResolver(vm, pubKeyBytes, "Bls12381G2Key2020", ""))),
 	)
 	r.NoError(err)
 	r.NotNil(vcVerified)
@@ -919,7 +914,7 @@ func TestParseCredential_JSONLiteralsNotSupported(t *testing.T) {
 
 	vc, err := ParseCredential([]byte(vcJSON),
 		WithProofChecker(defaults.NewDefaultProofChecker(
-			testsupport.NewSingleJWKResolver("did:example:123456#key1", pubJWK, "Ed25519VerificationKey2018"))),
+			testsupport.NewSingleJWKResolver("did:example:123456#key1", pubJWK, "Ed25519VerificationKey2018", ""))),
 		WithJSONLDOnlyValidRDF(),
 		WithStrictValidation(),
 		WithJSONLDDocumentLoader(docLoader))
@@ -968,7 +963,7 @@ func TestParseCredential_ProofCreatedWithMillisec(t *testing.T) {
 
 	vc, err := parseTestCredential(t, []byte(vcJSON),
 		WithProofChecker(defaults.NewDefaultProofChecker(
-			testsupport.NewSingleJWKResolver(testsupport.AnyPubKeyID, pubJWK, "Ed25519VerificationKey2018"))),
+			testsupport.NewSingleJWKResolver(testsupport.AnyPubKeyID, pubJWK, "Ed25519VerificationKey2018", ""))),
 		WithStrictValidation())
 
 	require.NoError(t, err)

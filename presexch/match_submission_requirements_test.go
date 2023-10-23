@@ -240,9 +240,8 @@ func TestInstance_GetSubmissionRequirements(t *testing.T) {
 		matched, err := pd.MatchSubmissionRequirement([]*verifiable.Credential{vc}, lddl,
 			presexch.WithSelectiveDisclosureApply(),
 			presexch.WithSDBBSProofCreator(&verifiable.BBSProofCreator{
-				ProofDerivation: bbs12381g2pub.New(),
-				VerificationMethodResolver: testsupport.NewSingleKeyResolver(
-					"did:example:123456#key1", srcPublicKey, "Bls12381G2Key2020"),
+				ProofDerivation:            bbs12381g2pub.New(),
+				VerificationMethodResolver: testsupport.NewSingleKeyResolver("did:example:123456#key1", srcPublicKey, "Bls12381G2Key2020", ""),
 			}),
 			presexch.WithSDCredentialOptions(verifiable.WithJSONLDDocumentLoader(lddl)))
 		require.NoError(t, err)

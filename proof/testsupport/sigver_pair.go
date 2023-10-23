@@ -55,6 +55,7 @@ const (
 // VMResolver mock verification method resolver.
 type VMResolver struct {
 	mockedVerificationMethods []mockedVerificationMethod
+	expectedIssuer            string
 }
 
 type mockedVerificationMethod struct {
@@ -68,8 +69,9 @@ type cryptographicSigner interface {
 }
 
 // NewSingleKeyResolver creates vm resolver with single key embedded.
-func NewSingleKeyResolver(lookupID string, keyBytes []byte, keyType string) *VMResolver {
+func NewSingleKeyResolver(lookupID string, keyBytes []byte, keyType string, issuer string) *VMResolver {
 	return &VMResolver{
+		expectedIssuer: issuer,
 		mockedVerificationMethods: []mockedVerificationMethod{{
 			lookupID:                lookupID,
 			verificationMethodValue: &vermethod.VerificationMethod{Type: keyType, Value: keyBytes},
@@ -78,8 +80,9 @@ func NewSingleKeyResolver(lookupID string, keyBytes []byte, keyType string) *VMR
 }
 
 // NewSingleJWKResolver creates vm resolver with single jwk embedded.
-func NewSingleJWKResolver(lookupID string, j *jwk.JWK, keyType string) *VMResolver {
+func NewSingleJWKResolver(lookupID string, j *jwk.JWK, keyType string, issuer string) *VMResolver {
 	return &VMResolver{
+		expectedIssuer: issuer,
 		mockedVerificationMethods: []mockedVerificationMethod{{
 			lookupID:                lookupID,
 			verificationMethodValue: &vermethod.VerificationMethod{Type: keyType, JWK: j},
@@ -90,8 +93,12 @@ func NewSingleJWKResolver(lookupID string, j *jwk.JWK, keyType string) *VMResolv
 // ResolveVerificationMethod resolves verification method.
 func (r *VMResolver) ResolveVerificationMethod(
 	verificationMethod string,
-	_ string,
+	issuer string,
 ) (*vermethod.VerificationMethod, error) {
+	if r.expectedIssuer != "" && r.expectedIssuer != issuer {
+		return nil, fmt.Errorf("invalid issuer. expected %v got %v",
+			r.expectedIssuer, issuer)
+	}
 	for _, mocked := range r.mockedVerificationMethods {
 		if mocked.lookupID == AnyPubKeyID || mocked.lookupID == verificationMethod {
 			return mocked.verificationMethodValue, nil

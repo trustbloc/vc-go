@@ -143,8 +143,7 @@ func TestCredential_GenerateBBSSelectiveDisclosure(t *testing.T) {
 		anotherPubKeyBytes, err = anotherPubKey.Marshal()
 		require.NoError(t, err)
 
-		bbsAnotherKeyFetcher := testsupport.NewSingleKeyResolver(
-			"did:example:123456#key1", anotherPubKeyBytes, "Bls12381G2Key2020")
+		bbsAnotherKeyFetcher := testsupport.NewSingleKeyResolver("did:example:123456#key1", anotherPubKeyBytes, "Bls12381G2Key2020", "")
 
 		vcWithSelectiveDisclosure, err = vc.GenerateBBSSelectiveDisclosure(revealDoc, nonce,
 			&BBSProofCreator{
@@ -239,8 +238,7 @@ func signVCWithBBS(t *testing.T, privKey *bbs12381g2pub.PrivateKey, pubKeyBytes 
 	require.NoError(t, err)
 	require.NotEmpty(t, vcSignedBytes)
 
-	bbsKeyFetcher := testsupport.NewSingleKeyResolver(
-		"did:example:123456#key1", pubKeyBytes, "Bls12381G2Key2020")
+	bbsKeyFetcher := testsupport.NewSingleKeyResolver("did:example:123456#key1", pubKeyBytes, "Bls12381G2Key2020", "")
 
 	vcVerified, err := parseTestCredential(t, vcSignedBytes,
 		WithProofChecker(defaults.NewDefaultProofChecker(bbsKeyFetcher)),
