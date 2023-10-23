@@ -721,9 +721,8 @@ func ExamplePresentationDefinition_CreateVP_withFrame() {
 	signVCWithBBS(privKey, vc, loader)
 
 	bbsProofCreator := &verifiable.BBSProofCreator{
-		ProofDerivation: bbs12381g2pub.New(),
-		VerificationMethodResolver: testsupport.NewSingleKeyResolver(
-			"did:example:123456#key1", pubKeyBytes, "Bls12381G2Key2020"),
+		ProofDerivation:            bbs12381g2pub.New(),
+		VerificationMethodResolver: testsupport.NewSingleKeyResolver("did:example:123456#key1", pubKeyBytes, "Bls12381G2Key2020", ""),
 	}
 
 	vp, err := pd.CreateVP([]*verifiable.Credential{vc}, loader,

@@ -35,22 +35,34 @@ func NewVDRResolver(vdr didResolver) *VDRResolver {
 }
 
 // ResolveVerificationMethod resolves verification method by key id.
-func (r *VDRResolver) ResolveVerificationMethod(verificationMethod string) (*VerificationMethod, error) {
-	idSplit := strings.Split(verificationMethod, "#")
-	if len(idSplit) != resolveDIDParts {
-		return nil, fmt.Errorf("wrong id %s to resolve", idSplit)
+func (r *VDRResolver) ResolveVerificationMethod(
+	verificationMethod string,
+	issuer string,
+) (*VerificationMethod, error) {
+	compare := func(input string, input2 string) bool {
+		return input == input2
 	}
 
-	methodDID, keyID := idSplit[0], fmt.Sprintf("#%s", idSplit[1])
+	if !strings.HasPrefix(issuer, "did:") { // if issuer is not a DID fetch by key
+		idSplit := strings.Split(verificationMethod, "#")
+		if len(idSplit) != resolveDIDParts {
+			return nil, fmt.Errorf("wrong id %s to resolve", idSplit)
+		}
 
-	docResolution, err := r.vdr.Resolve(methodDID)
+		issuer, verificationMethod = idSplit[0], fmt.Sprintf("#%s", idSplit[1])
+		compare = func(input string, input2 string) bool {
+			return strings.Contains(input, input2)
+		}
+	}
+
+	docResolution, err := r.vdr.Resolve(issuer)
 	if err != nil {
-		return nil, fmt.Errorf("resolve DID %s: %w", methodDID, err)
+		return nil, fmt.Errorf("resolve DID %s: %w", issuer, err)
 	}
 
 	for _, verifications := range docResolution.DIDDocument.VerificationMethods() {
 		for _, verification := range verifications {
-			if strings.Contains(verification.VerificationMethod.ID, keyID) &&
+			if compare(verification.VerificationMethod.ID, verificationMethod) &&
 				verification.Relationship != did.KeyAgreement {
 				return &VerificationMethod{
 					Type:  verification.VerificationMethod.Type,
@@ -61,5 +73,5 @@ func (r *VDRResolver) ResolveVerificationMethod(verificationMethod string) (*Ver
 		}
 	}
 
-	return nil, fmt.Errorf("public key with KID %s is not found for DID %s", keyID, methodDID)
+	return nil, fmt.Errorf("public key with KID %s is not found for DID %s", verificationMethod, issuer)
 }

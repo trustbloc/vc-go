@@ -6,13 +6,22 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
+	"crypto/ed25519"
+	"crypto/rand"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/trustbloc/did-go/doc/did"
+	vdrmock "github.com/trustbloc/did-go/vdr/mock"
 	"github.com/trustbloc/kms-go/spi/kms"
 
+	"github.com/trustbloc/vc-go/crypto-ext/testutil"
 	"github.com/trustbloc/vc-go/jwt"
+	"github.com/trustbloc/vc-go/proof/creator"
+	"github.com/trustbloc/vc-go/proof/defaults"
+	"github.com/trustbloc/vc-go/proof/jwtproofs/eddsa"
 	"github.com/trustbloc/vc-go/proof/testsupport"
+	"github.com/trustbloc/vc-go/vermethod"
 )
 
 const jwtTestCredential = `
@@ -116,6 +125,62 @@ func TestParseCredentialFromJWS_EdDSA(t *testing.T) {
 
 	// unmarshalled credential must be the same as original one
 	require.Equal(t, vc.Contents(), vcFromJWS.Contents())
+}
+func TestParseCredentialFromJWS_IssuerAndKeyIDMismatch(t *testing.T) {
+	vcBytes := []byte(jwtTestCredential)
+
+	issuerDID := "did:example:76e12ec712ebc6f1c221ebfeb1f"
+	correctKeyID := "did:example:76e12ec712ebc6f1c221ebfeb1f#key1"
+	spoofKeyID := "did:spoof-did#key1"
+
+	pubKey, privKey, e := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, e)
+
+	proofCreator :=
+		creator.New(
+			creator.WithJWTAlg(eddsa.New(), testutil.NewEd25519Signer(privKey)))
+
+	proofChecker := defaults.NewDefaultProofChecker(vermethod.NewVDRResolver(&vdrmock.VDRegistry{
+		ResolveValue: makeDoc(pubKey, correctKeyID, issuerDID, t),
+	}))
+
+	vcJWSStr := createEdDSAJWS(t, vcBytes, proofCreator, spoofKeyID, false)
+
+	// unmarshal credential from JWS
+	_, err := parseTestCredential(t, vcJWSStr, WithProofChecker(proofChecker))
+	require.ErrorContains(t, err, "public key with KID did:spoof-did#key1 is not found "+
+		"for DID did:example:76e12ec712ebc6f1c221ebfeb1f")
+}
+
+func mockVM(pkb ed25519.PublicKey, keyID, controllerDID string, t *testing.T) *did.VerificationMethod {
+	t.Helper()
+
+	return &did.VerificationMethod{
+		ID:         keyID,
+		Controller: controllerDID,
+		Type:       "Ed25519VerificationKey2018",
+		Value:      pkb,
+	}
+}
+
+func makeDoc(pkb ed25519.PublicKey, keyID, controllerDID string, t *testing.T) *did.Doc {
+	t.Helper()
+
+	vm := mockVM(pkb, keyID, controllerDID, t)
+
+	return &did.Doc{
+		ID:      controllerDID,
+		Context: did.ContextV1,
+		AssertionMethod: []did.Verification{
+			{
+				VerificationMethod: *vm,
+				Relationship:       did.AssertionMethod,
+			},
+		},
+		VerificationMethod: []did.VerificationMethod{
+			*vm,
+		},
+	}
 }
 
 func TestParseCredentialFromUnsecuredJWT(t *testing.T) {

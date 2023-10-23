@@ -37,7 +37,7 @@ func TestProofChecker_AllLD(t *testing.T) {
 
 func TestProofChecker_CheckLDProof(t *testing.T) {
 	testable := checker.New(
-		testsupport.NewSingleKeyResolver("lookupId", []byte{}, "test"),
+		testsupport.NewSingleKeyResolver("lookupId", []byte{}, "test", ""),
 		checker.WithLDProofTypes(ed25519signature2018.New()))
 
 	err := testable.CheckLDProof(&proof.Proof{}, nil, nil)
@@ -62,7 +62,7 @@ func TestProofChecker_CheckLDProof(t *testing.T) {
 
 func TestProofChecker_CheckJWTProof(t *testing.T) {
 	testable := checker.New(
-		testsupport.NewSingleKeyResolver("lookupId", []byte{}, "test"),
+		testsupport.NewSingleKeyResolver("lookupId", []byte{}, "test", ""),
 		checker.WithJWTAlg(eddsa.New()))
 
 	err := testable.CheckJWTProof(jose.Headers{jose.HeaderAlgorithm: "talg"}, nil, nil, nil)
@@ -84,6 +84,17 @@ func TestProofChecker_CheckJWTProof(t *testing.T) {
 	require.ErrorContains(t, err, "can't verifiy with \"test\" verification method")
 }
 
+func TestProofCheckerIssuer(t *testing.T) {
+	testable := checker.New(
+		testsupport.NewSingleKeyResolver("lookupId", []byte{}, "test", "awesome"),
+		checker.WithJWTAlg(eddsa.New()))
+
+	err := testable.CheckJWTProof(jose.Headers{jose.HeaderKeyID: "tid", jose.HeaderAlgorithm: "EdDSA"},
+		[]byte(`{"vc":{"issuer" : "abcd"}}`),
+		nil, nil)
+	require.ErrorContains(t, err, "invalid public key id: invalid issuer. expected awesome got abcd")
+}
+
 func TestEmbeddedVMProofChecker_CheckJWTProof(t *testing.T) {
 	testable := checker.NewEmbeddedVMProofChecker(
 		&vermethod.VerificationMethod{Type: "test"},
@@ -97,4 +108,38 @@ func TestEmbeddedVMProofChecker_CheckJWTProof(t *testing.T) {
 
 	err = testable.CheckJWTProof(jose.Headers{jose.HeaderAlgorithm: "EdDSA"}, nil, nil, nil)
 	require.ErrorContains(t, err, "can't verifiy with \"test\" verification method")
+}
+
+func TestFindIssuerInPayload(t *testing.T) {
+	c := checker.ProofChecker{}
+
+	t.Run("$.vc.issuer.id", func(t *testing.T) {
+		result := c.FindIssuer([]byte(`{"iss": "123", "issuer": "abcd", "vc":{"issuer":{"id":"did:example:123"}}}`))
+		require.Equal(t, "did:example:123", result)
+	})
+
+	t.Run("$.vc.issuer", func(t *testing.T) {
+		result := c.FindIssuer([]byte(`{"iss": "123", "issuer": "abcd", "vc":{"issuer":"did:example:123"}}`))
+		require.Equal(t, "did:example:123", result)
+	})
+
+	t.Run("$.issuer.id", func(t *testing.T) {
+		result := c.FindIssuer([]byte(`{"iss": "123", "issuer": {"id" : "abcd"}}`))
+		require.Equal(t, "abcd", result)
+	})
+
+	t.Run("$.issuer", func(t *testing.T) {
+		result := c.FindIssuer([]byte(`{"iss": "123", "issuer": "abcd"}`))
+		require.Equal(t, "abcd", result)
+	})
+
+	t.Run("$.iss", func(t *testing.T) {
+		result := c.FindIssuer([]byte(`{"iss": "123"}`))
+		require.Equal(t, "123", result)
+	})
+
+	t.Run("none", func(t *testing.T) {
+		result := c.FindIssuer([]byte(`{"a": "123"}`))
+		require.Equal(t, "", result)
+	})
 }

@@ -1185,9 +1185,8 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 		vp, err := pd.CreateVP([]*verifiable.Credential{vc}, lddl,
 			WithSDBBSProofCreator(&verifiable.BBSProofCreator{
-				ProofDerivation: bbs12381g2pub.New(),
-				VerificationMethodResolver: testsupport.NewSingleKeyResolver(
-					"did:example:123456#key1", srcPublicKey, "Bls12381G2Key2020"),
+				ProofDerivation:            bbs12381g2pub.New(),
+				VerificationMethodResolver: testsupport.NewSingleKeyResolver("did:example:123456#key1", srcPublicKey, "Bls12381G2Key2020", ""),
 			}),
 			WithSDCredentialOptions(
 				verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t)),
@@ -1310,8 +1309,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		vp, err := pd.CreateVP([]*verifiable.Credential{vc}, lddl,
 			WithSDCredentialOptions(
 				verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t)),
-				verifiable.WithProofChecker(defaults.NewDefaultProofChecker(testsupport.NewSingleKeyResolver(
-					"did:example:123456#key1", srcPublicKey, "Bls12381G2Key2020"))),
+				verifiable.WithProofChecker(defaults.NewDefaultProofChecker(testsupport.NewSingleKeyResolver("did:example:123456#key1", srcPublicKey, "Bls12381G2Key2020", ""))),
 			),
 		)
 		require.NoError(t, err)

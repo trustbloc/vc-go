@@ -605,9 +605,8 @@ func ExampleCredential_GenerateBBSSelectiveDisclosure() {
 
 	vcWithSelectiveDisclosure, err := vc.GenerateBBSSelectiveDisclosure(revealDocMap, []byte("some nonce"),
 		&verifiable.BBSProofCreator{
-			ProofDerivation: bbs12381g2pub.New(),
-			VerificationMethodResolver: testsupport.NewSingleKeyResolver(
-				"did:example:123456#key1", pubKeyBytes, "Bls12381G2Key2020"),
+			ProofDerivation:            bbs12381g2pub.New(),
+			VerificationMethodResolver: testsupport.NewSingleKeyResolver("did:example:123456#key1", pubKeyBytes, "Bls12381G2Key2020", ""),
 		},
 		verifiable.WithJSONLDDocumentLoader(getJSONLDDocumentLoader()))
 	if err != nil {

@@ -8,7 +8,9 @@ package checker
 
 import (
 	"fmt"
+	"strings"
 
+	"github.com/tidwall/gjson"
 	"github.com/trustbloc/did-go/doc/ld/processor"
 	"github.com/trustbloc/did-go/doc/ld/proof"
 	"github.com/trustbloc/kms-go/doc/jose"
@@ -21,7 +23,7 @@ import (
 )
 
 type verificationMethodResolver interface {
-	ResolveVerificationMethod(verificationMethod string) (*vermethod.VerificationMethod, error)
+	ResolveVerificationMethod(verificationMethod string, issuer string) (*vermethod.VerificationMethod, error)
 }
 
 type signatureVerifier interface {
@@ -43,6 +45,15 @@ type ldCheckDescriptor struct {
 
 type jwtCheckDescriptor struct {
 	proofDescriptor proofdesc.JWTProofDescriptor
+}
+
+// nolint: gochecknoglobals
+var possibleIssuerPath = []string{
+	"vc.issuer.id",
+	"vc.issuer",
+	"issuer.id",
+	"issuer",
+	"iss",
 }
 
 // ProofCheckerBase basic implementation of proof checker.
@@ -121,7 +132,8 @@ func (c *ProofChecker) CheckLDProof(proof *proof.Proof, msg, signature []byte) e
 		return fmt.Errorf("proof missing public key id: %w", err)
 	}
 
-	vm, err := c.verificationMethodResolver.ResolveVerificationMethod(publicKeyID)
+	vm, err := c.verificationMethodResolver.ResolveVerificationMethod(publicKeyID,
+		strings.Split(publicKeyID, "#")[0])
 	if err != nil {
 		return fmt.Errorf("proof invalid public key id: %w", err)
 	}
@@ -170,7 +182,7 @@ func (c *ProofCheckerBase) GetLDPDigest(proof *proof.Proof, doc []byte) ([]byte,
 }
 
 // CheckJWTProof check jwt proof.
-func (c *ProofChecker) CheckJWTProof(headers jose.Headers, _, msg, signature []byte) error {
+func (c *ProofChecker) CheckJWTProof(headers jose.Headers, payload, msg, signature []byte) error {
 	keyID, ok := headers.KeyID()
 	if !ok {
 		return fmt.Errorf("missed kid in jwt header")
@@ -181,7 +193,7 @@ func (c *ProofChecker) CheckJWTProof(headers jose.Headers, _, msg, signature []b
 		return fmt.Errorf("missed alg in jwt header")
 	}
 
-	vm, err := c.verificationMethodResolver.ResolveVerificationMethod(keyID)
+	vm, err := c.verificationMethodResolver.ResolveVerificationMethod(keyID, c.FindIssuer(payload))
 	if err != nil {
 		return fmt.Errorf("invalid public key id: %w", err)
 	}
@@ -202,6 +214,19 @@ func (c *ProofChecker) CheckJWTProof(headers jose.Headers, _, msg, signature []b
 	}
 
 	return verifier.Verify(signature, msg, pubKey)
+}
+
+// FindIssuer finds issuer in payload.
+func (c *ProofChecker) FindIssuer(payload []byte) string {
+	parsed := gjson.ParseBytes(payload)
+
+	for _, p := range possibleIssuerPath {
+		if str := parsed.Get(p).Str; str != "" {
+			return str
+		}
+	}
+
+	return ""
 }
 
 func convertToPublicKey(
