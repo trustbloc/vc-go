@@ -589,7 +589,8 @@ func TestNewPresentation(t *testing.T) {
 func TestPresentation_decodeCredentials(t *testing.T) {
 	r := require.New(t)
 
-	proofCreator, proofChecker := testsupport.NewKMSSigVerPair(t, kms.ED25519Type, "did:123#k1")
+	proofCreator, proofChecker := testsupport.NewKMSSigVerPair(t, kms.ED25519Type,
+		"did:example:76e12ec712ebc6f1c221ebfeb1f#k1")
 
 	vc, err := parseTestCredential(t, []byte(validCredential), WithDisabledProofCheck())
 	r.NoError(err)
@@ -597,7 +598,8 @@ func TestPresentation_decodeCredentials(t *testing.T) {
 	jwtClaims, err := vc.JWTClaims(false)
 	r.NoError(err)
 
-	jws, err := jwtClaims.MarshalJWSString(EdDSA, proofCreator, "did:123#k1")
+	jws, err := jwtClaims.MarshalJWSString(EdDSA, proofCreator,
+		"did:example:76e12ec712ebc6f1c221ebfeb1f#k1")
 	r.NoError(err)
 
 	// single credential - JWS

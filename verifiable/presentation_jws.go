@@ -5,7 +5,12 @@ SPDX-License-Identifier: Apache-2.0
 
 package verifiable
 
-import "github.com/trustbloc/vc-go/jwt"
+import (
+	"fmt"
+	"strings"
+
+	"github.com/trustbloc/vc-go/jwt"
+)
 
 // MarshalJWS serializes JWT presentation claims into signed form (JWS).
 func (jpc *JWTPresClaims) MarshalJWS(signatureAlg JWSAlgorithm, signer jwt.ProofCreator, keyID string) (string, error) {
@@ -16,9 +21,19 @@ func (jpc *JWTPresClaims) MarshalJWS(signatureAlg JWSAlgorithm, signer jwt.Proof
 func unmarshalPresJWSClaims(vpJWT string, verifier jwt.ProofChecker) (*JWTPresClaims, error) {
 	var claims JWTPresClaims
 
-	_, err := unmarshalJWS(vpJWT, verifier, &claims)
+	headers, err := unmarshalJWT(vpJWT, &claims)
 	if err != nil {
 		return nil, err
+	}
+
+	keyID, ok := headers.KeyID()
+	if !ok {
+		return nil, fmt.Errorf("key id is missing in jwt header")
+	}
+
+	err = jwt.CheckProof(vpJWT, verifier, strings.Split(keyID, "#")[0], nil)
+	if err != nil {
+		return nil, fmt.Errorf("jwt proof check: %w", err)
 	}
 
 	return &claims, err

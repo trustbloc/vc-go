@@ -44,12 +44,12 @@ type LinkedDataProofContext struct {
 }
 
 func checkLinkedDataProof(jsonldBytes map[string]interface{},
-	proofChecker lddocument.ProofChecker, jsonldOpts *jsonldCredentialOpts) error {
+	proofChecker lddocument.ProofChecker, expectedProofIssuer string, jsonldOpts *jsonldCredentialOpts) error {
 	documentVerifier := lddocument.NewDocumentVerifier(proofChecker)
 
 	processorOpts := mapJSONLDProcessorOpts(jsonldOpts)
 
-	err := documentVerifier.VerifyObject(jsonldBytes, processorOpts...)
+	err := documentVerifier.VerifyObject(jsonldBytes, expectedProofIssuer, processorOpts...)
 	if err != nil {
 		return fmt.Errorf("check linked data proof: %w", err)
 	}

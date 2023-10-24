@@ -44,8 +44,8 @@ func TestLinkedDataProofSignerAndVerifier(t *testing.T) {
 `
 
 	proofCreators, proofCheker := testsupport.NewKMSSignersAndVerifier(t, []testsupport.SigningKey{
-		{Type: kms.ED25519Type, PublicKeyID: "did:example:123456#key1"},
-		{Type: kms.ECDSASecp256k1TypeIEEEP1363, PublicKeyID: "did:example:123456#key2"},
+		{Type: kms.ED25519Type, PublicKeyID: "did:key:z6Mkj7of2aaooXhTJvJ5oCL9ZVcAS472ZBuSjYyXDa4bWT32#key1"},
+		{Type: kms.ECDSASecp256k1TypeIEEEP1363, PublicKeyID: "did:key:z6Mkj7of2aaooXhTJvJ5oCL9ZVcAS472ZBuSjYyXDa4bWT32#key2"},
 	})
 
 	vcWithEd25519Proof := prepareVCWithEd25519LDP(t, vcJSON, proofCreators[0])
@@ -93,7 +93,7 @@ func prepareVCWithEd25519LDP(t *testing.T, vcJSON string, signer lddocument.Proo
 		ProofCreator:            signer,
 		SignatureRepresentation: SignatureJWS,
 		Created:                 &created,
-		VerificationMethod:      "did:example:123456#key1",
+		VerificationMethod:      "did:key:z6Mkj7of2aaooXhTJvJ5oCL9ZVcAS472ZBuSjYyXDa4bWT32#key1",
 	}, ldprocessor.WithDocumentLoader(createTestDocumentLoader(t)))
 	require.NoError(t, err)
 
@@ -113,7 +113,7 @@ func prepareVCWithSecp256k1LDP(t *testing.T, vcJSON string, signer lddocument.Pr
 		KeyType:                 kms.ECDSASecp256k1TypeIEEEP1363,
 		ProofCreator:            signer,
 		SignatureRepresentation: SignatureJWS,
-		VerificationMethod:      "did:example:123456#key2",
+		VerificationMethod:      "did:key:z6Mkj7of2aaooXhTJvJ5oCL9ZVcAS472ZBuSjYyXDa4bWT32#key2",
 	}, ldprocessor.WithDocumentLoader(createTestDocumentLoader(t)))
 	require.NoError(t, err)
 

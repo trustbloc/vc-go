@@ -86,7 +86,7 @@ func TestParse(t *testing.T) {
 	})
 
 	t.Run("success - VC sample", func(t *testing.T) {
-		token, _, err := afjwt.Parse(vcSDJWT, afjwt.WithProofChecker(&holder.NoopSignatureVerifier{}))
+		token, _, err := afjwt.Parse(vcSDJWT)
 		r.NoError(err)
 
 		var payload map[string]interface{}
@@ -428,7 +428,7 @@ func TestHolderVerification(t *testing.T) {
 				r.Nil(verifiedClaims)
 
 				r.Contains(err.Error(),
-					"parse JWT from compact JWS: ed25519: invalid signature") // nolint:lll
+					"check proof of holder verification JWT: ed25519: invalid signature") // nolint:lll
 			})
 
 			t.Run("error - invalid holder verification JWT provided by the holder", func(t *testing.T) {
@@ -758,8 +758,7 @@ func TestHolderVerification(t *testing.T) {
 				r.Nil(verifiedClaims)
 
 				r.Contains(err.Error(),
-					"run holder verification: parse holder verification JWT:"+
-						" parse JWT from compact JWS: jwt with alg EdDSA check:")
+					"run holder verification: check proof of holder verification JWT: jwt with alg EdDSA check:")
 			})
 		})
 	}

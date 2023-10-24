@@ -42,9 +42,10 @@ func (s JoseSigner) Headers() jose.Headers {
 }
 
 type joseVerifier struct {
-	proofChecker ProofChecker
+	proofChecker        ProofChecker
+	expectedProofIssuer string
 }
 
-func (v *joseVerifier) Verify(joseHeaders jose.Headers, payload, signingInput, signature []byte) error {
-	return v.proofChecker.CheckJWTProof(joseHeaders, payload, signingInput, signature)
+func (v *joseVerifier) Verify(joseHeaders jose.Headers, _, signingInput, signature []byte) error {
+	return v.proofChecker.CheckJWTProof(joseHeaders, v.expectedProofIssuer, signingInput, signature)
 }

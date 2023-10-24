@@ -8,14 +8,9 @@ package vermethod
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/trustbloc/did-go/doc/did"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
-)
-
-const (
-	resolveDIDParts = 2
 )
 
 type didResolver interface {
@@ -37,32 +32,16 @@ func NewVDRResolver(vdr didResolver) *VDRResolver {
 // ResolveVerificationMethod resolves verification method by key id.
 func (r *VDRResolver) ResolveVerificationMethod(
 	verificationMethod string,
-	issuer string,
+	expectedKeyController string,
 ) (*VerificationMethod, error) {
-	compare := func(input string, input2 string) bool {
-		return input == input2
-	}
-
-	if !strings.HasPrefix(issuer, "did:") { // if issuer is not a DID fetch by key
-		idSplit := strings.Split(verificationMethod, "#")
-		if len(idSplit) != resolveDIDParts {
-			return nil, fmt.Errorf("wrong id %s to resolve", idSplit)
-		}
-
-		issuer, verificationMethod = idSplit[0], fmt.Sprintf("#%s", idSplit[1])
-		compare = func(input string, input2 string) bool {
-			return strings.Contains(input, input2)
-		}
-	}
-
-	docResolution, err := r.vdr.Resolve(issuer)
+	docResolution, err := r.vdr.Resolve(expectedKeyController)
 	if err != nil {
-		return nil, fmt.Errorf("resolve DID %s: %w", issuer, err)
+		return nil, fmt.Errorf("resolve DID %s: %w", expectedKeyController, err)
 	}
 
 	for _, verifications := range docResolution.DIDDocument.VerificationMethods() {
 		for _, verification := range verifications {
-			if compare(verification.VerificationMethod.ID, verificationMethod) &&
+			if verification.VerificationMethod.ID == verificationMethod &&
 				verification.Relationship != did.KeyAgreement {
 				return &VerificationMethod{
 					Type:  verification.VerificationMethod.Type,
@@ -73,5 +52,5 @@ func (r *VDRResolver) ResolveVerificationMethod(
 		}
 	}
 
-	return nil, fmt.Errorf("public key with KID %s is not found for DID %s", verificationMethod, issuer)
+	return nil, fmt.Errorf("public key with KID %s is not found for DID %s", verificationMethod, expectedKeyController)
 }

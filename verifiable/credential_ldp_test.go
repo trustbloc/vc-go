@@ -35,14 +35,15 @@ import (
 func TestParseCredentialFromLinkedDataProof_Ed25519Signature2018(t *testing.T) {
 	r := require.New(t)
 
-	proofCreator, proofChecker := testsupport.NewKMSSigVerPair(t, kms.ED25519Type, "did:example:123456#key1")
+	proofCreator, proofChecker := testsupport.NewKMSSigVerPair(t, kms.ED25519Type,
+		"did:example:76e12ec712ebc6f1c221ebfeb1f#key1")
 
 	ldpContext := &LinkedDataProofContext{
 		SignatureType:           "Ed25519Signature2018",
 		KeyType:                 kms.ED25519Type,
 		SignatureRepresentation: SignatureProofValue,
 		ProofCreator:            proofCreator,
-		VerificationMethod:      "did:example:123456#key1",
+		VerificationMethod:      "did:example:76e12ec712ebc6f1c221ebfeb1f#key1",
 	}
 
 	vc, err := parseTestCredential(t, []byte(validCredential), WithDisabledProofCheck())
@@ -64,14 +65,14 @@ func TestParseCredentialFromLinkedDataProof_Ed25519Signature2018(t *testing.T) {
 func TestParseCredentialFromLinkedDataProof_Ed25519Signature2020(t *testing.T) {
 	r := require.New(t)
 
-	proofCreator, proofChecker := testsupport.NewKMSSigVerPair(t, kms.ED25519Type, "did:example:123456#key1")
+	proofCreator, proofChecker := testsupport.NewKMSSigVerPair(t, kms.ED25519Type, "did:example:76e12ec712ebc6f1c221ebfeb1f#key1")
 
 	ldpContext := &LinkedDataProofContext{
 		SignatureType:           "Ed25519Signature2020",
 		KeyType:                 kms.ED25519Type,
 		SignatureRepresentation: SignatureProofValue,
 		ProofCreator:            proofCreator,
-		VerificationMethod:      "did:example:123456#key1",
+		VerificationMethod:      "did:example:76e12ec712ebc6f1c221ebfeb1f#key1",
 	}
 
 	vc, err := parseTestCredential(t, []byte(validCredential), WithDisabledProofCheck())
@@ -362,14 +363,14 @@ func TestExtraContextWithLDP(t *testing.T) {
   }
 }`
 
-	proofCreator, proofChecker := testsupport.NewKMSSigVerPair(t, kms.ED25519Type, "did:example:123456#key1")
+	proofCreator, proofChecker := testsupport.NewKMSSigVerPair(t, kms.ED25519Type, "https://example.edu/issuers/14#key1")
 
 	ldpContext := &LinkedDataProofContext{
 		SignatureType:           "Ed25519Signature2018",
 		KeyType:                 kms.ED25519Type,
 		SignatureRepresentation: SignatureProofValue,
 		ProofCreator:            proofCreator,
-		VerificationMethod:      "did:example:123456#key1",
+		VerificationMethod:      "https://example.edu/issuers/14#key1",
 	}
 
 	vc, err := parseTestCredential(t, []byte(vcJSON), WithDisabledProofCheck())
@@ -467,7 +468,7 @@ func TestParseCredentialFromLinkedDataProof_BbsBlsSignature2020(t *testing.T) {
 		KeyType:                 kms.BLS12381G2Type,
 		SignatureRepresentation: SignatureProofValue,
 		ProofCreator:            bbsProofCreator,
-		VerificationMethod:      "did:example:123456#key1",
+		VerificationMethod:      "did:example:76e12ec712ebc6f1c221ebfeb1f#key1",
 	}
 
 	vcJSON := `
@@ -526,7 +527,9 @@ func TestParseCredentialFromLinkedDataProof_BbsBlsSignature2020(t *testing.T) {
 	r.NoError(err)
 
 	vcVerified, err := parseTestCredential(t, vcBytes,
-		WithProofChecker(defaults.NewDefaultProofChecker(testsupport.NewSingleKeyResolver("did:example:123456#key1", pubKeyBytes, "Bls12381G2Key2020", ""))),
+		WithProofChecker(defaults.NewDefaultProofChecker(
+			testsupport.NewSingleKeyResolver(
+				"did:example:76e12ec712ebc6f1c221ebfeb1f#key1", pubKeyBytes, "Bls12381G2Key2020", "did:example:489398593"))),
 	)
 	r.NoError(err)
 	r.NotNil(vcVerified)
@@ -587,14 +590,14 @@ func TestParseCredentialFromLinkedDataProof_BbsBlsSignatureProof2020(t *testing.
 func TestParseCredentialFromLinkedDataProof_JsonWebSignature2020_Ed25519(t *testing.T) {
 	r := require.New(t)
 
-	proofCreator, proofChecker := testsupport.NewKMSSigVerPair(t, kms.ED25519Type, "did:example:123456#key1")
+	proofCreator, proofChecker := testsupport.NewKMSSigVerPair(t, kms.ED25519Type, "did:example:76e12ec712ebc6f1c221ebfeb1f#key1")
 
 	ldpContext := &LinkedDataProofContext{
 		SignatureType:           "JsonWebSignature2020",
 		KeyType:                 kms.ED25519Type,
 		SignatureRepresentation: SignatureJWS,
 		ProofCreator:            proofCreator,
-		VerificationMethod:      "did:example:123456#key1",
+		VerificationMethod:      "did:example:76e12ec712ebc6f1c221ebfeb1f#key1",
 	}
 
 	vc, err := parseTestCredential(t, []byte(validCredential), WithDisabledProofCheck())
@@ -614,14 +617,14 @@ func TestParseCredentialFromLinkedDataProof_JsonWebSignature2020_Ed25519(t *test
 func TestParseCredentialFromLinkedDataProof_JsonWebSignature2020_ecdsaP256(t *testing.T) {
 	r := require.New(t)
 
-	proofCreator, proofChecker := testsupport.NewKMSSigVerPair(t, kms.ECDSAP256TypeIEEEP1363, "did:example:123456#key1")
+	proofCreator, proofChecker := testsupport.NewKMSSigVerPair(t, kms.ECDSAP256TypeIEEEP1363, "did:example:76e12ec712ebc6f1c221ebfeb1f#key1")
 
 	ldpContext := &LinkedDataProofContext{
 		SignatureType:           "JsonWebSignature2020",
 		KeyType:                 kms.ECDSAP256TypeDER,
 		SignatureRepresentation: SignatureJWS,
 		ProofCreator:            proofCreator,
-		VerificationMethod:      "did:example:123456#key1",
+		VerificationMethod:      "did:example:76e12ec712ebc6f1c221ebfeb1f#key1",
 	}
 
 	vc, err := parseTestCredential(t, []byte(validCredential), WithDisabledProofCheck())
@@ -642,14 +645,14 @@ func TestParseCredentialFromLinkedDataProof_EcdsaSecp256k1Signature2019(t *testi
 	r := require.New(t)
 
 	proofCreator, proofChecker := testsupport.NewKMSSigVerPair(t,
-		kms.ECDSASecp256k1TypeIEEEP1363, "did:example:123456#key1")
+		kms.ECDSASecp256k1TypeIEEEP1363, "did:example:76e12ec712ebc6f1c221ebfeb1f#key1")
 
 	ldpContext := &LinkedDataProofContext{
 		SignatureType:           "EcdsaSecp256k1Signature2019",
 		KeyType:                 kms.ECDSASecp256k1TypeIEEEP1363,
 		SignatureRepresentation: SignatureJWS,
 		ProofCreator:            proofCreator,
-		VerificationMethod:      "did:example:123456#key1",
+		VerificationMethod:      "did:example:76e12ec712ebc6f1c221ebfeb1f#key1",
 	}
 
 	vc, err := parseTestCredential(t, []byte(validCredential), WithDisabledProofCheck())
@@ -914,7 +917,9 @@ func TestParseCredential_JSONLiteralsNotSupported(t *testing.T) {
 
 	vc, err := ParseCredential([]byte(vcJSON),
 		WithProofChecker(defaults.NewDefaultProofChecker(
-			testsupport.NewSingleJWKResolver("did:example:123456#key1", pubJWK, "Ed25519VerificationKey2018", ""))),
+			testsupport.NewSingleJWKResolver(
+				"did:example:123456#key1", pubJWK, "Ed25519VerificationKey2018",
+				"did:elem:ropsten:EiBJJPdo-ONF0jxqt8mZYEj9Z7FbdC87m2xvN0_HAbcoEg"))),
 		WithJSONLDOnlyValidRDF(),
 		WithStrictValidation(),
 		WithJSONLDDocumentLoader(docLoader))
@@ -974,8 +979,8 @@ func TestParseCredentialWithSeveralLinkedDataProofs(t *testing.T) {
 	r := require.New(t)
 
 	proofCreators, proofChecker := testsupport.NewKMSSignersAndVerifier(t, []testsupport.SigningKey{
-		{Type: kms.ED25519Type, VMType: "Ed25519VerificationKey2018", PublicKeyID: "did:example:123456#key1"},
-		{Type: kms.ECDSAP256TypeIEEEP1363, PublicKeyID: "did:example:123456#key2"},
+		{Type: kms.ED25519Type, VMType: "Ed25519VerificationKey2018", PublicKeyID: "did:example:76e12ec712ebc6f1c221ebfeb1f#key1"},
+		{Type: kms.ECDSAP256TypeIEEEP1363, PublicKeyID: "did:example:76e12ec712ebc6f1c221ebfeb1f#key2"},
 	})
 
 	vc, err := parseTestCredential(t, []byte(validCredential), WithDisabledProofCheck())
@@ -986,7 +991,7 @@ func TestParseCredentialWithSeveralLinkedDataProofs(t *testing.T) {
 		KeyType:                 kms.ED25519Type,
 		SignatureRepresentation: SignatureProofValue,
 		ProofCreator:            proofCreators[0],
-		VerificationMethod:      "did:example:123456#key1",
+		VerificationMethod:      "did:example:76e12ec712ebc6f1c221ebfeb1f#key1",
 	}, jsonldsig.WithDocumentLoader(createTestDocumentLoader(t)))
 	r.NoError(err)
 
@@ -995,7 +1000,7 @@ func TestParseCredentialWithSeveralLinkedDataProofs(t *testing.T) {
 		KeyType:                 kms.ECDSAP256TypeIEEEP1363,
 		SignatureRepresentation: SignatureJWS,
 		ProofCreator:            proofCreators[1],
-		VerificationMethod:      "did:example:123456#key2",
+		VerificationMethod:      "did:example:76e12ec712ebc6f1c221ebfeb1f#key2",
 	}, jsonldsig.WithDocumentLoader(createTestDocumentLoader(t)))
 	r.NoError(err)
 
@@ -1011,7 +1016,8 @@ func TestParseCredentialWithSeveralLinkedDataProofs(t *testing.T) {
 func TestCredential_AddLinkedDataProof(t *testing.T) {
 	r := require.New(t)
 
-	proofCreator, proofChecker := testsupport.NewKMSSigVerPair(t, kms.ED25519Type, "did:example:xyz#key-1")
+	proofCreator, proofChecker := testsupport.NewKMSSigVerPair(t, kms.ED25519Type,
+		"did:example:76e12ec712ebc6f1c221ebfeb1f#key-1")
 
 	t.Run("Add a valid JWS Linked Data proof to VC", func(t *testing.T) {
 		vc, err := parseTestCredential(t, []byte(validCredential), WithDisabledProofCheck())
@@ -1076,7 +1082,7 @@ func TestCredential_AddLinkedDataProof(t *testing.T) {
 			KeyType:                 kms.ED25519Type,
 			SignatureRepresentation: SignatureJWS,
 			ProofCreator:            proofCreator,
-			VerificationMethod:      "did:example:xyz#key-1",
+			VerificationMethod:      "did:example:76e12ec712ebc6f1c221ebfeb1f#key-1",
 			Challenge:               uuid.New().String(),
 			Domain:                  "issuer.service.com",
 			Purpose:                 "capabilityDelegation",

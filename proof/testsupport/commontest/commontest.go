@@ -42,7 +42,7 @@ const testCredential = `
 	  }
 	},
   "issuer": {
-    "id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+    "id": "did:example:12345",
     "name": "Example University"
   },
   "issuanceDate": "2010-01-01T19:23:24Z",

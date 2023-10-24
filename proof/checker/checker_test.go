@@ -37,50 +37,50 @@ func TestProofChecker_AllLD(t *testing.T) {
 
 func TestProofChecker_CheckLDProof(t *testing.T) {
 	testable := checker.New(
-		testsupport.NewSingleKeyResolver("lookupId", []byte{}, "test", ""),
+		testsupport.NewSingleKeyResolver("lookupId", []byte{}, "test", "issuerID"),
 		checker.WithLDProofTypes(ed25519signature2018.New()))
 
-	err := testable.CheckLDProof(&proof.Proof{}, nil, nil)
+	err := testable.CheckLDProof(&proof.Proof{}, "", nil, nil)
 	require.ErrorContains(t, err, "roof missing public key id")
 
 	err = testable.CheckLDProof(&proof.Proof{
 		VerificationMethod: "invlaid",
-	}, nil, nil)
+	}, "", nil, nil)
 	require.ErrorContains(t, err, "proof invalid public key id")
 
 	err = testable.CheckLDProof(&proof.Proof{
 		VerificationMethod: "lookupId",
-	}, nil, nil)
+	}, "issuerID", nil, nil)
 	require.ErrorContains(t, err, "unsupported proof type")
 
 	err = testable.CheckLDProof(&proof.Proof{
 		VerificationMethod: "lookupId",
 		Type:               "Ed25519Signature2018",
-	}, nil, nil)
+	}, "issuerID", nil, nil)
 	require.ErrorContains(t, err, "can't verifiy with \"test\" verification method")
 }
 
 func TestProofChecker_CheckJWTProof(t *testing.T) {
 	testable := checker.New(
-		testsupport.NewSingleKeyResolver("lookupId", []byte{}, "test", ""),
+		testsupport.NewSingleKeyResolver("lookupId", []byte{}, "test", "issuerID"),
 		checker.WithJWTAlg(eddsa.New()))
 
-	err := testable.CheckJWTProof(jose.Headers{jose.HeaderAlgorithm: "talg"}, nil, nil, nil)
+	err := testable.CheckJWTProof(jose.Headers{jose.HeaderAlgorithm: "talg"}, "issuerID", nil, nil)
 	require.ErrorContains(t, err, "missed kid in jwt header")
 
-	err = testable.CheckJWTProof(jose.Headers{jose.HeaderKeyID: "tid"}, nil, nil, nil)
+	err = testable.CheckJWTProof(jose.Headers{jose.HeaderKeyID: "tid"}, "issuerID", nil, nil)
 	require.ErrorContains(t, err, "missed alg in jwt header")
 
 	err = testable.CheckJWTProof(jose.Headers{
-		jose.HeaderKeyID: "tid", jose.HeaderAlgorithm: "talg"}, nil, nil, nil)
+		jose.HeaderKeyID: "tid", jose.HeaderAlgorithm: "talg"}, "issuerID", nil, nil)
 	require.ErrorContains(t, err, "invalid public key id")
 
 	err = testable.CheckJWTProof(jose.Headers{
-		jose.HeaderKeyID: "lookupId", jose.HeaderAlgorithm: "talg"}, nil, nil, nil)
+		jose.HeaderKeyID: "lookupId", jose.HeaderAlgorithm: "talg"}, "issuerID", nil, nil)
 	require.ErrorContains(t, err, "unsupported jwt alg")
 
 	err = testable.CheckJWTProof(jose.Headers{
-		jose.HeaderKeyID: "lookupId", jose.HeaderAlgorithm: "EdDSA"}, nil, nil, nil)
+		jose.HeaderKeyID: "lookupId", jose.HeaderAlgorithm: "EdDSA"}, "issuerID", nil, nil)
 	require.ErrorContains(t, err, "can't verifiy with \"test\" verification method")
 }
 
@@ -90,9 +90,9 @@ func TestProofCheckerIssuer(t *testing.T) {
 		checker.WithJWTAlg(eddsa.New()))
 
 	err := testable.CheckJWTProof(jose.Headers{jose.HeaderKeyID: "tid", jose.HeaderAlgorithm: "EdDSA"},
-		[]byte(`{"vc":{"issuer" : "abcd"}}`),
+		"abcd",
 		nil, nil)
-	require.ErrorContains(t, err, "invalid public key id: invalid issuer. expected awesome got abcd")
+	require.ErrorContains(t, err, `invalid public key id: invalid issuer. expected "awesome" got "abcd"`)
 }
 
 func TestEmbeddedVMProofChecker_CheckJWTProof(t *testing.T) {
@@ -100,13 +100,13 @@ func TestEmbeddedVMProofChecker_CheckJWTProof(t *testing.T) {
 		&vermethod.VerificationMethod{Type: "test"},
 		checker.WithJWTAlg(eddsa.New()))
 
-	err := testable.CheckJWTProof(jose.Headers{}, nil, nil, nil)
+	err := testable.CheckJWTProof(jose.Headers{}, "", nil, nil)
 	require.ErrorContains(t, err, "missed alg in jwt header")
 
-	err = testable.CheckJWTProof(jose.Headers{jose.HeaderAlgorithm: "talg"}, nil, nil, nil)
+	err = testable.CheckJWTProof(jose.Headers{jose.HeaderAlgorithm: "talg"}, "", nil, nil)
 	require.ErrorContains(t, err, "unsupported jwt alg")
 
-	err = testable.CheckJWTProof(jose.Headers{jose.HeaderAlgorithm: "EdDSA"}, nil, nil, nil)
+	err = testable.CheckJWTProof(jose.Headers{jose.HeaderAlgorithm: "EdDSA"}, "", nil, nil)
 	require.ErrorContains(t, err, "can't verifiy with \"test\" verification method")
 }
 

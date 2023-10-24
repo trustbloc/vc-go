@@ -133,12 +133,14 @@ func newJWTCredClaims(vc *Credential, minimizeVC bool) (*JWTCredClaims, error) {
 // JWTCredClaimsUnmarshaller unmarshals verifiable credential bytes into JWT claims with extra "vc" claim.
 type JWTCredClaimsUnmarshaller func(vcJWTBytes string) (jose.Headers, *JWTCredClaims, error)
 
-// decodeCredJWT parses JWT from the specified bytes array in compact format using unmarshaller.
+// decodeCredJWT parses JWT from the specified bytes array in compact format.
 // It returns jwt.JSONWebToken and decoded Verifiable Credential refined by JWT Claims in raw byte array form.
-func decodeCredJWT(rawJWT string, unmarshaller JWTCredClaimsUnmarshaller) (jose.Headers, []byte, error) {
-	joseHeaders, credClaims, err := unmarshaller(rawJWT)
+func decodeCredJWT(rawJWT string) (jose.Headers, []byte, error) {
+	credClaims := &JWTCredClaims{}
+
+	joseHeaders, err := unmarshalJWT(rawJWT, credClaims)
 	if err != nil {
-		return nil, nil, fmt.Errorf("unmarshal VC JWT claims: %w", err)
+		return nil, nil, err
 	}
 
 	// Apply VC-related claims from JWT.

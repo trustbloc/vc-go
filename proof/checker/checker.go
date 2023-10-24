@@ -8,7 +8,6 @@ package checker
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/tidwall/gjson"
 	"github.com/trustbloc/did-go/doc/ld/processor"
@@ -23,7 +22,7 @@ import (
 )
 
 type verificationMethodResolver interface {
-	ResolveVerificationMethod(verificationMethod string, issuer string) (*vermethod.VerificationMethod, error)
+	ResolveVerificationMethod(verificationMethod string, expectedProofIssuer string) (*vermethod.VerificationMethod, error)
 }
 
 type signatureVerifier interface {
@@ -126,14 +125,13 @@ func New(verificationMethodResolver verificationMethodResolver, opts ...Opt) *Pr
 }
 
 // CheckLDProof check ld proof.
-func (c *ProofChecker) CheckLDProof(proof *proof.Proof, msg, signature []byte) error {
+func (c *ProofChecker) CheckLDProof(proof *proof.Proof, expectedProofIssuer string, msg, signature []byte) error {
 	publicKeyID, err := proof.PublicKeyID()
 	if err != nil {
 		return fmt.Errorf("proof missing public key id: %w", err)
 	}
 
-	vm, err := c.verificationMethodResolver.ResolveVerificationMethod(publicKeyID,
-		strings.Split(publicKeyID, "#")[0])
+	vm, err := c.verificationMethodResolver.ResolveVerificationMethod(publicKeyID, expectedProofIssuer)
 	if err != nil {
 		return fmt.Errorf("proof invalid public key id: %w", err)
 	}
@@ -182,7 +180,7 @@ func (c *ProofCheckerBase) GetLDPDigest(proof *proof.Proof, doc []byte) ([]byte,
 }
 
 // CheckJWTProof check jwt proof.
-func (c *ProofChecker) CheckJWTProof(headers jose.Headers, payload, msg, signature []byte) error {
+func (c *ProofChecker) CheckJWTProof(headers jose.Headers, expectedProofIssuer string, msg, signature []byte) error {
 	keyID, ok := headers.KeyID()
 	if !ok {
 		return fmt.Errorf("missed kid in jwt header")
@@ -193,7 +191,7 @@ func (c *ProofChecker) CheckJWTProof(headers jose.Headers, payload, msg, signatu
 		return fmt.Errorf("missed alg in jwt header")
 	}
 
-	vm, err := c.verificationMethodResolver.ResolveVerificationMethod(keyID, c.FindIssuer(payload))
+	vm, err := c.verificationMethodResolver.ResolveVerificationMethod(keyID, expectedProofIssuer)
 	if err != nil {
 		return fmt.Errorf("invalid public key id: %w", err)
 	}
@@ -305,7 +303,7 @@ type EmbeddedVMProofChecker struct {
 }
 
 // CheckJWTProof check jwt proof.
-func (c *EmbeddedVMProofChecker) CheckJWTProof(headers jose.Headers, _, msg, signature []byte) error {
+func (c *EmbeddedVMProofChecker) CheckJWTProof(headers jose.Headers, _ string, msg, signature []byte) error {
 	alg, ok := headers.Algorithm()
 	if !ok {
 		return fmt.Errorf("missed alg in jwt header")

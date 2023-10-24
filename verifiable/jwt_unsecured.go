@@ -23,7 +23,7 @@ func marshalUnsecuredJWT(claims interface{}) (string, error) {
 }
 
 func unmarshalUnsecuredJWT(rawJWT string, claims interface{}) (jose.Headers, error) {
-	token, _, err := jwt.Parse(rawJWT, jwt.WithProofChecker(jwt.UnsecuredJWTVerifier()))
+	token, _, err := jwt.Parse(rawJWT)
 	if err != nil {
 		return nil, fmt.Errorf("unmarshal unsecured JWT: %w", err)
 	}

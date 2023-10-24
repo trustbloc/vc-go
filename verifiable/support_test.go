@@ -67,7 +67,8 @@ func createVCWithLinkedDataProof(t *testing.T) (*Credential, *checker.ProofCheck
 
 	created := time.Now()
 
-	proofCreator, proofChecker := testsupport.NewKMSSigVerPair(t, kmsapi.ED25519Type, "did:123#any")
+	proofCreator, proofChecker := testsupport.NewKMSSigVerPair(t, kmsapi.ED25519Type,
+		"did:example:76e12ec712ebc6f1c221ebfeb1f#any")
 
 	err = vc.AddLinkedDataProof(&LinkedDataProofContext{
 		SignatureType:           "Ed25519Signature2018",
@@ -75,7 +76,7 @@ func createVCWithLinkedDataProof(t *testing.T) (*Credential, *checker.ProofCheck
 		ProofCreator:            proofCreator,
 		SignatureRepresentation: SignatureJWS,
 		Created:                 &created,
-		VerificationMethod:      "did:123#any",
+		VerificationMethod:      "did:example:76e12ec712ebc6f1c221ebfeb1f#any",
 	}, jsonldsig.WithDocumentLoader(createTestDocumentLoader(t)))
 
 	require.NoError(t, err)
@@ -97,11 +98,11 @@ func createVCWithTwoLinkedDataProofs(t *testing.T) (*Credential, *checker.ProofC
 	proofCreators, proofChecker := testsupport.NewKMSSignersAndVerifier(t, []testsupport.SigningKey{
 		{
 			Type:        kmsapi.ED25519Type,
-			PublicKeyID: "did:123#key1",
+			PublicKeyID: "did:example:76e12ec712ebc6f1c221ebfeb1f#key1",
 		},
 		{
 			Type:        kmsapi.ED25519Type,
-			PublicKeyID: "did:123#key2",
+			PublicKeyID: "did:example:76e12ec712ebc6f1c221ebfeb1f#key2",
 		},
 	})
 
@@ -111,7 +112,7 @@ func createVCWithTwoLinkedDataProofs(t *testing.T) (*Credential, *checker.ProofC
 		ProofCreator:            proofCreators[0],
 		SignatureRepresentation: SignatureJWS,
 		Created:                 &created,
-		VerificationMethod:      "did:123#key1",
+		VerificationMethod:      "did:example:76e12ec712ebc6f1c221ebfeb1f#key1",
 	}, jsonldsig.WithDocumentLoader(createTestDocumentLoader(t)))
 
 	require.NoError(t, err)
@@ -122,7 +123,7 @@ func createVCWithTwoLinkedDataProofs(t *testing.T) (*Credential, *checker.ProofC
 		ProofCreator:            proofCreators[1],
 		SignatureRepresentation: SignatureJWS,
 		Created:                 &created,
-		VerificationMethod:      "did:123#key2",
+		VerificationMethod:      "did:example:76e12ec712ebc6f1c221ebfeb1f#key2",
 	}, jsonldsig.WithDocumentLoader(createTestDocumentLoader(t)))
 
 	require.NoError(t, err)

@@ -95,7 +95,7 @@ func TestUnmarshalPresJWSClaims(t *testing.T) {
 
 		uc, err := unmarshalPresJWSClaims(jws, otherProofChecker)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "parse JWT")
+		require.Contains(t, err.Error(), "jwt proof check")
 		require.Nil(t, uc)
 	})
 }

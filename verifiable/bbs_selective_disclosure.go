@@ -32,7 +32,7 @@ type bbsProofDerivation interface {
 type verificationMethodResolver interface {
 	ResolveVerificationMethod(
 		verificationMethod string,
-		issuer string,
+		expectedKeyController string,
 	) (*vermethod.VerificationMethod, error)
 }
 
@@ -141,7 +141,7 @@ func getPublicKeyAndSignature(blsSignatureMap map[string]interface{},
 		return nil, nil, fmt.Errorf("get public KID from BBS+ signature: %w", err)
 	}
 
-	vm, err := resolver.ResolveVerificationMethod(publicKeyID, "")
+	vm, err := resolver.ResolveVerificationMethod(publicKeyID, strings.Split(publicKeyID, "#")[0])
 	if err != nil {
 		return nil, nil, fmt.Errorf("resolve public key of BBS+ signature: %w", err)
 	}
