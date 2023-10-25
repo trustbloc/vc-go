@@ -8,7 +8,6 @@ package verifiable
 import (
 	"crypto/rand"
 	"crypto/rsa"
-	"encoding/json"
 	"testing"
 
 	"github.com/go-jose/go-jose/v3"
@@ -17,12 +16,11 @@ import (
 
 	"github.com/trustbloc/vc-go/proof/testsupport"
 
-	ariesjose "github.com/trustbloc/kms-go/doc/jose"
 	"github.com/trustbloc/kms-go/spi/kms"
 )
 
 func TestJWTCredClaimsMarshalJWS(t *testing.T) {
-	proofCreator, proofChecker := testsupport.NewKMSSigVerPair(t, kms.RSARS256Type, "did:123#key1")
+	proofCreator, proofChecker := testsupport.NewKMSSigVerPair(t, kms.RSARS256Type, "did:example:76e12ec712ebc6f1c221ebfeb1f#key1")
 
 	vc, err := parseTestCredential(t, []byte(validCredential), WithDisabledProofCheck())
 	require.NoError(t, err)
@@ -31,19 +29,13 @@ func TestJWTCredClaimsMarshalJWS(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("Marshal signed JWT", func(t *testing.T) {
-		jws, err := jwtClaims.MarshalJWSString(RS256, proofCreator, "did:123#key1")
+		jws, err := jwtClaims.MarshalJWSString(RS256, proofCreator, "did:example:76e12ec712ebc6f1c221ebfeb1f#key1")
 		require.NoError(t, err)
 
-		headers, vcBytes, err := decodeCredJWS(jws, true, proofChecker)
-		require.NoError(t, err)
-		require.Equal(t, ariesjose.Headers{"alg": "RS256", "kid": "did:123#key1"}, headers)
-
-		var vcRaw JSONObject
-		err = json.Unmarshal(vcBytes, &vcRaw)
-		require.NoError(t, err)
+		jwtVC, err := ParseCredential([]byte(jws), WithProofChecker(proofChecker))
 
 		require.NoError(t, err)
-		require.Equal(t, vc.stringJSON(t), jsonObjectToString(t, vcRaw))
+		require.Equal(t, vc.stringJSON(t), jsonObjectToString(t, jwtVC.ToRawJSON()))
 	})
 }
 
@@ -54,8 +46,8 @@ type invalidCredClaims struct {
 }
 
 func TestCredJWSDecoderUnmarshal(t *testing.T) {
-	verificationKeyID := "did:123#key1"
-	otherVerificationKeyID := "did:123#key2"
+	verificationKeyID := "did:example:76e12ec712ebc6f1c221ebfeb1f#key1"
+	otherVerificationKeyID := "did:example:76e12ec712ebc6f1c221ebfeb1f#key2"
 
 	proofCreators, proofChecker := testsupport.NewKMSSignersAndVerifier(t, []testsupport.SigningKey{
 		{Type: kms.RSARS256, PublicKeyID: verificationKeyID},
@@ -66,25 +58,18 @@ func TestCredJWSDecoderUnmarshal(t *testing.T) {
 	jwsWithWrongKey := createRS256JWS(t, []byte(jwtTestCredential), proofCreators[0], otherVerificationKeyID, false)
 
 	t.Run("Successful JWS decoding", func(t *testing.T) {
-		headers, vcBytes, err := decodeCredJWS(string(validJWS), true, proofChecker)
-		require.NoError(t, err)
-		require.NotNil(t, headers)
-
-		var vcRaw JSONObject
-		err = json.Unmarshal(vcBytes, &vcRaw)
+		jwtVC, err := ParseCredential(validJWS, WithProofChecker(proofChecker))
 		require.NoError(t, err)
 
 		vc, err := parseTestCredential(t, []byte(jwtTestCredential), WithDisabledProofCheck())
 		require.NoError(t, err)
-		require.Equal(t, vc.stringJSON(t), jsonObjectToString(t, vcRaw))
+		require.Equal(t, vc.stringJSON(t), jsonObjectToString(t, jwtVC.ToRawJSON()))
 	})
 
 	t.Run("Invalid serialized JWS", func(t *testing.T) {
-		joseHeaders, jws, err := decodeCredJWS("invalid JWS", true, proofChecker)
+		_, err := ParseCredential([]byte(`"invalid JWS"`), WithProofChecker(proofChecker))
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "unmarshal VC JWT claims")
-		require.Nil(t, jws)
-		require.Nil(t, joseHeaders)
+		require.Contains(t, err.Error(), "unmarshal new credential")
 	})
 
 	t.Run("Invalid format of \"vc\" claim", func(t *testing.T) {
@@ -104,18 +89,14 @@ func TestCredJWSDecoderUnmarshal(t *testing.T) {
 		jwtCompact, err := jwt.Signed(signer).Claims(claims).CompactSerialize()
 		require.NoError(t, err)
 
-		joseHeaders, jws, err := decodeCredJWS(jwtCompact, true, proofChecker)
+		_, err = ParseCredential([]byte(jwtCompact), WithProofChecker(proofChecker))
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "unmarshal VC JWT claims")
-		require.Nil(t, jws)
-		require.Nil(t, joseHeaders)
+		require.Contains(t, err.Error(), "decode new JWT credential")
 	})
 
 	t.Run("Invalid signature of JWS", func(t *testing.T) {
-		joseHeaders, jws, err := decodeCredJWS(string(jwsWithWrongKey), true, proofChecker)
+		_, err := ParseCredential(jwsWithWrongKey, WithProofChecker(proofChecker))
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "unmarshal VC JWT claims")
-		require.Nil(t, jws)
-		require.Nil(t, joseHeaders)
+		require.Contains(t, err.Error(), "JWS proof check")
 	})
 }

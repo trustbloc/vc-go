@@ -371,7 +371,12 @@ func TestNew(t *testing.T) {
 		cfi := common.ParseCombinedFormatForIssuance(combinedFormatForIssuance)
 		r.Equal(1, len(cfi.Disclosures))
 
-		afjwtToken, _, err := afjwt.Parse(cfi.SDJWT, afjwt.WithProofChecker(verifier))
+		jwtClaims := &afjwt.Claims{}
+
+		afjwtToken, _, err := afjwt.Parse(cfi.SDJWT, afjwt.DecodeClaimsTo(jwtClaims))
+		r.NoError(err)
+
+		err = afjwt.CheckProof(cfi.SDJWT, verifier, jwtClaims.Issuer, nil)
 		r.NoError(err)
 
 		var parsedClaims map[string]interface{}
@@ -410,14 +415,19 @@ func TestNew(t *testing.T) {
 		cfi := common.ParseCombinedFormatForIssuance(combinedFormatForIssuance)
 		r.Equal(6, len(cfi.Disclosures))
 
-		afjwtToken, _, err := afjwt.Parse(cfi.SDJWT, afjwt.WithProofChecker(verifier))
+		jwtClaims := &afjwt.Claims{}
+
+		afjwtToken, _, err := afjwt.Parse(cfi.SDJWT, afjwt.DecodeClaimsTo(jwtClaims))
 		r.NoError(err)
 
-		var parsedClaims map[string]interface{}
-		err = afjwtToken.DecodeClaims(&parsedClaims)
+		err = afjwt.CheckProof(cfi.SDJWT, verifier, jwtClaims.Issuer, nil)
 		r.NoError(err)
 
-		digests, err := common.GetDisclosureDigests(parsedClaims)
+		var claimsMap map[string]interface{}
+		err = afjwtToken.DecodeClaims(&claimsMap)
+		r.NoError(err)
+
+		digests, err := common.GetDisclosureDigests(claimsMap)
 		require.NoError(t, err)
 		require.Empty(t, digests)
 	})
@@ -970,7 +980,14 @@ func createComplexClaimsWithSlice() map[string]interface{} {
 func verifyEd25519(jws string, pubKey ed25519.PublicKey) error {
 	v := testsupport.NewEd25519Verifier(pubKey)
 
-	token, _, err := afjwt.Parse(jws, afjwt.WithProofChecker(v))
+	claims := &afjwt.Claims{}
+
+	token, _, err := afjwt.Parse(jws, afjwt.DecodeClaimsTo(claims))
+	if err != nil {
+		return err
+	}
+
+	err = afjwt.CheckProof(jws, v, claims.Issuer, nil)
 	if err != nil {
 		return err
 	}
@@ -985,7 +1002,14 @@ func verifyEd25519(jws string, pubKey ed25519.PublicKey) error {
 func verifyRS256(jws string, pubKey *rsa.PublicKey) error {
 	v := testsupport.NewRS256Verifier(pubKey)
 
-	token, _, err := afjwt.Parse(jws, afjwt.WithProofChecker(v))
+	claims := &afjwt.Claims{}
+
+	token, _, err := afjwt.Parse(jws, afjwt.DecodeClaimsTo(claims))
+	if err != nil {
+		return err
+	}
+
+	err = afjwt.CheckProof(jws, v, claims.Issuer, nil)
 	if err != nil {
 		return err
 	}

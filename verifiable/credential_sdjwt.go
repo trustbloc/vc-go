@@ -483,7 +483,9 @@ func (vc *Credential) CreateDisplayCredential( // nolint:funlen,gocyclo
 		return vc, nil
 	}
 
-	_, credClaims, err := unmarshalJWSClaims(vc.JWTEnvelope.JWT, nil)
+	credClaims := &JWTCredClaims{}
+
+	_, err := unmarshalJWT(vc.JWTEnvelope.JWT, credClaims)
 	if err != nil {
 		return nil, fmt.Errorf("unmarshal VC JWT claims: %w", err)
 	}
@@ -540,7 +542,9 @@ func (vc *Credential) CreateDisplayCredentialMap( // nolint:funlen,gocyclo
 		return vc.credentialJSON, nil
 	}
 
-	_, credClaims, err := unmarshalJWSClaims(vc.JWTEnvelope.JWT, nil)
+	credClaims := &JWTCredClaims{}
+
+	_, err := unmarshalJWT(vc.JWTEnvelope.JWT, credClaims)
 	if err != nil {
 		return nil, fmt.Errorf("unmarshal VC JWT claims: %w", err)
 	}

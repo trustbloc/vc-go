@@ -186,11 +186,11 @@ func TestParsePresentationWithVCJWT(t *testing.T) {
 
 	t.Run("Presentation with VC defined as JWS", func(t *testing.T) {
 		proofCreators, proofChecker := testsupport.NewKMSSignersAndVerifier(t, []testsupport.SigningKey{
-			{Type: kms.RSARS256Type, PublicKeyID: "did:123#issuer-key"},
+			{Type: kms.RSARS256Type, PublicKeyID: "did:example:76e12ec712ebc6f1c221ebfeb1f#issuer-key"},
 			{Type: kms.ED25519Type, PublicKeyID: "did:123#holder-key"},
 		})
 
-		jwtVC, err := vc.CreateSignedJWTVC(true, RS256, proofCreators[0], "did:123#issuer-key")
+		jwtVC, err := vc.CreateSignedJWTVC(true, RS256, proofCreators[0], "did:example:76e12ec712ebc6f1c221ebfeb1f#issuer-key")
 		r.NoError(err)
 		r.NotNil(jwtVC)
 

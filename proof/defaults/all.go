@@ -29,7 +29,7 @@ import (
 )
 
 type verificationMethodResolver interface {
-	ResolveVerificationMethod(verificationMethod string, issuer string) (*vermethod.VerificationMethod, error)
+	ResolveVerificationMethod(verificationMethod string, expectedProofIssuer string) (*vermethod.VerificationMethod, error)
 }
 
 // NewDefaultProofChecker creates proof checker with all available validation algorithms.

@@ -14,6 +14,10 @@ import (
 	"github.com/trustbloc/vc-go/proof/testsupport"
 )
 
+const (
+	expectedIssuer = "did:example:76e12ec712ebc6f1c221ebfeb1f"
+)
+
 func Test_checkEmbeddedProofBytes(t *testing.T) {
 	r := require.New(t)
 	nonJSONBytes := []byte("not JSON")
@@ -23,7 +27,19 @@ func Test_checkEmbeddedProofBytes(t *testing.T) {
 		vc, proofChecker := createVCWithLinkedDataProof(t)
 		vcBytes := vc.byteJSON(t)
 
-		err := checkEmbeddedProofBytes(vcBytes, &embeddedProofCheckOpts{
+		err := checkEmbeddedProofBytes(vcBytes, expectedIssuer, &embeddedProofCheckOpts{
+			proofChecker:         proofChecker,
+			jsonldCredentialOpts: jsonldCredentialOpts{jsonldDocumentLoader: createTestDocumentLoader(t)},
+		})
+
+		require.NoError(t, err)
+	})
+
+	t.Run("single proof, any expected issuer", func(t *testing.T) {
+		vc, proofChecker := createVCWithLinkedDataProof(t)
+		vcBytes := vc.byteJSON(t)
+
+		err := checkEmbeddedProofBytes(vcBytes, "", &embeddedProofCheckOpts{
 			proofChecker:         proofChecker,
 			jsonldCredentialOpts: jsonldCredentialOpts{jsonldDocumentLoader: createTestDocumentLoader(t)},
 		})
@@ -35,7 +51,7 @@ func Test_checkEmbeddedProofBytes(t *testing.T) {
 		vc, proofChecker := createVCWithTwoLinkedDataProofs(t)
 		vcBytes := vc.byteJSON(t)
 
-		err := checkEmbeddedProofBytes(vcBytes, &embeddedProofCheckOpts{
+		err := checkEmbeddedProofBytes(vcBytes, expectedIssuer, &embeddedProofCheckOpts{
 			proofChecker:         proofChecker,
 			jsonldCredentialOpts: jsonldCredentialOpts{jsonldDocumentLoader: createTestDocumentLoader(t)},
 		})
@@ -44,12 +60,12 @@ func Test_checkEmbeddedProofBytes(t *testing.T) {
 	})
 
 	t.Run("Does not check the embedded proof if credentialOpts.disabledProofCheck", func(t *testing.T) {
-		err := checkEmbeddedProofBytes(nonJSONBytes, &embeddedProofCheckOpts{disabledProofCheck: true})
+		err := checkEmbeddedProofBytes(nonJSONBytes, "", &embeddedProofCheckOpts{disabledProofCheck: true})
 		r.NoError(err)
 	})
 
 	t.Run("error on checking non-JSON embedded proof", func(t *testing.T) {
-		err := checkEmbeddedProofBytes(nonJSONBytes, defaultOpts)
+		err := checkEmbeddedProofBytes(nonJSONBytes, "", defaultOpts)
 		r.Error(err)
 		r.Contains(err.Error(), "embedded proof is not JSON")
 	})
@@ -58,7 +74,7 @@ func Test_checkEmbeddedProofBytes(t *testing.T) {
 		docWithoutProof := `{
   "@context": "https://www.w3.org/2018/credentials/v1"
 }`
-		err := checkEmbeddedProofBytes([]byte(docWithoutProof), defaultOpts)
+		err := checkEmbeddedProofBytes([]byte(docWithoutProof), "", defaultOpts)
 		r.NoError(err)
 	})
 
@@ -67,7 +83,7 @@ func Test_checkEmbeddedProofBytes(t *testing.T) {
   "@context": "https://www.w3.org/2018/credentials/v1",
   "proof": "some string proof"
 }`
-		err := checkEmbeddedProofBytes([]byte(docWithNotMapProof), defaultOpts)
+		err := checkEmbeddedProofBytes([]byte(docWithNotMapProof), "", defaultOpts)
 		r.Error(err)
 		r.EqualError(err, "check embedded proof: invalid proof type")
 	})
@@ -77,7 +93,7 @@ func Test_checkEmbeddedProofBytes(t *testing.T) {
   "@context": "https://www.w3.org/2018/credentials/v1",
   "proof": "some string proof"
 }`
-		err := checkEmbeddedProofBytes([]byte(docWithNotMapProof), defaultOpts)
+		err := checkEmbeddedProofBytes([]byte(docWithNotMapProof), "", defaultOpts)
 		r.Error(err)
 		r.EqualError(err, "check embedded proof: invalid proof type")
 	})
@@ -99,7 +115,7 @@ func Test_checkEmbeddedProofBytes(t *testing.T) {
 
 }
 `
-		err := checkEmbeddedProofBytes([]byte(docWithNotMapProof), defaultOpts)
+		err := checkEmbeddedProofBytes([]byte(docWithNotMapProof), "", defaultOpts)
 		r.Error(err)
 		r.EqualError(err, "check embedded proof: invalid proof type")
 	})
@@ -115,7 +131,7 @@ func Test_checkEmbeddedProofBytes(t *testing.T) {
   }
 }`
 		_, proofChecker := testsupport.NewKMSSigVerPair(t, kmsapi.ED25519Type, "did:123#any")
-		err := checkEmbeddedProofBytes([]byte(docWithNotSupportedProof), &embeddedProofCheckOpts{
+		err := checkEmbeddedProofBytes([]byte(docWithNotSupportedProof), "", &embeddedProofCheckOpts{
 			proofChecker:         proofChecker,
 			jsonldCredentialOpts: jsonldCredentialOpts{jsonldDocumentLoader: createTestDocumentLoader(t)},
 		})
@@ -133,7 +149,7 @@ func Test_checkEmbeddedProofBytes(t *testing.T) {
     "proofValue": "invalid value"
   }
 }`
-		err := checkEmbeddedProofBytes([]byte(docWithNotSupportedProof), defaultOpts)
+		err := checkEmbeddedProofBytes([]byte(docWithNotSupportedProof), "", defaultOpts)
 		r.Error(err)
 		r.EqualError(err, "proofChecker is not defined")
 	})

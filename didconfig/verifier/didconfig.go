@@ -222,7 +222,7 @@ func validateDomainLinkageCredential(vcc verifiable.CredentialContents, did, ori
 }
 
 func validateJWT(vc *verifiable.Credential, did, origin string) error {
-	jsonWebToken, _, err := jwt.Parse(vc.JWTEnvelope.JWT, jwt.WithProofChecker(&noVerifier{}))
+	jsonWebToken, _, err := jwt.Parse(vc.JWTEnvelope.JWT)
 	if err != nil {
 		return fmt.Errorf("parse JWT: %w", err)
 	}
@@ -434,14 +434,6 @@ func getCredentials(linkedDIDs []interface{}, did, domain string, opts ...verifi
 	}
 
 	return credentialsForDIDAndDomain, nil
-}
-
-// noVerifier is used when no JWT signature verification is needed.
-// To be used with precaution.
-type noVerifier struct{}
-
-func (v noVerifier) CheckJWTProof(_ jose.Headers, _, _, _ []byte) error {
-	return nil
 }
 
 func getParseCredentialOptions(disableProofCheck bool, opts *didConfigOpts) []verifiable.CredentialOpt {

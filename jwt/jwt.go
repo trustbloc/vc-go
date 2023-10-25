@@ -36,8 +36,8 @@ type Claims jwt.Claims
 // jwtParseOpts holds options for the JWT parsing.
 type parseOpts struct {
 	detachedPayload         []byte
-	proofChecker            ProofChecker
 	ignoreClaimsMapDecoding bool
+	decodeClaimsDestination interface{}
 }
 
 // ParseOpt is the JWT Parser option.
@@ -58,36 +58,18 @@ func WithIgnoreClaimsMapDecoding(ignoreClaimsMapDecoding bool) ParseOpt {
 	}
 }
 
-// WithProofChecker option is for definition of JWT detached payload.
-func WithProofChecker(proofChecker ProofChecker) ParseOpt {
+// DecodeClaimsTo if set claims will be decoded into object pointed by decodeDestination argument.
+func DecodeClaimsTo(decodeDestination interface{}) ParseOpt {
 	return func(opts *parseOpts) {
-		opts.proofChecker = proofChecker
+		opts.decodeClaimsDestination = decodeDestination
 	}
 }
 
 type unsecuredJWTVerifier struct {
 }
 
-func (*unsecuredJWTVerifier) CheckJWTProof(joseHeaders jose.Headers, _, _, signature []byte) error {
-	alg, ok := joseHeaders.Algorithm()
-	if !ok {
-		return errors.New("alg is not defined")
-	}
-
-	if alg != AlgorithmNone {
-		return errors.New("alg value is not 'none'")
-	}
-
-	if len(signature) > 0 {
-		return errors.New("not empty signature")
-	}
-
+func (*unsecuredJWTVerifier) CheckJWTProof(joseHeaders jose.Headers, _ string, _, signature []byte) error {
 	return nil
-}
-
-// UnsecuredJWTVerifier provides verifier for unsecured JWT.
-func UnsecuredJWTVerifier() ProofChecker {
-	return &unsecuredJWTVerifier{}
 }
 
 type unsecuredJWTSigner struct{}
@@ -112,7 +94,6 @@ type JSONWebToken struct {
 }
 
 // Parse parses input JWT in serialized form into JSON Web Token.
-// Currently JWS and unsecured JWT is supported.
 func Parse(jwtSerialized string, opts ...ParseOpt) (*JSONWebToken, []byte, error) {
 	if !jose.IsCompactJWS(jwtSerialized) {
 		return nil, nil, errors.New("JWT of compacted JWS form is supported only")
@@ -124,7 +105,22 @@ func Parse(jwtSerialized string, opts ...ParseOpt) (*JSONWebToken, []byte, error
 		opt(pOpts)
 	}
 
-	return parseJWS(jwtSerialized, pOpts)
+	return parseJWT(jwtSerialized, pOpts)
+}
+
+// CheckProof checks that jwt have correct signature.
+func CheckProof(jwtSerialized string, proofChecker ProofChecker,
+	expectedProofIssuer string, detachedPayload []byte) error {
+	jwsOpts := make([]jose.JWSParseOpt, 0)
+
+	if detachedPayload != nil {
+		jwsOpts = append(jwsOpts, jose.WithJWSDetachedPayload(detachedPayload))
+	}
+
+	_, err := jose.ParseJWS(jwtSerialized,
+		&joseVerifier{expectedProofIssuer: expectedProofIssuer, proofChecker: proofChecker}, jwsOpts...)
+
+	return err
 }
 
 // DecodeClaims fills input c with claims of a token.
@@ -157,14 +153,14 @@ func (j *JSONWebToken) Serialize(detached bool) (string, error) {
 	return j.jws.SerializeCompact(detached)
 }
 
-func parseJWS(jwtSerialized string, opts *parseOpts) (*JSONWebToken, []byte, error) {
+func parseJWT(jwtSerialized string, opts *parseOpts) (*JSONWebToken, []byte, error) {
 	jwsOpts := make([]jose.JWSParseOpt, 0)
 
 	if opts.detachedPayload != nil {
 		jwsOpts = append(jwsOpts, jose.WithJWSDetachedPayload(opts.detachedPayload))
 	}
 
-	jws, err := jose.ParseJWS(jwtSerialized, &joseVerifier{proofChecker: opts.proofChecker}, jwsOpts...)
+	jws, err := jose.ParseJWS(jwtSerialized, &joseVerifier{proofChecker: &unsecuredJWTVerifier{}}, jwsOpts...)
 	if err != nil {
 		return nil, nil, fmt.Errorf("parse JWT from compact JWS: %w", err)
 	}
@@ -192,6 +188,13 @@ func mapJWSToJWT(jws *jose.JSONWebSignature, opts *parseOpts) (*JSONWebToken, []
 		}
 
 		token.Payload = claims
+	}
+
+	if opts.decodeClaimsDestination != nil {
+		err := json.Unmarshal(jws.Payload, opts.decodeClaimsDestination)
+		if err != nil {
+			return nil, nil, fmt.Errorf("decode JWT claims from payload: %w", err)
+		}
 	}
 
 	return token, jws.Payload, nil
@@ -342,7 +345,7 @@ func PayloadToMap(i interface{}) (map[string]interface{}, error) {
 	var m map[string]interface{}
 
 	d := json.NewDecoder(bytes.NewReader(b))
-	d.UseNumber()
+	d.SetNumberType(json.UnmarshalJSONNumber)
 
 	if err := d.Decode(&m); err != nil {
 		return nil, fmt.Errorf("convert to map: %w", err)

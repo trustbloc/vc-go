@@ -7,14 +7,11 @@ package verifiable
 
 import (
 	"encoding/json"
-	"errors"
 	"testing"
 	"time"
 
 	josejwt "github.com/go-jose/go-jose/v3/jwt"
 	"github.com/stretchr/testify/require"
-
-	"github.com/trustbloc/kms-go/doc/jose"
 
 	"github.com/trustbloc/vc-go/jwt"
 )
@@ -24,11 +21,9 @@ const (
 )
 
 func TestDecodeJWT(t *testing.T) {
-	joseHeaders, vcBytes, err := decodeCredJWT("", func(string) (jose.Headers, *JWTCredClaims, error) {
-		return nil, nil, errors.New("cannot parse JWT claims")
-	})
+	joseHeaders, vcBytes, err := decodeCredJWT("")
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "cannot parse JWT claims")
+	require.Contains(t, err.Error(), "parse JWT: JWT of compacted JWS form is supported only")
 	require.Nil(t, vcBytes)
 	require.Nil(t, joseHeaders)
 }

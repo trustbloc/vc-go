@@ -69,7 +69,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 		sdJWT := ParseCombinedFormatForIssuance(testCombinedFormatForIssuance)
 		require.Equal(t, 1, len(sdJWT.Disclosures))
 
-		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithProofChecker(&NoopSignatureVerifier{}))
+		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT)
 		require.NoError(t, err)
 
 		err = VerifyDisclosuresInSDJWT(sdJWT.Disclosures, signedJWT)
@@ -80,7 +80,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 		sdJWT := ParseCombinedFormatForIssuance(testCombinedFormatForIssuanceV5)
 		require.Equal(t, 6, len(sdJWT.Disclosures))
 
-		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithProofChecker(&NoopSignatureVerifier{}))
+		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT)
 		require.NoError(t, err)
 
 		err = VerifyDisclosuresInSDJWT(sdJWT.Disclosures, signedJWT)
@@ -92,7 +92,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 
 		sdJWT := ParseCombinedFormatForPresentation(specExample2bPresentation)
 
-		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithProofChecker(&NoopSignatureVerifier{}))
+		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT)
 		require.NoError(t, err)
 
 		err = VerifyDisclosuresInSDJWT(sdJWT.Disclosures, signedJWT)
@@ -128,7 +128,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 		sdJWT := ParseCombinedFormatForIssuance(testCombinedFormatForIssuance)
 		require.Equal(t, 1, len(sdJWT.Disclosures))
 
-		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithProofChecker(&NoopSignatureVerifier{}))
+		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT)
 		require.NoError(t, err)
 
 		err = VerifyDisclosuresInSDJWT(append(sdJWT.Disclosures, additionalSDDisclosure), signedJWT)
@@ -221,7 +221,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 		sdJWT := ParseCombinedFormatForIssuance(testCombinedFormatForIssuanceV5)
 		require.Equal(t, 6, len(sdJWT.Disclosures))
 
-		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithProofChecker(&NoopSignatureVerifier{}))
+		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT)
 		require.NoError(t, err)
 
 		additionalDigest, err := GetHash(crypto.SHA256, additionalSDDisclosure)
@@ -247,7 +247,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 		sdJWT := ParseCombinedFormatForIssuance(testCombinedFormatForIssuanceV5)
 		require.Equal(t, 6, len(sdJWT.Disclosures))
 
-		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithProofChecker(&NoopSignatureVerifier{}))
+		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT)
 		require.NoError(t, err)
 
 		additionalDigest, err := GetHash(crypto.SHA256, additionalArrayElementDisclosure)
@@ -264,7 +264,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 		sdJWT := ParseCombinedFormatForIssuance(testCombinedFormatForIssuanceV5)
 		require.Equal(t, 6, len(sdJWT.Disclosures))
 
-		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithProofChecker(&NoopSignatureVerifier{}))
+		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT)
 		require.NoError(t, err)
 
 		additionalDigest, err := GetHash(crypto.SHA256, additionalArrayElementDisclosure)
@@ -281,7 +281,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 		sdJWT := ParseCombinedFormatForIssuance(testCombinedFormatForIssuanceV5)
 		require.Equal(t, 6, len(sdJWT.Disclosures))
 
-		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithProofChecker(&NoopSignatureVerifier{}))
+		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT)
 		require.NoError(t, err)
 
 		additionalDigest, err := GetHash(crypto.SHA256, additionalSDDisclosure)
@@ -298,7 +298,7 @@ func TestVerifyDisclosuresInSDJWT(t *testing.T) {
 		sdJWT := ParseCombinedFormatForIssuance(testCombinedFormatForIssuanceV5)
 		require.Equal(t, 6, len(sdJWT.Disclosures))
 
-		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT, afjwt.WithProofChecker(&NoopSignatureVerifier{}))
+		signedJWT, _, err := afjwt.Parse(sdJWT.SDJWT)
 		require.NoError(t, err)
 
 		signedJWT.Payload["address"].(map[string]interface{})["locality"] = "some existing claim"

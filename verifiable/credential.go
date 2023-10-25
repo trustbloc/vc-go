@@ -635,7 +635,7 @@ const (
 
 // CombinedProofChecker universal proof checker for both LD and JWT proofs.
 type CombinedProofChecker interface {
-	CheckLDProof(proof *proof.Proof, msg, signature []byte) error
+	CheckLDProof(proof *proof.Proof, expectedProofIssuer string, msg, signature []byte) error
 
 	// GetLDPCanonicalDocument will return normalized/canonical version of the document
 	GetLDPCanonicalDocument(proof *proof.Proof, doc map[string]interface{}, opts ...processor.Opts) ([]byte, error)
@@ -643,7 +643,7 @@ type CombinedProofChecker interface {
 	// GetLDPDigest returns document digest
 	GetLDPDigest(proof *proof.Proof, doc []byte) ([]byte, error)
 
-	CheckJWTProof(headers jose.Headers, payload, msg, signature []byte) error
+	CheckJWTProof(headers jose.Headers, expectedProofIssuer string, msg, signature []byte) error
 }
 
 // CredentialDecoder makes a custom decoding of Verifiable Credential in JSON form to existent
@@ -1434,7 +1434,11 @@ func (vc *Credential) CheckProof(opts ...CredentialOpt) error {
 	vcOpts := getCredentialOpts(opts)
 
 	if vc.JWTEnvelope != nil {
-		_, _, err := decodeCredJWS(vc.JWTEnvelope.JWT, true, vcOpts.jwtProofChecker)
+		if vcOpts.jwtProofChecker == nil {
+			return errors.New("jwt proofChecker is not defined")
+		}
+
+		err := jwt.CheckProof(vc.JWTEnvelope.JWT, vcOpts.jwtProofChecker, vc.credentialContents.Issuer.ID, nil)
 		if err != nil {
 			return fmt.Errorf("JWS proof check: %w", err)
 		}
@@ -1442,11 +1446,11 @@ func (vc *Credential) CheckProof(opts ...CredentialOpt) error {
 		return nil
 	}
 
-	return checkEmbeddedProof(vc.credentialJSON, getEmbeddedProofCheckOpts(vcOpts))
+	return checkEmbeddedProof(vc.credentialJSON, vc.credentialContents.Issuer.ID, getEmbeddedProofCheckOpts(vcOpts))
 }
 
 func decodeJWTVC(vcStr string) (jose.Headers, []byte, error) {
-	joseHeaders, vcDecodedBytes, err := decodeCredJWS(vcStr, false, nil)
+	joseHeaders, vcDecodedBytes, err := decodeCredJWT(vcStr)
 	if err != nil {
 		return nil, nil, fmt.Errorf("JWS decoding: %w", err)
 	}
@@ -1472,7 +1476,7 @@ func decodeLDVC(vcData []byte, vcStr string) ([]byte, error) {
 func JWTVCToJSON(vc []byte) ([]byte, error) {
 	vc = bytes.Trim(vc, "\"' ")
 
-	_, jsonVC, err := decodeCredJWS(string(vc), false, nil)
+	_, jsonVC, err := decodeCredJWT(string(vc))
 
 	return jsonVC, err
 }

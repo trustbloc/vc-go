@@ -112,11 +112,17 @@ func Parse(combinedFormatForIssuance string, opts ...ParseOpt) ([]*Claim, error)
 	}
 
 	cfi := common.ParseCombinedFormatForIssuance(combinedFormatForIssuance)
+	claims := &afgjwt.Claims{}
 
 	// Validate the signature over the Issuer-signed JWT.
 	signedJWT, _, err := afgjwt.Parse(cfi.SDJWT,
-		afgjwt.WithProofChecker(pOpts.sigVerifier),
+		afgjwt.DecodeClaimsTo(claims),
 		afgjwt.WithJWTDetachedPayload(pOpts.detachedPayload))
+	if err != nil {
+		return nil, err
+	}
+
+	err = afgjwt.CheckProof(cfi.SDJWT, pOpts.sigVerifier, claims.Issuer, pOpts.detachedPayload)
 	if err != nil {
 		return nil, err
 	}
@@ -307,6 +313,6 @@ type NoopSignatureVerifier struct {
 
 // CheckJWTProof implements signature verification.
 func (sv *NoopSignatureVerifier) CheckJWTProof(joseHeaders jose.Headers,
-	payload, signingInput, signature []byte) error {
+	expectedProofIssuer string, signingInput, signature []byte) error {
 	return nil
 }

@@ -15,6 +15,7 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/btcsuite/btcd/btcec"
@@ -69,9 +70,9 @@ type cryptographicSigner interface {
 }
 
 // NewSingleKeyResolver creates vm resolver with single key embedded.
-func NewSingleKeyResolver(lookupID string, keyBytes []byte, keyType string, issuer string) *VMResolver {
+func NewSingleKeyResolver(lookupID string, keyBytes []byte, keyType string, expectedProofIssuer string) *VMResolver {
 	return &VMResolver{
-		expectedIssuer: issuer,
+		expectedIssuer: expectedProofIssuer,
 		mockedVerificationMethods: []mockedVerificationMethod{{
 			lookupID:                lookupID,
 			verificationMethodValue: &vermethod.VerificationMethod{Type: keyType, Value: keyBytes},
@@ -80,9 +81,9 @@ func NewSingleKeyResolver(lookupID string, keyBytes []byte, keyType string, issu
 }
 
 // NewSingleJWKResolver creates vm resolver with single jwk embedded.
-func NewSingleJWKResolver(lookupID string, j *jwk.JWK, keyType string, issuer string) *VMResolver {
+func NewSingleJWKResolver(lookupID string, j *jwk.JWK, keyType string, expectedProofIssuer string) *VMResolver {
 	return &VMResolver{
-		expectedIssuer: issuer,
+		expectedIssuer: expectedProofIssuer,
 		mockedVerificationMethods: []mockedVerificationMethod{{
 			lookupID:                lookupID,
 			verificationMethodValue: &vermethod.VerificationMethod{Type: keyType, JWK: j},
@@ -93,19 +94,30 @@ func NewSingleJWKResolver(lookupID string, j *jwk.JWK, keyType string, issuer st
 // ResolveVerificationMethod resolves verification method.
 func (r *VMResolver) ResolveVerificationMethod(
 	verificationMethod string,
-	issuer string,
+	expectedKeyController string,
 ) (*vermethod.VerificationMethod, error) {
-	if r.expectedIssuer != "" && r.expectedIssuer != issuer {
-		return nil, fmt.Errorf("invalid issuer. expected %v got %v",
-			r.expectedIssuer, issuer)
+	if r.expectedIssuer != "" && r.expectedIssuer != expectedKeyController {
+		return nil, fmt.Errorf("invalid issuer. expected %q got %q",
+			r.expectedIssuer, expectedKeyController)
 	}
 	for _, mocked := range r.mockedVerificationMethods {
-		if mocked.lookupID == AnyPubKeyID || mocked.lookupID == verificationMethod {
+		if mocked.lookupID == AnyPubKeyID {
+			return mocked.verificationMethodValue, nil
+		}
+
+		checkingIssuer := r.expectedIssuer
+		if checkingIssuer == "" {
+			checkingIssuer = strings.Split(mocked.lookupID, "#")[0]
+		}
+
+		if mocked.lookupID == verificationMethod && expectedKeyController == checkingIssuer {
 			return mocked.verificationMethodValue, nil
 		}
 	}
 
-	return nil, fmt.Errorf("invalid verification method (key id) %s", verificationMethod)
+	return nil, fmt.Errorf("%q not supports %q verification method (key id) ",
+		expectedKeyController,
+		verificationMethod)
 }
 
 // NewEd25519Pair returns a pair of proof creator and checker.

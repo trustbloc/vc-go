@@ -43,7 +43,7 @@ func TestCredential_GenerateBBSSelectiveDisclosure(t *testing.T) {
 	   "VerifiableCredential",
 	   "PermanentResidentCard"
 	 ],
-	 "issuer": "did:example:489398593",
+	 "issuer": "did:example:123456",
 	 "identifier": "83627465",
 	 "name": "Permanent Resident Card",
 	 "description": "Government of Example Permanent Resident Card.",
@@ -238,7 +238,8 @@ func signVCWithBBS(t *testing.T, privKey *bbs12381g2pub.PrivateKey, pubKeyBytes 
 	require.NoError(t, err)
 	require.NotEmpty(t, vcSignedBytes)
 
-	bbsKeyFetcher := testsupport.NewSingleKeyResolver("did:example:123456#key1", pubKeyBytes, "Bls12381G2Key2020", "")
+	bbsKeyFetcher := testsupport.NewSingleKeyResolver("did:example:123456#key1", pubKeyBytes, "Bls12381G2Key2020",
+		"did:example:123456")
 
 	vcVerified, err := parseTestCredential(t, vcSignedBytes,
 		WithProofChecker(defaults.NewDefaultProofChecker(bbsKeyFetcher)),

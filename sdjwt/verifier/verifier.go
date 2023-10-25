@@ -208,9 +208,11 @@ func Parse(combinedFormatForPresentation string, opts ...ParseOpt) (map[string]i
 }
 
 func validateIssuerSignedSDJWT(sdjwt string, disclosures []string, pOpts *parseOpts) (*afgjwt.JSONWebToken, error) {
+	claims := &afgjwt.Claims{}
+
 	// Validate the signature over the SD-JWT.
 	signedJWT, _, err := afgjwt.Parse(sdjwt,
-		afgjwt.WithProofChecker(pOpts.sigVerifier),
+		afgjwt.DecodeClaimsTo(claims),
 		afgjwt.WithJWTDetachedPayload(pOpts.detachedPayload))
 	if err != nil {
 		return nil, err
@@ -223,7 +225,10 @@ func validateIssuerSignedSDJWT(sdjwt string, disclosures []string, pOpts *parseO
 		return nil, fmt.Errorf("failed to verify issuer signing algorithm: %w", err)
 	}
 
-	// TODO: Validate the Issuer of the SD-JWT and that the signing key belongs to this Issuer.
+	err = afgjwt.CheckProof(sdjwt, pOpts.sigVerifier, claims.Issuer, pOpts.detachedPayload)
+	if err != nil {
+		return nil, err
+	}
 
 	// Check that the SD-JWT is valid using nbf, iat, and exp claims,
 	// if provided in the SD-JWT, and not selectively disclosed.
@@ -339,11 +344,18 @@ func runHolderVerification(sdJWT *afgjwt.JSONWebToken, holderVerificationJWT str
 		return fmt.Errorf("failed to get signature verifier from presentation claims: %w", err)
 	}
 
+	claims := &afgjwt.Claims{}
+
 	// Validate the signature over the Key Binding JWT.
 	holderJWT, _, err := afgjwt.Parse(holderVerificationJWT,
-		afgjwt.WithProofChecker(signatureVerifier))
+		afgjwt.DecodeClaimsTo(claims))
 	if err != nil {
 		return fmt.Errorf("parse holder verification JWT: %w", err)
+	}
+
+	err = afgjwt.CheckProof(holderVerificationJWT, signatureVerifier, claims.Issuer, nil)
+	if err != nil {
+		return fmt.Errorf("check proof of holder verification JWT: %w", err)
 	}
 
 	err = verifyHolderVerificationJWT(holderJWT, pOpts)

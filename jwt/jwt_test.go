@@ -41,7 +41,8 @@ const (
 	// signatureRS256 defines RS256 alg.
 	signatureRS256 = "RS256"
 
-	signKeyID = "did:test:example#key1"
+	signKeyController = "did:test:example"
+	signKeyID         = "did:test:example#key1"
 )
 
 func TestNewSigned(t *testing.T) {
@@ -69,7 +70,7 @@ func TestNewSigned(t *testing.T) {
 		r.NoError(err)
 		r.Equal(*claims, parsedClaims)
 
-		_, _, err = Parse(jws, WithProofChecker(proofChecker))
+		err = CheckProof(jws, proofChecker, signKeyController, nil)
 		r.NoError(err)
 	})
 
@@ -96,7 +97,7 @@ func TestNewSigned(t *testing.T) {
 		r.NoError(err)
 		r.Equal(*claims, parsedClaims)
 
-		_, _, err = Parse(jws, WithProofChecker(proofChecker))
+		err = CheckProof(jws, proofChecker, signKeyController, nil)
 		r.NoError(err)
 	})
 }
@@ -113,7 +114,7 @@ func TestNewUnsecured(t *testing.T) {
 		r.NoError(err)
 		r.NotEmpty(jwtUnsecured)
 
-		parsedJWT, _, err := Parse(jwtUnsecured, WithProofChecker(UnsecuredJWTVerifier()))
+		parsedJWT, _, err := Parse(jwtUnsecured)
 		r.NoError(err)
 		r.NotNil(parsedJWT)
 
@@ -144,7 +145,7 @@ func TestParse(t *testing.T) {
 
 	proofCreator, proofChecker := testsupport.NewEd25519Pair(pubKey, privKey, signKeyID)
 
-	claims := map[string]interface{}{"iss": "Albert"}
+	claims := map[string]interface{}{"iss": signKeyController}
 
 	token, err := NewSigned(claims, SignParameters{
 		KeyID:  signKeyID,
@@ -154,7 +155,10 @@ func TestParse(t *testing.T) {
 	jws, err := token.Serialize(false)
 	r.NoError(err)
 
-	jsonWebToken, _, err := Parse(jws, WithProofChecker(proofChecker))
+	jsonWebToken, _, err := Parse(jws)
+	r.NoError(err)
+
+	err = CheckProof(jws, proofChecker, signKeyController, nil)
 	r.NoError(err)
 
 	var parsedClaims map[string]interface{}
@@ -163,8 +167,15 @@ func TestParse(t *testing.T) {
 
 	r.Equal(claims, parsedClaims)
 
+	var decodedClaims map[string]interface{}
+
+	_, _, err = Parse(jws, DecodeClaimsTo(&decodedClaims))
+	r.NoError(err)
+
+	r.Equal(claims, decodedClaims)
+
 	// parse without .Payload data
-	jsonWebToken, _, err = Parse(jws, WithProofChecker(proofChecker), WithIgnoreClaimsMapDecoding(true))
+	jsonWebToken, _, err = Parse(jws, WithIgnoreClaimsMapDecoding(true))
 	r.NoError(err)
 	assert.Nil(t, jsonWebToken.Payload)
 
@@ -175,38 +186,49 @@ func TestParse(t *testing.T) {
 	jwsPayload, err := base64.RawURLEncoding.DecodeString(jwsParts[1])
 	require.NoError(t, err)
 
-	jsonWebToken, _, err = Parse(jwsDetached,
-		WithProofChecker(proofChecker), WithJWTDetachedPayload(jwsPayload))
+	jsonWebToken, _, err = Parse(jwsDetached, WithJWTDetachedPayload(jwsPayload))
 	r.NoError(err)
 	r.NotNil(r, jsonWebToken)
+
+	err = CheckProof(jwsDetached, proofChecker, signKeyController, jwsPayload)
+	r.NoError(err)
 
 	// claims is not JSON
 	jws, err = buildJWS(proofCreator, map[string]interface{}{"alg": "EdDSA"}, "not JSON")
 	r.NoError(err)
-	token, _, err = Parse(jws, WithProofChecker(proofChecker))
+	token, _, err = Parse(jws)
 	r.Error(err)
 	r.Contains(err.Error(), "read JWT claims from JWS payload")
 	r.Nil(token)
+
+	err = CheckProof(jws, proofChecker, signKeyController, nil)
+	r.NoError(err)
 
 	// type is not JWT
 	jws, err = buildJWS(proofCreator,
 		map[string]interface{}{"alg": "EdDSA", "typ": "JWM"},
 		map[string]interface{}{"iss": "Albert"})
 	r.NoError(err)
-	token, _, err = Parse(jws, WithProofChecker(proofChecker))
+	token, _, err = Parse(jws)
 	r.Error(err)
 	r.Contains(err.Error(), "typ is not JWT")
 	r.Nil(token)
+
+	err = CheckProof(jws, proofChecker, signKeyController, nil)
+	r.NoError(err)
 
 	// content type is not empty (equals to JWT)
 	jws, err = buildJWS(proofCreator,
 		map[string]interface{}{"alg": "EdDSA", "typ": "JWT", "cty": "JWT"},
 		map[string]interface{}{"iss": "Albert"})
 	r.NoError(err)
-	token, _, err = Parse(jws, WithProofChecker(proofChecker))
+	token, _, err = Parse(jws)
 	r.Error(err)
 	r.Contains(err.Error(), "nested JWT is not supported")
 	r.Nil(token)
+
+	err = CheckProof(jws, proofChecker, signKeyController, nil)
+	r.NoError(err)
 
 	// handle compact JWS of invalid form
 	token, _, err = Parse("invalid.compact.JWS")
@@ -284,25 +306,6 @@ func TestJSONWebToken_Serialize(t *testing.T) {
 	tokenSerialized, err := token.Serialize(false)
 	require.NoError(t, err)
 	require.NotEmpty(t, tokenSerialized)
-}
-
-func TestUnsecuredJWTVerifier(t *testing.T) {
-	verifier := UnsecuredJWTVerifier()
-
-	err := verifier.CheckJWTProof(map[string]interface{}{"alg": "none"}, nil, nil, nil)
-	require.NoError(t, err)
-
-	err = verifier.CheckJWTProof(map[string]interface{}{}, nil, nil, nil)
-	require.Error(t, err)
-	require.EqualError(t, err, "alg is not defined")
-
-	err = verifier.CheckJWTProof(map[string]interface{}{"alg": "EdDSA"}, nil, nil, nil)
-	require.Error(t, err)
-	require.EqualError(t, err, "alg value is not 'none'")
-
-	err = verifier.CheckJWTProof(map[string]interface{}{"alg": "none"}, nil, nil, []byte("unexpected signature"))
-	require.Error(t, err)
-	require.EqualError(t, err, "not empty signature")
 }
 
 func Test_IsJWS(t *testing.T) {
