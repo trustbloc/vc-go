@@ -208,11 +208,9 @@ func Parse(combinedFormatForPresentation string, opts ...ParseOpt) (map[string]i
 }
 
 func validateIssuerSignedSDJWT(sdjwt string, disclosures []string, pOpts *parseOpts) (*afgjwt.JSONWebToken, error) {
-	claims := &afgjwt.Claims{}
-
 	// Validate the signature over the SD-JWT.
-	signedJWT, _, err := afgjwt.Parse(sdjwt,
-		afgjwt.DecodeClaimsTo(claims),
+	signedJWT, _, err := afgjwt.ParseAndCheckProof(sdjwt,
+		pOpts.sigVerifier, true,
 		afgjwt.WithJWTDetachedPayload(pOpts.detachedPayload))
 	if err != nil {
 		return nil, err
@@ -223,11 +221,6 @@ func validateIssuerSignedSDJWT(sdjwt string, disclosures []string, pOpts *parseO
 	err = common.VerifySigningAlg(signedJWT.Headers, pOpts.issuerSigningAlgorithms)
 	if err != nil {
 		return nil, fmt.Errorf("failed to verify issuer signing algorithm: %w", err)
-	}
-
-	err = afgjwt.CheckProof(sdjwt, pOpts.sigVerifier, claims.Issuer, pOpts.detachedPayload)
-	if err != nil {
-		return nil, err
 	}
 
 	// Check that the SD-JWT is valid using nbf, iat, and exp claims,
@@ -344,16 +337,15 @@ func runHolderVerification(sdJWT *afgjwt.JSONWebToken, holderVerificationJWT str
 		return fmt.Errorf("failed to get signature verifier from presentation claims: %w", err)
 	}
 
-	claims := &afgjwt.Claims{}
-
 	// Validate the signature over the Key Binding JWT.
-	holderJWT, _, err := afgjwt.Parse(holderVerificationJWT,
-		afgjwt.DecodeClaimsTo(claims))
+	holderJWT, _, err := afgjwt.Parse(holderVerificationJWT)
 	if err != nil {
 		return fmt.Errorf("parse holder verification JWT: %w", err)
 	}
 
-	err = afgjwt.CheckProof(holderVerificationJWT, signatureVerifier, claims.Issuer, nil)
+	// TODO: refactor this code to use jose from kms-go instead jwt from vc-go.
+	noIssuer := ""
+	err = afgjwt.CheckProof(holderVerificationJWT, signatureVerifier, &noIssuer, nil)
 	if err != nil {
 		return fmt.Errorf("check proof of holder verification JWT: %w", err)
 	}
