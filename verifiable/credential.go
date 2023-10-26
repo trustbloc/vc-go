@@ -1433,12 +1433,18 @@ func tryParseAsJWSVC(vcStr string) jwsVCParseResult {
 func (vc *Credential) CheckProof(opts ...CredentialOpt) error {
 	vcOpts := getCredentialOpts(opts)
 
+	if vc.credentialContents.Issuer == nil {
+		return fmt.Errorf("proof check failuer: issuer is missed")
+	}
+
+	issuerID := vc.credentialContents.Issuer.ID
+
 	if vc.JWTEnvelope != nil {
 		if vcOpts.jwtProofChecker == nil {
 			return errors.New("jwt proofChecker is not defined")
 		}
 
-		err := jwt.CheckProof(vc.JWTEnvelope.JWT, vcOpts.jwtProofChecker, vc.credentialContents.Issuer.ID, nil)
+		err := jwt.CheckProof(vc.JWTEnvelope.JWT, vcOpts.jwtProofChecker, &issuerID, nil)
 		if err != nil {
 			return fmt.Errorf("JWS proof check: %w", err)
 		}
@@ -1446,7 +1452,7 @@ func (vc *Credential) CheckProof(opts ...CredentialOpt) error {
 		return nil
 	}
 
-	return checkEmbeddedProof(vc.credentialJSON, vc.credentialContents.Issuer.ID, getEmbeddedProofCheckOpts(vcOpts))
+	return checkEmbeddedProof(vc.credentialJSON, &issuerID, getEmbeddedProofCheckOpts(vcOpts))
 }
 
 func decodeJWTVC(vcStr string) (jose.Headers, []byte, error) {

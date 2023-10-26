@@ -371,12 +371,7 @@ func TestNew(t *testing.T) {
 		cfi := common.ParseCombinedFormatForIssuance(combinedFormatForIssuance)
 		r.Equal(1, len(cfi.Disclosures))
 
-		jwtClaims := &afjwt.Claims{}
-
-		afjwtToken, _, err := afjwt.Parse(cfi.SDJWT, afjwt.DecodeClaimsTo(jwtClaims))
-		r.NoError(err)
-
-		err = afjwt.CheckProof(cfi.SDJWT, verifier, jwtClaims.Issuer, nil)
+		afjwtToken, _, err := afjwt.ParseAndCheckProof(cfi.SDJWT, verifier, true)
 		r.NoError(err)
 
 		var parsedClaims map[string]interface{}
@@ -415,12 +410,7 @@ func TestNew(t *testing.T) {
 		cfi := common.ParseCombinedFormatForIssuance(combinedFormatForIssuance)
 		r.Equal(6, len(cfi.Disclosures))
 
-		jwtClaims := &afjwt.Claims{}
-
-		afjwtToken, _, err := afjwt.Parse(cfi.SDJWT, afjwt.DecodeClaimsTo(jwtClaims))
-		r.NoError(err)
-
-		err = afjwt.CheckProof(cfi.SDJWT, verifier, jwtClaims.Issuer, nil)
+		afjwtToken, _, err := afjwt.ParseAndCheckProof(cfi.SDJWT, verifier, true)
 		r.NoError(err)
 
 		var claimsMap map[string]interface{}
@@ -980,14 +970,7 @@ func createComplexClaimsWithSlice() map[string]interface{} {
 func verifyEd25519(jws string, pubKey ed25519.PublicKey) error {
 	v := testsupport.NewEd25519Verifier(pubKey)
 
-	claims := &afjwt.Claims{}
-
-	token, _, err := afjwt.Parse(jws, afjwt.DecodeClaimsTo(claims))
-	if err != nil {
-		return err
-	}
-
-	err = afjwt.CheckProof(jws, v, claims.Issuer, nil)
+	token, _, err := afjwt.ParseAndCheckProof(jws, v, true)
 	if err != nil {
 		return err
 	}
@@ -1002,14 +985,7 @@ func verifyEd25519(jws string, pubKey ed25519.PublicKey) error {
 func verifyRS256(jws string, pubKey *rsa.PublicKey) error {
 	v := testsupport.NewRS256Verifier(pubKey)
 
-	claims := &afjwt.Claims{}
-
-	token, _, err := afjwt.Parse(jws, afjwt.DecodeClaimsTo(claims))
-	if err != nil {
-		return err
-	}
-
-	err = afjwt.CheckProof(jws, v, claims.Issuer, nil)
+	token, _, err := afjwt.ParseAndCheckProof(jws, v, true)
 	if err != nil {
 		return err
 	}

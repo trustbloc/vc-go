@@ -603,6 +603,7 @@ func TestHolderVerification(t *testing.T) {
 				claims := make(map[string]interface{})
 				claims["cnf"] = "abc"
 				claims["_sd_alg"] = testSDAlg
+				claims["iss"] = "https://example.com/issuer"
 
 				sdJWT, err := buildJWS(signer, claims)
 				r.NoError(err)
@@ -638,6 +639,7 @@ func TestHolderVerification(t *testing.T) {
 				claims := make(map[string]interface{})
 				claims["cnf"] = cnf
 				claims["_sd_alg"] = testSDAlg
+				claims["iss"] = "https://example.com/issuer"
 
 				sdJWT, err := buildJWS(signer, claims)
 				r.NoError(err)
@@ -673,6 +675,7 @@ func TestHolderVerification(t *testing.T) {
 				claims := make(map[string]interface{})
 				claims["cnf"] = cnf
 				claims["_sd_alg"] = testSDAlg
+				claims["iss"] = "https://example.com/issuer"
 
 				sdJWT, err := buildJWS(signer, claims)
 				r.NoError(err)
@@ -708,6 +711,7 @@ func TestHolderVerification(t *testing.T) {
 				claims := make(map[string]interface{})
 				claims["cnf"] = cnf
 				claims["_sd_alg"] = testSDAlg
+				claims["iss"] = "https://example.com/issuer"
 
 				sdJWT, err := buildJWS(signer, claims)
 				r.NoError(err)
@@ -747,6 +751,7 @@ func TestHolderVerification(t *testing.T) {
 				}
 
 				claims["_sd_alg"] = testSDAlg
+				claims["iss"] = "https://example.com/issuer"
 
 				sdJWT, err := buildJWS(signer, claims)
 				r.NoError(err)

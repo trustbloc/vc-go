@@ -7,7 +7,6 @@ package verifiable
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/trustbloc/vc-go/jwt"
 )
@@ -21,17 +20,12 @@ func (jpc *JWTPresClaims) MarshalJWS(signatureAlg JWSAlgorithm, signer jwt.Proof
 func unmarshalPresJWSClaims(vpJWT string, verifier jwt.ProofChecker) (*JWTPresClaims, error) {
 	var claims JWTPresClaims
 
-	headers, err := unmarshalJWT(vpJWT, &claims)
+	_, err := unmarshalJWT(vpJWT, &claims)
 	if err != nil {
 		return nil, err
 	}
 
-	keyID, ok := headers.KeyID()
-	if !ok {
-		return nil, fmt.Errorf("key id is missing in jwt header")
-	}
-
-	err = jwt.CheckProof(vpJWT, verifier, strings.Split(keyID, "#")[0], nil)
+	err = jwt.CheckProof(vpJWT, verifier, nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("jwt proof check: %w", err)
 	}

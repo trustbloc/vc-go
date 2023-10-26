@@ -112,17 +112,11 @@ func Parse(combinedFormatForIssuance string, opts ...ParseOpt) ([]*Claim, error)
 	}
 
 	cfi := common.ParseCombinedFormatForIssuance(combinedFormatForIssuance)
-	claims := &afgjwt.Claims{}
 
 	// Validate the signature over the Issuer-signed JWT.
-	signedJWT, _, err := afgjwt.Parse(cfi.SDJWT,
-		afgjwt.DecodeClaimsTo(claims),
+	signedJWT, _, err := afgjwt.ParseAndCheckProof(cfi.SDJWT,
+		pOpts.sigVerifier, true,
 		afgjwt.WithJWTDetachedPayload(pOpts.detachedPayload))
-	if err != nil {
-		return nil, err
-	}
-
-	err = afgjwt.CheckProof(cfi.SDJWT, pOpts.sigVerifier, claims.Issuer, pOpts.detachedPayload)
 	if err != nil {
 		return nil, err
 	}

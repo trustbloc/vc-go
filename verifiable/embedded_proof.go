@@ -25,7 +25,7 @@ type embeddedProofCheckOpts struct {
 	jsonldCredentialOpts
 }
 
-func checkEmbeddedProofBytes(docBytes []byte, expectedProofIssuer string, opts *embeddedProofCheckOpts) error { // nolint:gocyclo
+func checkEmbeddedProofBytes(docBytes []byte, expectedProofIssuer *string, opts *embeddedProofCheckOpts) error { // nolint:gocyclo
 	if opts.disabledProofCheck {
 		return nil
 	}
@@ -41,7 +41,7 @@ func checkEmbeddedProofBytes(docBytes []byte, expectedProofIssuer string, opts *
 	return checkEmbeddedProof(jsonldDoc, expectedProofIssuer, opts)
 }
 
-func checkEmbeddedProof(jsonldDoc map[string]interface{}, expectedProofIssuer string, opts *embeddedProofCheckOpts) error { // nolint:gocyclo
+func checkEmbeddedProof(jsonldDoc map[string]interface{}, expectedProofIssuer *string, opts *embeddedProofCheckOpts) error { // nolint:gocyclo
 	proofElement, ok := jsonldDoc["proof"]
 	if !ok || proofElement == nil {
 		// TODO: review this logic, probably should return error here, like this:

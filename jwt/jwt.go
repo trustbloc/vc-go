@@ -16,6 +16,7 @@ import (
 
 	"github.com/go-jose/go-jose/v3/json"
 	"github.com/go-jose/go-jose/v3/jwt"
+	"github.com/tidwall/gjson"
 
 	"github.com/trustbloc/kms-go/doc/jose"
 )
@@ -68,7 +69,7 @@ func DecodeClaimsTo(decodeDestination interface{}) ParseOpt {
 type unsecuredJWTVerifier struct {
 }
 
-func (*unsecuredJWTVerifier) CheckJWTProof(joseHeaders jose.Headers, _ string, _, signature []byte) error {
+func (*unsecuredJWTVerifier) Verify(joseHeaders jose.Headers, _, _, signature []byte) error {
 	return nil
 }
 
@@ -108,9 +109,47 @@ func Parse(jwtSerialized string, opts ...ParseOpt) (*JSONWebToken, []byte, error
 	return parseJWT(jwtSerialized, pOpts)
 }
 
+// ParseAndCheckProof parses input JWT in serialized form into JSON Web Token and check signature proof.
+// if checkIssuer set to true, will check if issuer set by "iss" own key set by "kid" header.
+func ParseAndCheckProof(jwtSerialized string,
+	proofChecker ProofChecker, checkIssuer bool, opts ...ParseOpt) (*JSONWebToken, []byte, error) {
+	token, payload, err := Parse(jwtSerialized, opts...)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var expectedProofIssuer *string
+
+	if checkIssuer {
+		parsed := gjson.ParseBytes(payload)
+
+		iss := parsed.Get("iss")
+		if !iss.Exists() {
+			return nil, nil, errors.New("check jwt failure: iss claim is required")
+		}
+
+		issStr := iss.String()
+
+		expectedProofIssuer = &issStr
+	}
+
+	pOpts := &parseOpts{}
+
+	for _, opt := range opts {
+		opt(pOpts)
+	}
+
+	err = CheckProof(jwtSerialized, proofChecker, expectedProofIssuer, pOpts.detachedPayload)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return token, payload, nil
+}
+
 // CheckProof checks that jwt have correct signature.
 func CheckProof(jwtSerialized string, proofChecker ProofChecker,
-	expectedProofIssuer string, detachedPayload []byte) error {
+	expectedProofIssuer *string, detachedPayload []byte) error {
 	jwsOpts := make([]jose.JWSParseOpt, 0)
 
 	if detachedPayload != nil {
@@ -160,7 +199,7 @@ func parseJWT(jwtSerialized string, opts *parseOpts) (*JSONWebToken, []byte, err
 		jwsOpts = append(jwsOpts, jose.WithJWSDetachedPayload(opts.detachedPayload))
 	}
 
-	jws, err := jose.ParseJWS(jwtSerialized, &joseVerifier{proofChecker: &unsecuredJWTVerifier{}}, jwsOpts...)
+	jws, err := jose.ParseJWS(jwtSerialized, &unsecuredJWTVerifier{}, jwsOpts...)
 	if err != nil {
 		return nil, nil, fmt.Errorf("parse JWT from compact JWS: %w", err)
 	}

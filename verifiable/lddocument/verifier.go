@@ -38,7 +38,7 @@ func NewDocumentVerifier(proofChecker ProofChecker) *DocumentVerifier {
 }
 
 // Verify will verify document proofs.
-func (dv *DocumentVerifier) Verify(jsonLdDoc []byte, expectedProofIssuer string, opts ...processor.Opts) error {
+func (dv *DocumentVerifier) Verify(jsonLdDoc []byte, expectedProofIssuer *string, opts ...processor.Opts) error {
 	var jsonLdObject map[string]interface{}
 
 	err := json.Unmarshal(jsonLdDoc, &jsonLdObject)
@@ -51,7 +51,7 @@ func (dv *DocumentVerifier) Verify(jsonLdDoc []byte, expectedProofIssuer string,
 
 // VerifyObject will verify document proofs for JSON LD object.
 func (dv *DocumentVerifier) VerifyObject(jsonLdObject map[string]interface{},
-	expectedProofIssuer string, opts ...processor.Opts) error {
+	expectedProofIssuerPtr *string, opts ...processor.Opts) error {
 	proofs, err := proof.GetProofs(jsonLdObject)
 	if err != nil {
 		return err
@@ -72,7 +72,11 @@ func (dv *DocumentVerifier) VerifyObject(jsonLdObject map[string]interface{},
 			return err
 		}
 
-		if expectedProofIssuer == "" {
+		var expectedProofIssuer string
+		if expectedProofIssuerPtr != nil {
+			expectedProofIssuer = *expectedProofIssuerPtr
+		} else {
+			// if expectedProofIssuerPtr not set, we get issuer DID from first part of key id.
 			pubKeyID, err2 := p.PublicKeyID()
 			if err2 != nil {
 				return fmt.Errorf("public key is missed in proof")

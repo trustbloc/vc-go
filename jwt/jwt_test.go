@@ -70,7 +70,7 @@ func TestNewSigned(t *testing.T) {
 		r.NoError(err)
 		r.Equal(*claims, parsedClaims)
 
-		err = CheckProof(jws, proofChecker, signKeyController, nil)
+		_, _, err = ParseAndCheckProof(jws, proofChecker, true)
 		r.NoError(err)
 	})
 
@@ -97,7 +97,7 @@ func TestNewSigned(t *testing.T) {
 		r.NoError(err)
 		r.Equal(*claims, parsedClaims)
 
-		err = CheckProof(jws, proofChecker, signKeyController, nil)
+		_, _, err = ParseAndCheckProof(jws, proofChecker, true)
 		r.NoError(err)
 	})
 }
@@ -158,7 +158,7 @@ func TestParse(t *testing.T) {
 	jsonWebToken, _, err := Parse(jws)
 	r.NoError(err)
 
-	err = CheckProof(jws, proofChecker, signKeyController, nil)
+	_, _, err = ParseAndCheckProof(jws, proofChecker, true)
 	r.NoError(err)
 
 	var parsedClaims map[string]interface{}
@@ -175,7 +175,8 @@ func TestParse(t *testing.T) {
 	r.Equal(claims, decodedClaims)
 
 	// parse without .Payload data
-	jsonWebToken, _, err = Parse(jws, WithIgnoreClaimsMapDecoding(true))
+	jsonWebToken, _, err = ParseAndCheckProof(jws, proofChecker, true,
+		WithIgnoreClaimsMapDecoding(true))
 	r.NoError(err)
 	assert.Nil(t, jsonWebToken.Payload)
 
@@ -190,45 +191,52 @@ func TestParse(t *testing.T) {
 	r.NoError(err)
 	r.NotNil(r, jsonWebToken)
 
-	err = CheckProof(jwsDetached, proofChecker, signKeyController, jwsPayload)
+	_, _, err = ParseAndCheckProof(jws, proofChecker, true)
 	r.NoError(err)
 
 	// claims is not JSON
 	jws, err = buildJWS(proofCreator, map[string]interface{}{"alg": "EdDSA"}, "not JSON")
 	r.NoError(err)
-	token, _, err = Parse(jws)
+	token, _, err = ParseAndCheckProof(jws, proofChecker, true)
 	r.Error(err)
 	r.Contains(err.Error(), "read JWT claims from JWS payload")
 	r.Nil(token)
 
-	err = CheckProof(jws, proofChecker, signKeyController, nil)
+	// invalid issuer
+	jws, err = buildJWS(proofCreator,
+		map[string]interface{}{"alg": "EdDSA", "typ": "JWT"},
+		map[string]interface{}{"iss": "Albert"})
 	r.NoError(err)
+	_, _, err = ParseAndCheckProof(jws, proofChecker, true)
+	r.ErrorContains(err, "\"Albert\" not supports \"did:test:example#key1\"")
+
+	// missed issuer
+	jws, err = buildJWS(proofCreator,
+		map[string]interface{}{"alg": "EdDSA", "typ": "JWT"},
+		map[string]interface{}{})
+	r.NoError(err)
+	_, _, err = ParseAndCheckProof(jws, proofChecker, true)
+	r.ErrorContains(err, "iss claim is required")
 
 	// type is not JWT
 	jws, err = buildJWS(proofCreator,
 		map[string]interface{}{"alg": "EdDSA", "typ": "JWM"},
 		map[string]interface{}{"iss": "Albert"})
 	r.NoError(err)
-	token, _, err = Parse(jws)
+	token, _, err = ParseAndCheckProof(jws, proofChecker, true)
 	r.Error(err)
 	r.Contains(err.Error(), "typ is not JWT")
 	r.Nil(token)
-
-	err = CheckProof(jws, proofChecker, signKeyController, nil)
-	r.NoError(err)
 
 	// content type is not empty (equals to JWT)
 	jws, err = buildJWS(proofCreator,
 		map[string]interface{}{"alg": "EdDSA", "typ": "JWT", "cty": "JWT"},
 		map[string]interface{}{"iss": "Albert"})
 	r.NoError(err)
-	token, _, err = Parse(jws)
+	token, _, err = ParseAndCheckProof(jws, proofChecker, true)
 	r.Error(err)
 	r.Contains(err.Error(), "nested JWT is not supported")
 	r.Nil(token)
-
-	err = CheckProof(jws, proofChecker, signKeyController, nil)
-	r.NoError(err)
 
 	// handle compact JWS of invalid form
 	token, _, err = Parse("invalid.compact.JWS")
@@ -545,7 +553,7 @@ func createClaims() *CustomClaim {
 
 	return &CustomClaim{
 		Claims: &Claims{
-			Issuer:    "iss",
+			Issuer:    signKeyController,
 			Subject:   "sub",
 			Audience:  []string{"aud"},
 			Expiry:    jwt.NewNumericDate(expiry),
