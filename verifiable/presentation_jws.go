@@ -25,9 +25,11 @@ func unmarshalPresJWSClaims(vpJWT string, verifier jwt.ProofChecker) (*JWTPresCl
 		return nil, err
 	}
 
-	err = jwt.CheckProof(vpJWT, verifier, nil, nil)
-	if err != nil {
-		return nil, fmt.Errorf("jwt proof check: %w", err)
+	if verifier != nil {
+		err = jwt.CheckProof(vpJWT, verifier, nil, nil)
+		if err != nil {
+			return nil, fmt.Errorf("jwt proof check: %w", err)
+		}
 	}
 
 	return &claims, err
