@@ -8,6 +8,9 @@ package verifiable
 import (
 	"crypto/rand"
 	"crypto/rsa"
+	"encoding/base64"
+	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/go-jose/go-jose/v3"
@@ -64,6 +67,27 @@ func TestCredJWSDecoderUnmarshal(t *testing.T) {
 		vc, err := parseTestCredential(t, []byte(jwtTestCredential), WithDisabledProofCheck())
 		require.NoError(t, err)
 		require.Equal(t, vc.stringJSON(t), jsonObjectToString(t, jwtVC.ToRawJSON()))
+	})
+
+	t.Run("JWS with 'iss' and issuer.id miss match", func(t *testing.T) {
+		original := strings.Split(string(validJWS), ".")
+
+		var claims map[string]interface{}
+		claimsBytes, err := base64.RawURLEncoding.DecodeString(original[1])
+		require.NoError(t, err)
+
+		require.NoError(t, json.Unmarshal(claimsBytes, &claims))
+
+		claims["iss"] = "did:example:other_issuer"
+
+		claimsBytes, err = json.Marshal(claims)
+		require.NoError(t, err)
+
+		jwsWithMissMatch := original[0] + "." + base64.RawURLEncoding.EncodeToString(claimsBytes) + "." + original[2]
+
+		_, err = ParseCredential([]byte(jwsWithMissMatch), WithProofChecker(proofChecker))
+		require.ErrorContains(t, err, "iss(did:example:other_issuer) claim and "+
+			"vc.issuer.id(did:example:76e12ec712ebc6f1c221ebfeb1f) missmatch")
 	})
 
 	t.Run("Invalid serialized JWS", func(t *testing.T) {

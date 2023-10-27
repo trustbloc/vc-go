@@ -490,7 +490,10 @@ func (vc *Credential) CreateDisplayCredential( // nolint:funlen,gocyclo
 		return nil, fmt.Errorf("unmarshal VC JWT claims: %w", err)
 	}
 
-	credClaims.refineFromJWTClaims()
+	err = credClaims.refineFromJWTClaims()
+	if err != nil {
+		return nil, fmt.Errorf("refineFromJWTClaims claims: %w", err)
+	}
 
 	useDisclosures := filterDisclosureList(vc.JWTEnvelope.SDJWTDisclosures, options)
 
@@ -549,7 +552,10 @@ func (vc *Credential) CreateDisplayCredentialMap( // nolint:funlen,gocyclo
 		return nil, fmt.Errorf("unmarshal VC JWT claims: %w", err)
 	}
 
-	credClaims.refineFromJWTClaims()
+	err = credClaims.refineFromJWTClaims()
+	if err != nil {
+		return nil, fmt.Errorf("refineFromJWTClaims claims: %w", err)
+	}
 
 	useDisclosures := filterDisclosureList(vc.JWTEnvelope.SDJWTDisclosures, options)
 

@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	josejwt "github.com/go-jose/go-jose/v3/jwt"
@@ -144,7 +145,10 @@ func decodeCredJWT(rawJWT string) (jose.Headers, []byte, error) {
 	}
 
 	// Apply VC-related claims from JWT.
-	credClaims.refineFromJWTClaims()
+	err = credClaims.refineFromJWTClaims()
+	if err != nil {
+		return nil, nil, fmt.Errorf("refineFromJWTClaims claims: %w", err)
+	}
 
 	vcData, err := json.Marshal(credClaims.VC)
 	if err != nil {
@@ -154,12 +158,15 @@ func decodeCredJWT(rawJWT string) (jose.Headers, []byte, error) {
 	return joseHeaders, vcData, nil
 }
 
-func (jcc *JWTCredClaims) refineFromJWTClaims() {
+func (jcc *JWTCredClaims) refineFromJWTClaims() error {
 	vcMap := jcc.VC
 	claims := jcc.Claims
 
 	if iss := claims.Issuer; iss != "" {
-		refineVCIssuerFromJWTClaims(vcMap, iss)
+		err := refineVCIssuerFromJWTClaims(vcMap, iss)
+		if err != nil {
+			return err
+		}
 	}
 
 	if nbf := claims.NotBefore; nbf != nil {
@@ -180,19 +187,41 @@ func (jcc *JWTCredClaims) refineFromJWTClaims() {
 		expTime := exp.Time().UTC()
 		vcMap[vcExpirationDateField] = expTime.Format(time.RFC3339)
 	}
+
+	return nil
 }
 
-func refineVCIssuerFromJWTClaims(vcMap map[string]interface{}, iss string) {
+func refineVCIssuerFromJWTClaims(vcMap map[string]interface{}, iss string) error {
 	// Issuer of Verifiable Credential could be either string (id) or struct (with "id" field).
 	if _, exists := vcMap[vcIssuerField]; !exists {
 		vcMap[vcIssuerField] = iss
-		return
+		return nil
 	}
 
-	switch issuer := vcMap[vcIssuerField].(type) {
+	issuerID := ""
+
+	switch issuerFld := vcMap[vcIssuerField].(type) {
+	case string:
+		issuerID = issuerFld
+	case map[string]interface{}:
+		id, err := parseStringFld(issuerFld, jsonFldIssuerID)
+		if err != nil {
+			return fmt.Errorf("get issuer id from vc: %w", err)
+		}
+
+		issuerID = id
+	}
+
+	if strings.HasPrefix(iss, "did:") && strings.HasPrefix(issuerID, "did:") && iss != issuerID {
+		return fmt.Errorf(`iss(%s) claim and vc.issuer.id(%s) missmatch`, iss, issuerID)
+	}
+
+	switch issuerFld := vcMap[vcIssuerField].(type) {
 	case string:
 		vcMap[vcIssuerField] = iss
 	case map[string]interface{}:
-		issuer[vcIssuerIDField] = iss
+		issuerFld[vcIssuerIDField] = iss
 	}
+
+	return nil
 }
