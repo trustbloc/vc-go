@@ -16,7 +16,7 @@ import (
 	"math/big"
 	"slices"
 
-	"github.com/btcsuite/btcd/btcec"
+	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/trustbloc/kms-go/spi/kms"
 
 	"github.com/trustbloc/vc-go/crypto-ext/pubkey"
