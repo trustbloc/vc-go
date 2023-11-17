@@ -18,7 +18,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/btcsuite/btcd/btcec"
+	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/bbs-signature-go/bbs12381g2pub"
 	"github.com/trustbloc/kms-go/doc/jose/jwk"

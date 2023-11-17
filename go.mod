@@ -10,7 +10,7 @@ require (
 	github.com/PaesslerAG/gval v1.1.0
 	github.com/PaesslerAG/jsonpath v0.1.1
 	github.com/VictoriaMetrics/fastcache v1.5.7
-	github.com/btcsuite/btcd v0.22.3
+	github.com/btcsuite/btcd/btcec/v2 v2.1.3
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/go-jose/go-jose/v3 v3.0.1-0.20221117193127-916db76e8214
 	github.com/google/uuid v1.3.0
@@ -22,8 +22,8 @@ require (
 	github.com/tidwall/gjson v1.14.3
 	github.com/tidwall/sjson v1.1.4
 	github.com/trustbloc/bbs-signature-go v1.0.1
-	github.com/trustbloc/did-go v1.0.2-0.20231102144917-ca33f9a45abc
-	github.com/trustbloc/kms-go v1.0.1-0.20231102143409-af422762dd68
+	github.com/trustbloc/did-go v1.0.2-0.20231117120416-ed019bda587f
+	github.com/trustbloc/kms-go v1.0.1-0.20231116141347-14d6bea5727a
 	github.com/xeipuuv/gojsonschema v1.2.0
 	golang.org/x/exp v0.0.0-20230817173708-d852ddb80c63
 )
@@ -36,6 +36,7 @@ require (
 	github.com/consensys/bavard v0.1.13 // indirect
 	github.com/consensys/gnark-crypto v0.12.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.1 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/tink/go v1.7.0 // indirect
