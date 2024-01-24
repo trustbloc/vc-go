@@ -15,6 +15,7 @@ import (
 	"github.com/trustbloc/kms-go/doc/jose"
 	"github.com/trustbloc/kms-go/doc/jose/jwk"
 	"github.com/trustbloc/kms-go/spi/kms"
+	"github.com/veraison/go-cose"
 
 	"github.com/trustbloc/vc-go/crypto-ext/pubkey"
 	proofdesc "github.com/trustbloc/vc-go/proof"
@@ -214,6 +215,42 @@ func (c *ProofChecker) CheckJWTProof(headers jose.Headers, expectedProofIssuer s
 	return verifier.Verify(signature, msg, pubKey)
 }
 
+func (c *ProofChecker) CheckCWTProof(
+	checkCWTRequest CheckCWTProofRequest,
+	msg *cose.Sign1Message,
+	expectedProofIssuer string,
+) error {
+	if checkCWTRequest.KeyID == "" {
+		return fmt.Errorf("missed kid in jwt header")
+	}
+
+	if checkCWTRequest.Algo == 0 {
+		return fmt.Errorf("missed alg in cwt header")
+	}
+
+	vm, err := c.verificationMethodResolver.ResolveVerificationMethod(checkCWTRequest.KeyID, expectedProofIssuer)
+	if err != nil {
+		return fmt.Errorf("invalid public key id: %w", err)
+	}
+
+	supportedProof, err := c.getSupportedCWTProofByAlg(checkCWTRequest.Algo)
+	if err != nil {
+		return err
+	}
+
+	pubKey, err := convertToPublicKey(supportedProof, vm)
+	if err != nil {
+		return fmt.Errorf("cwt with alg %s check: %w", checkCWTRequest.Algo, err)
+	}
+
+	verifier, err := cose.NewVerifier(checkCWTRequest.Algo, pubKey)
+	if err != nil {
+		return err
+	}
+
+	return msg.Verify(nil, verifier)
+}
+
 // FindIssuer finds issuer in payload.
 func (c *ProofChecker) FindIssuer(payload []byte) string {
 	parsed := gjson.ParseBytes(payload)
@@ -284,6 +321,26 @@ func (c *ProofCheckerBase) getSupportedProofByAlg(jwtAlg string) (jwtCheckDescri
 	}
 
 	return jwtCheckDescriptor{}, fmt.Errorf("unsupported jwt alg: %s", jwtAlg)
+}
+
+func (c *ProofCheckerBase) getSupportedCWTProofByAlg(cwtAlg cose.Algorithm) ([]proofdesc.SupportedVerificationMethod, error) {
+	switch cwtAlg {
+	case cose.AlgorithmPS256, cose.AlgorithmPS384, cose.AlgorithmPS512,
+		cose.AlgorithmES256, cose.AlgorithmES384, cose.AlgorithmES512:
+		return []proofdesc.SupportedVerificationMethod{
+			{
+				VerificationMethodType: "JsonWebKey2020",
+			},
+		}, nil
+	case cose.AlgorithmEd25519:
+		return []proofdesc.SupportedVerificationMethod{
+			{
+				VerificationMethodType: "Ed25519VerificationKey2018",
+			},
+		}, nil
+	}
+
+	return nil, fmt.Errorf("unsupported cwt alg: %s", cwtAlg)
 }
 
 func (c *ProofCheckerBase) getSignatureVerifier(keyType kms.KeyType) (signatureVerifier, error) {

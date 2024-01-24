@@ -16,7 +16,7 @@ all: clean checks unit-test
 .PHONY: checks
 checks: license lint
 
-.PHONY: lint
+.PHONY: generate lint
 lint:
 	@scripts/check_lint.sh
 
@@ -24,7 +24,7 @@ lint:
 license:
 	@scripts/check_license.sh
 
-.PHONY: unit-test
+.PHONY: generate unit-test
 unit-test:
 	@scripts/check_unit.sh
 
@@ -32,3 +32,15 @@ unit-test:
 clean:
 	@rm -rf ./.build
 	@rm -rf coverage*.out
+
+.PHONY: generate
+generate:
+	go generate ./...
+
+.PHONY: tidy-modules
+tidy-modules:
+	@find . -type d \( -name build -prune \) -o -name go.mod -print | while read -r gomod_path; do \
+		dir_path=$$(dirname "$$gomod_path"); \
+		echo "Executing 'go mod tidy' in directory: $$dir_path"; \
+		(cd "$$dir_path" && GOPROXY=$(GOPROXY) go mod tidy) || exit 1; \
+	done

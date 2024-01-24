@@ -8,11 +8,14 @@ package cwt
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/fxamacker/cbor/v2"
-	"github.com/trustbloc/kms-go/doc/jose"
 	"github.com/veraison/go-cose"
+)
+
+const (
+	issuerPayloadIndex = 1
+	keyIDHeaderIndex   = int64(4)
 )
 
 // jwtParseOpts holds options for the JWT parsing.
@@ -31,7 +34,7 @@ type ParseOpt func(opts *parseOpts)
 // ParseAndCheckProof parses input JWT in serialized form into JSON Web Token and check signature proof.
 // if checkIssuer set to true, will check if issuer set by "iss" own key set by "kid" header.
 func ParseAndCheckProof(
-	cwtSerialized string,
+	cwtSerialized []byte,
 	proofChecker ProofChecker,
 	checkIssuer bool,
 	opts ...ParseOpt,
@@ -44,12 +47,12 @@ func ParseAndCheckProof(
 	var expectedProofIssuer *string
 
 	if checkIssuer {
-		payload := map[string]interface{}{}
+		payload := map[int]interface{}{}
 		if err = cbor.Unmarshal(cwtParsed.Payload, &payload); err != nil {
 			return nil, nil, err
 		}
 
-		iss, ok := payload["iss"]
+		iss, ok := payload[issuerPayloadIndex]
 		if !ok {
 			return nil, nil, errors.New("check cwt failure: iss claim is required")
 		}
@@ -68,7 +71,7 @@ func ParseAndCheckProof(
 		opt(pOpts)
 	}
 
-	err = CheckProof(cwtSerialized, proofChecker, expectedProofIssuer)
+	err = CheckProof(cwtParsed, proofChecker, expectedProofIssuer)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -77,9 +80,9 @@ func ParseAndCheckProof(
 }
 
 // Parse parses input CWT in serialized form into JSON Web Token.
-func Parse(cwtSerialized string, opts ...ParseOpt) (*cose.Sign1Message, error) {
+func Parse(cwtSerialized []byte, _ ...ParseOpt) (*cose.Sign1Message, error) {
 	var message cose.Sign1Message
-	if err := message.UnmarshalCBOR([]byte(cwtSerialized)); err != nil {
+	if err := message.UnmarshalCBOR(cwtSerialized); err != nil {
 		return nil, err
 	}
 
@@ -96,19 +99,15 @@ func CheckProof(
 	if err != nil {
 		return err
 	}
-	keyID, ok := message.Headers.Unprotected["kid"].(string)
+	keyIDBytes, ok := message.Headers.Unprotected[keyIDHeaderIndex].([]byte)
 	if !ok {
 		return errors.New("check cwt failure: kid header is required")
 	}
 
-	vm, err := c.verificationMethodResolver.ResolveVerificationMethod(keyID, expectedProofIssuer)
-	if err != nil {
-		return fmt.Errorf("invalid public key id: %w", err)
+	checker := cwtVerifier{
+		proofChecker:        proofChecker,
+		expectedProofIssuer: expectedProofIssuer,
 	}
 
-	message.Verify(nil, proofChecker)
-	_, err := jose.ParseJWS(jwtSerialized,
-		&joseVerifier{expectedProofIssuer: expectedProofIssuer, proofChecker: proofChecker}, jwsOpts...)
-
-	return err
+	return checker.Verify(message, string(keyIDBytes), alg)
 }
