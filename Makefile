@@ -35,7 +35,8 @@ clean:
 
 .PHONY: generate
 generate:
-	go generate ./...
+	@GOBIN=$(GOBIN_PATH) go install github.com/golang/mock/mockgen@$(MOCK_VERSION)
+	@go generate ./...
 
 .PHONY: tidy-modules
 tidy-modules:
