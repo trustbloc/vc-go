@@ -47,6 +47,10 @@ type jwtCheckDescriptor struct {
 	proofDescriptor proofdesc.JWTProofDescriptor
 }
 
+type cwtCheckDescriptor struct {
+	proofDescriptor proofdesc.JWTProofDescriptor
+}
+
 // nolint: gochecknoglobals
 var possibleIssuerPath = []string{
 	"vc.issuer.id",
@@ -60,6 +64,7 @@ var possibleIssuerPath = []string{
 type ProofCheckerBase struct {
 	supportedLDProofs  []ldCheckDescriptor
 	supportedJWTProofs []jwtCheckDescriptor
+	supportedCWTProofs []cwtCheckDescriptor
 	signatureVerifiers []signatureVerifier
 }
 
@@ -323,24 +328,14 @@ func (c *ProofCheckerBase) getSupportedProofByAlg(jwtAlg string) (jwtCheckDescri
 	return jwtCheckDescriptor{}, fmt.Errorf("unsupported jwt alg: %s", jwtAlg)
 }
 
-func (c *ProofCheckerBase) getSupportedCWTProofByAlg(cwtAlg cose.Algorithm) ([]proofdesc.SupportedVerificationMethod, error) {
-	switch cwtAlg {
-	case cose.AlgorithmPS256, cose.AlgorithmPS384, cose.AlgorithmPS512,
-		cose.AlgorithmES256, cose.AlgorithmES384, cose.AlgorithmES512:
-		return []proofdesc.SupportedVerificationMethod{
-			{
-				VerificationMethodType: "JsonWebKey2020",
-			},
-		}, nil
-	case cose.AlgorithmEd25519:
-		return []proofdesc.SupportedVerificationMethod{
-			{
-				VerificationMethodType: "Ed25519VerificationKey2018",
-			},
-		}, nil
+func (c *ProofCheckerBase) getSupportedCWTProofByAlg(cwtAlg cose.Algorithm) (cwtCheckDescriptor, error) {
+	for _, supported := range c.supportedCWTProofs {
+		if supported.proofDescriptor.CWTAlgorithm() == cwtAlg {
+			return supported, nil
+		}
 	}
 
-	return nil, fmt.Errorf("unsupported cwt alg: %s", cwtAlg)
+	return cwtCheckDescriptor{}, fmt.Errorf("unsupported cwt alg: %s", cwtAlg)
 }
 
 func (c *ProofCheckerBase) getSignatureVerifier(keyType kms.KeyType) (signatureVerifier, error) {
