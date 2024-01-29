@@ -9,6 +9,7 @@ DOCKER_CMD ?= docker
 GOBIN_PATH=$(abspath .)/build/bin
 MOCKGEN=$(GOBIN_PATH)/mockgen
 GOMOCKS=pkg/internal/gomocks
+MOCK_VERSION 	?=v1.7.0-rc.1
 
 .PHONY: all
 all: clean checks unit-test
