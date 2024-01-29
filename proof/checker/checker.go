@@ -232,6 +232,7 @@ func (c *ProofChecker) CheckJWTProof(headers jose.Headers, expectedProofIssuer s
 	return verifier.Verify(signature, msg, pubKey)
 }
 
+// CheckCWTProof check cwt proof.
 func (c *ProofChecker) CheckCWTProof(
 	checkCWTRequest CheckCWTProofRequest,
 	msg *cose.Sign1Message,

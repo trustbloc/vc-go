@@ -18,10 +18,6 @@ type Proof struct {
 	supportedVMs []proof.SupportedVerificationMethod
 }
 
-func (s *Proof) CWTAlgorithm() cose.Algorithm {
-	return 0
-}
-
 const (
 	// JWKKeyType for es521.
 	JWKKeyType = "EC"
@@ -62,4 +58,9 @@ func (s *Proof) SupportedVerificationMethods() []proof.SupportedVerificationMeth
 // JWTAlgorithm return jwt alg that corresponds to VerificationMethod.
 func (s *Proof) JWTAlgorithm() string {
 	return JWTAlg
+}
+
+// CWTAlgorithm return cwt algorithm that corresponds to VerificationMethod.
+func (s *Proof) CWTAlgorithm() cose.Algorithm {
+	return 0
 }

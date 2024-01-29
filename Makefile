@@ -14,18 +14,18 @@ GOMOCKS=pkg/internal/gomocks
 all: clean checks unit-test
 
 .PHONY: checks
-checks: license lint
+checks: generate license lint
 
-.PHONY: generate lint
-lint:
+.PHONY: lint
+lint: generate
 	@scripts/check_lint.sh
 
 .PHONY: license
 license:
 	@scripts/check_license.sh
 
-.PHONY: generate unit-test
-unit-test:
+.PHONY: unit-test
+unit-test: generate
 	@scripts/check_unit.sh
 
 .PHONY: clean

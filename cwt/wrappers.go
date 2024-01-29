@@ -14,11 +14,13 @@ import (
 	"github.com/trustbloc/vc-go/proof/checker"
 )
 
+// Verifier verifies CWT proof.
 type Verifier struct {
 	ProofChecker        ProofChecker
 	expectedProofIssuer *string
 }
 
+// Verify verifies CWT proof.
 func (v *Verifier) Verify(
 	proof *cose.Sign1Message,
 	keyID string,

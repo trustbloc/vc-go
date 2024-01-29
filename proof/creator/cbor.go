@@ -16,11 +16,10 @@ import (
 // Pre-configured modes for CBOR encoding and decoding.
 var (
 	encMode                  cbor.EncMode
-	decMode                  cbor.DecMode
 	decModeWithTagsForbidden cbor.DecMode
 )
 
-func init() {
+func init() { // nolint:gochecknoinits
 	var err error
 
 	// init encode mode
@@ -28,6 +27,7 @@ func init() {
 		Sort:        cbor.SortCoreDeterministic, // sort map keys
 		IndefLength: cbor.IndefLengthForbidden,  // no streaming
 	}
+
 	encMode, err = encOpts.EncMode()
 	if err != nil {
 		panic(err)
@@ -39,12 +39,9 @@ func init() {
 		IndefLength: cbor.IndefLengthForbidden, // no streaming
 		IntDec:      cbor.IntDecConvertSigned,  // decode CBOR uint/int to Go int64
 	}
-	decMode, err = decOpts.DecMode()
-	if err != nil {
-		panic(err)
-	}
 	decOpts.TagsMd = cbor.TagsForbidden
 	decModeWithTagsForbidden, err = decOpts.DecMode()
+
 	if err != nil {
 		panic(err)
 	}
@@ -57,6 +54,7 @@ func deterministicBinaryString(data cbor.RawMessage) (cbor.RawMessage, error) {
 	if len(data) == 0 {
 		return nil, io.EOF
 	}
+
 	if data[0]>>5 != 2 { // major type 2: bstr
 		return nil, errors.New("cbor: require bstr type")
 	}
@@ -66,9 +64,11 @@ func deterministicBinaryString(data cbor.RawMessage) (cbor.RawMessage, error) {
 		return nil, err
 	}
 	ai := data[0] & 0x1f
+
 	if ai < 24 {
 		return data, nil
 	}
+
 	switch ai {
 	case 24:
 		if data[1] >= 24 {
@@ -91,6 +91,11 @@ func deterministicBinaryString(data cbor.RawMessage) (cbor.RawMessage, error) {
 	// slow path: convert by re-encoding
 	// error checking is not required since `data` has been validataed
 	var s []byte
-	_ = decModeWithTagsForbidden.Unmarshal(data, &s)
+
+	err := decModeWithTagsForbidden.Unmarshal(data, &s)
+	if err != nil {
+		return nil, err
+	}
+
 	return encMode.Marshal(s)
 }

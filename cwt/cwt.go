@@ -18,12 +18,6 @@ const (
 	keyIDHeaderIndex   = int64(4)
 )
 
-type CWT struct {
-	ProtectedHeader map[int]interface{}
-	Payload         []byte
-	Signature       []byte
-}
-
 // SignParameters contains parameters of signing for cwt vc.
 type SignParameters struct {
 	KeyID  string
@@ -91,6 +85,7 @@ func CheckProof(
 	if err != nil {
 		return err
 	}
+
 	keyIDBytes, ok := message.Headers.Unprotected[keyIDHeaderIndex].([]byte)
 	if !ok {
 		return errors.New("check cwt failure: kid header is required")
