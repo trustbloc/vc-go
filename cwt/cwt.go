@@ -90,8 +90,8 @@ func CheckProof(
 		return errors.New("check cwt failure: kid header is required")
 	}
 
-	checker := cwtVerifier{
-		proofChecker:        proofChecker,
+	checker := Verifier{
+		ProofChecker:        proofChecker,
 		expectedProofIssuer: expectedProofIssuer,
 	}
 

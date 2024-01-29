@@ -8,12 +8,12 @@ import (
 	"github.com/trustbloc/vc-go/proof/checker"
 )
 
-type cwtVerifier struct {
-	proofChecker        ProofChecker
+type Verifier struct {
+	ProofChecker        ProofChecker
 	expectedProofIssuer *string
 }
 
-func (v *cwtVerifier) Verify(
+func (v *Verifier) Verify(
 	proof *cose.Sign1Message,
 	keyID string,
 	algo cose.Algorithm,
@@ -27,7 +27,7 @@ func (v *cwtVerifier) Verify(
 		expectedProofIssuer = strings.Split(keyID, "#")[0]
 	}
 
-	return v.proofChecker.CheckCWTProof(checker.CheckCWTProofRequest{
+	return v.ProofChecker.CheckCWTProof(checker.CheckCWTProofRequest{
 		KeyID: keyID,
 		Algo:  algo,
 	}, proof, expectedProofIssuer)
