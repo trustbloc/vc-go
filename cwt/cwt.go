@@ -24,6 +24,12 @@ type CWT struct {
 	Signature       []byte
 }
 
+// SignParameters contains parameters of signing for cwt vc.
+type SignParameters struct {
+	KeyID  string
+	CWTAlg cose.Algorithm
+}
+
 // ParseAndCheckProof parses input JWT in serialized form into JSON Web Token and check signature proof.
 // if checkIssuer set to true, will check if issuer set by "iss" own key set by "kid" header.
 func ParseAndCheckProof(

@@ -11,12 +11,16 @@ import (
 	"crypto/rand"
 	"testing"
 
+	"github.com/fxamacker/cbor/v2"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	jsonld "github.com/trustbloc/did-go/doc/ld/processor"
 	ldtestutil "github.com/trustbloc/did-go/doc/ld/testutil"
 	"github.com/trustbloc/kms-go/spi/kms"
+	"github.com/veraison/go-cose"
 
 	"github.com/trustbloc/vc-go/crypto-ext/testutil"
+	"github.com/trustbloc/vc-go/cwt"
 	"github.com/trustbloc/vc-go/proof/creator"
 	"github.com/trustbloc/vc-go/proof/jwtproofs/eddsa"
 	"github.com/trustbloc/vc-go/proof/testsupport"
@@ -181,6 +185,50 @@ func TestAllJWTSignersVerifiers(t *testing.T) {
 
 		err = vc.CheckProof(verifiable.WithJSONLDDocumentLoader(docLoader), verifiable.WithProofChecker(proofChecker))
 		checkError(t, err, testCase.verFail)
+	}
+}
+
+// TestAllJWTSignersVerifiers tests all supported jwt proof types.
+func TestAllCWTSignersVerifiers(t *testing.T) {
+	_, ldErr := ldtestutil.DocumentLoader()
+	require.NoError(t, ldErr)
+
+	allKeyTypes := []testsupport.SigningKey{
+		{Type: kms.ED25519Type, PublicKeyID: "did:example:12345#key-1"},
+	}
+
+	proofCreators, proofChecker := testsupport.NewKMSSignersAndVerifier(t, allKeyTypes)
+
+	testCases := []jwtTestCase{
+		{Alg: verifiable.EdDSA, proofCreator: proofCreators[0], signingKey: allKeyTypes[0]},
+	}
+
+	for _, testCase := range testCases {
+		data := "1234567890"
+		encoded, err := cbor.Marshal(data)
+		assert.NoError(t, err)
+		msg := &cose.Sign1Message{
+			Headers: cose.Headers{
+				Protected: cose.ProtectedHeader{
+					cose.HeaderLabelAlgorithm: cose.AlgorithmEd25519,
+				},
+				Unprotected: map[interface{}]interface{}{
+					int64(4): []byte(testCase.signingKey.PublicKeyID),
+				},
+			},
+			Payload: encoded,
+		}
+
+		signed, err := testCase.proofCreator.SignCWT(cwt.SignParameters{
+			KeyID:  testCase.signingKey.PublicKeyID,
+			CWTAlg: cose.AlgorithmEd25519,
+		}, msg)
+		assert.NoError(t, err)
+
+		msg.Signature = signed
+
+		assert.NotNil(t, signed)
+		assert.NoError(t, cwt.CheckProof(msg, proofChecker, nil))
 	}
 }
 

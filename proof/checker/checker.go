@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package checker
 
 import (
+	"crypto"
 	"fmt"
 
 	"github.com/tidwall/gjson"
@@ -237,7 +238,7 @@ func (c *ProofChecker) CheckCWTProof(
 	expectedProofIssuer string,
 ) error {
 	if checkCWTRequest.KeyID == "" {
-		return fmt.Errorf("missed kid in jwt header")
+		return fmt.Errorf("missed kid in cwt header")
 	}
 
 	if checkCWTRequest.Algo == 0 {
@@ -259,7 +260,13 @@ func (c *ProofChecker) CheckCWTProof(
 		return fmt.Errorf("cwt with alg %s check: %w", checkCWTRequest.Algo, err)
 	}
 
-	verifier, err := cose.NewVerifier(checkCWTRequest.Algo, pubKey)
+	finalPubKey := crypto.PublicKey(pubKey)
+
+	if pubKey.JWK != nil {
+		finalPubKey = pubKey.JWK.Key
+	}
+
+	verifier, err := cose.NewVerifier(checkCWTRequest.Algo, finalPubKey)
 	if err != nil {
 		return err
 	}

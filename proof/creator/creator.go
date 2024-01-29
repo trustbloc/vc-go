@@ -9,11 +9,14 @@ package creator
 import (
 	"fmt"
 
+	"github.com/fxamacker/cbor/v2"
 	"github.com/trustbloc/did-go/doc/ld/processor"
 	"github.com/trustbloc/did-go/doc/ld/proof"
 	"github.com/trustbloc/kms-go/doc/jose"
 	"github.com/trustbloc/kms-go/spi/kms"
+	"github.com/veraison/go-cose"
 
+	"github.com/trustbloc/vc-go/cwt"
 	"github.com/trustbloc/vc-go/jwt"
 	proofdesc "github.com/trustbloc/vc-go/proof"
 )
@@ -168,6 +171,39 @@ func (c *ProofCreator) SignJWT(params jwt.SignParameters, data []byte) ([]byte, 
 	return supportedProof.cryptographicSigner.Sign(data)
 }
 
+// SignCWT will sign document and return signature.
+func (c *ProofCreator) SignCWT(params cwt.SignParameters, message *cose.Sign1Message) ([]byte, error) {
+	supportedProof, err := c.getSupportedProofByCwtAlg(params.CWTAlg)
+	if err != nil {
+		return nil, err
+	}
+
+	var protected cbor.RawMessage
+	protected, err = message.Headers.MarshalProtected()
+	if err != nil {
+		return nil, err
+	}
+
+	cborProtectedData, err := deterministicBinaryString(protected)
+	if err != nil {
+		return nil, err
+	}
+
+	sigStructure := []interface{}{
+		"Signature1",      // context
+		cborProtectedData, // body_protected
+		[]byte{},          // external_aad
+		message.Payload,   // payload
+	}
+
+	cborData, err := cbor.Marshal(sigStructure)
+	if err != nil {
+		return nil, err
+	}
+
+	return supportedProof.cryptographicSigner.Sign(cborData)
+}
+
 // CreateJWTHeaders creates correct jwt headers.
 func (c *ProofCreator) CreateJWTHeaders(params jwt.SignParameters) (jose.Headers, error) {
 	headers := map[string]interface{}{
@@ -189,6 +225,16 @@ func (c *ProofCreator) getSupportedProof(proofType string) (ldProofCreateDescrip
 	}
 
 	return ldProofCreateDescriptor{}, fmt.Errorf("unsupported proof type: %s", proofType)
+}
+
+func (c *ProofCreator) getSupportedProofByCwtAlg(cwtAlg cose.Algorithm) (jwtProofCreateDescriptor, error) {
+	for _, supported := range c.supportedJWTAlgs {
+		if supported.proofDescriptor.CWTAlgorithm() == cwtAlg {
+			return supported, nil
+		}
+	}
+
+	return jwtProofCreateDescriptor{}, fmt.Errorf("unsupported cwt alg: %s", cwtAlg.String())
 }
 
 func (c *ProofCreator) getSupportedProofByAlg(jwtAlg string) (jwtProofCreateDescriptor, error) {
