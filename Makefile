@@ -11,6 +11,13 @@ MOCKGEN=$(GOBIN_PATH)/mockgen
 GOMOCKS=pkg/internal/gomocks
 MOCK_VERSION 	?=v1.7.0-rc.1
 
+OS := $(shell uname)
+ifeq  ($(OS),$(filter $(OS),Darwin Linux))
+	PATH:=$(PATH):$(GOBIN_PATH)
+else
+	PATH:=$(PATH);$(subst /,\\,$(GOBIN_PATH))
+endif
+
 .PHONY: all
 all: clean checks unit-test
 
