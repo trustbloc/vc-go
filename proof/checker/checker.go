@@ -110,6 +110,17 @@ func WithJWTAlg(proofDescs ...proofdesc.JWTProofDescriptor) Opt {
 	}
 }
 
+// WithCWTAlg option to set supported jwt algs.
+func WithCWTAlg(proofDescs ...proofdesc.JWTProofDescriptor) Opt {
+	return func(c *ProofCheckerBase) {
+		for _, proofDesc := range proofDescs {
+			c.supportedCWTProofs = append(c.supportedCWTProofs, cwtCheckDescriptor{
+				proofDescriptor: proofDesc,
+			})
+		}
+	}
+}
+
 // WithSignatureVerifiers option to set signature verifiers.
 func WithSignatureVerifiers(verifiers ...signatureVerifier) Opt {
 	return func(c *ProofCheckerBase) {
@@ -243,7 +254,7 @@ func (c *ProofChecker) CheckCWTProof(
 		return err
 	}
 
-	pubKey, err := convertToPublicKey(supportedProof, vm)
+	pubKey, err := convertToPublicKey(supportedProof.proofDescriptor.SupportedVerificationMethods(), vm)
 	if err != nil {
 		return fmt.Errorf("cwt with alg %s check: %w", checkCWTRequest.Algo, err)
 	}
@@ -271,7 +282,8 @@ func (c *ProofChecker) FindIssuer(payload []byte) string {
 
 func convertToPublicKey(
 	supportedMethods []proofdesc.SupportedVerificationMethod,
-	vm *vermethod.VerificationMethod) (*pubkey.PublicKey, error) {
+	vm *vermethod.VerificationMethod,
+) (*pubkey.PublicKey, error) {
 	for _, supported := range supportedMethods {
 		if supported.VerificationMethodType != vm.Type {
 			continue

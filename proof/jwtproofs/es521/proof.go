@@ -8,6 +8,7 @@ package es521
 
 import (
 	"github.com/trustbloc/kms-go/spi/kms"
+	"github.com/veraison/go-cose"
 
 	"github.com/trustbloc/vc-go/proof"
 )
@@ -15,6 +16,10 @@ import (
 // Proof describes es521 proof type.
 type Proof struct {
 	supportedVMs []proof.SupportedVerificationMethod
+}
+
+func (s *Proof) CWTAlgorithm() cose.Algorithm {
+	return 0
 }
 
 const (

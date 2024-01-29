@@ -11,6 +11,7 @@ import (
 	"github.com/trustbloc/vc-go/crypto-ext/verifiers/ecdsa"
 	"github.com/trustbloc/vc-go/crypto-ext/verifiers/ed25519"
 	"github.com/trustbloc/vc-go/crypto-ext/verifiers/rsa"
+	proofdesc "github.com/trustbloc/vc-go/proof"
 	"github.com/trustbloc/vc-go/proof/checker"
 	"github.com/trustbloc/vc-go/proof/jwtproofs/eddsa"
 	"github.com/trustbloc/vc-go/proof/jwtproofs/es256"
@@ -34,6 +35,9 @@ type verificationMethodResolver interface {
 
 // NewDefaultProofChecker creates proof checker with all available validation algorithms.
 func NewDefaultProofChecker(verificationMethodResolver verificationMethodResolver) *checker.ProofChecker {
+	jwtCheckers := []proofdesc.JWTProofDescriptor{
+		eddsa.New(), es256.New(), es256k.New(), es384.New(), es521.New(), rs256.New(), ps256.New(),
+	}
 	return checker.New(verificationMethodResolver,
 		checker.WithSignatureVerifiers(ed25519.New(), bbs.NewBBSG2SignatureVerifier(),
 			rsa.NewPS256(), rsa.NewRS256(),
@@ -46,6 +50,7 @@ func NewDefaultProofChecker(verificationMethodResolver verificationMethodResolve
 			jsonwebsignature2020.New(),
 		),
 		checker.WithLDProofTypeEx(bbsblssignatureproof2020.New(), bbs.NewBBSG2SignatureProofVerifier()),
-		checker.WithJWTAlg(eddsa.New(), es256.New(), es256k.New(), es384.New(), es521.New(), rs256.New(), ps256.New()),
+		checker.WithJWTAlg(jwtCheckers...),
+		checker.WithCWTAlg(jwtCheckers...),
 	)
 }
