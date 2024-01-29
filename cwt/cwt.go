@@ -18,18 +18,11 @@ const (
 	keyIDHeaderIndex   = int64(4)
 )
 
-// jwtParseOpts holds options for the JWT parsing.
-type parseOpts struct {
-}
-
 type CWT struct {
 	ProtectedHeader map[int]interface{}
 	Payload         []byte
 	Signature       []byte
 }
-
-// ParseOpt is the JWT Parser option.
-type ParseOpt func(opts *parseOpts)
 
 // ParseAndCheckProof parses input JWT in serialized form into JSON Web Token and check signature proof.
 // if checkIssuer set to true, will check if issuer set by "iss" own key set by "kid" header.
@@ -37,9 +30,8 @@ func ParseAndCheckProof(
 	cwtSerialized []byte,
 	proofChecker ProofChecker,
 	checkIssuer bool,
-	opts ...ParseOpt,
 ) (*cose.Sign1Message, []byte, error) {
-	cwtParsed, err := Parse(cwtSerialized, opts...)
+	cwtParsed, err := Parse(cwtSerialized)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -65,12 +57,6 @@ func ParseAndCheckProof(
 		expectedProofIssuer = &issStr
 	}
 
-	pOpts := &parseOpts{}
-
-	for _, opt := range opts {
-		opt(pOpts)
-	}
-
 	err = CheckProof(cwtParsed, proofChecker, expectedProofIssuer)
 	if err != nil {
 		return nil, nil, err
@@ -80,7 +66,7 @@ func ParseAndCheckProof(
 }
 
 // Parse parses input CWT in serialized form into JSON Web Token.
-func Parse(cwtSerialized []byte, _ ...ParseOpt) (*cose.Sign1Message, error) {
+func Parse(cwtSerialized []byte) (*cose.Sign1Message, error) {
 	var message cose.Sign1Message
 	if err := message.UnmarshalCBOR(cwtSerialized); err != nil {
 		return nil, err
