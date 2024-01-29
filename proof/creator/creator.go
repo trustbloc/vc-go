@@ -180,6 +180,7 @@ func (c *ProofCreator) SignCWT(params cwt.SignParameters, message *cose.Sign1Mes
 
 	var protected cbor.RawMessage
 	protected, err = message.Headers.MarshalProtected()
+
 	if err != nil {
 		return nil, err
 	}

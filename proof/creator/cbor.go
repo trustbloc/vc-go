@@ -15,8 +15,8 @@ import (
 
 // Pre-configured modes for CBOR encoding and decoding.
 var (
-	encMode                  cbor.EncMode
-	decModeWithTagsForbidden cbor.DecMode
+	encMode                  cbor.EncMode //nolint:gochecknoglobals
+	decModeWithTagsForbidden cbor.DecMode //nolint:gochecknoglobals
 )
 
 func init() { // nolint:gochecknoinits
@@ -50,7 +50,7 @@ func init() { // nolint:gochecknoinits
 // deterministicBinaryString converts a bstr into the deterministic encoding.
 //
 // Reference: https://www.rfc-editor.org/rfc/rfc9052.html#section-9
-func deterministicBinaryString(data cbor.RawMessage) (cbor.RawMessage, error) {
+func deterministicBinaryString(data cbor.RawMessage) (cbor.RawMessage, error) { //nolint:gocyclo
 	if len(data) == 0 {
 		return nil, io.EOF
 	}
@@ -63,8 +63,8 @@ func deterministicBinaryString(data cbor.RawMessage) (cbor.RawMessage, error) {
 	if err := decModeWithTagsForbidden.Valid(data); err != nil {
 		return nil, err
 	}
-	ai := data[0] & 0x1f
 
+	ai := data[0] & 0x1f
 	if ai < 24 {
 		return data, nil
 	}
