@@ -20,4 +20,8 @@ func TestProofCreator_Common(t *testing.T) {
 	t.Run("Test With all jwt proofs", func(t *testing.T) {
 		commontest.TestAllJWTSignersVerifiers(t)
 	})
+
+	t.Run("Test With all cwt proofs", func(t *testing.T) {
+		commontest.TestAllCWTSignersVerifiers(t)
+	})
 }

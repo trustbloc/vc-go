@@ -9,6 +9,7 @@ package commontest
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+	"fmt"
 	"testing"
 
 	"github.com/fxamacker/cbor/v2"
@@ -188,7 +189,7 @@ func TestAllJWTSignersVerifiers(t *testing.T) {
 	}
 }
 
-// TestAllJWTSignersVerifiers tests all supported jwt proof types.
+// TestAllCWTSignersVerifiers tests all supported jwt proof types.
 func TestAllCWTSignersVerifiers(t *testing.T) {
 	_, ldErr := ldtestutil.DocumentLoader()
 	require.NoError(t, ldErr)
@@ -204,31 +205,33 @@ func TestAllCWTSignersVerifiers(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		data := "1234567890"
-		encoded, err := cbor.Marshal(data)
-		assert.NoError(t, err)
-		msg := &cose.Sign1Message{
-			Headers: cose.Headers{
-				Protected: cose.ProtectedHeader{
-					cose.HeaderLabelAlgorithm: cose.AlgorithmEd25519,
+		t.Run(fmt.Sprintf("key id %v", testCase.signingKey.PublicKeyID), func(t *testing.T) {
+			data := "1234567890"
+			encoded, err := cbor.Marshal(data)
+			assert.NoError(t, err)
+			msg := &cose.Sign1Message{
+				Headers: cose.Headers{
+					Protected: cose.ProtectedHeader{
+						cose.HeaderLabelAlgorithm: cose.AlgorithmEd25519,
+					},
+					Unprotected: map[interface{}]interface{}{
+						int64(4): []byte(testCase.signingKey.PublicKeyID),
+					},
 				},
-				Unprotected: map[interface{}]interface{}{
-					int64(4): []byte(testCase.signingKey.PublicKeyID),
-				},
-			},
-			Payload: encoded,
-		}
+				Payload: encoded,
+			}
 
-		signed, err := testCase.proofCreator.SignCWT(cwt.SignParameters{
-			KeyID:  testCase.signingKey.PublicKeyID,
-			CWTAlg: cose.AlgorithmEd25519,
-		}, msg)
-		assert.NoError(t, err)
+			signed, err := testCase.proofCreator.SignCWT(cwt.SignParameters{
+				KeyID:  testCase.signingKey.PublicKeyID,
+				CWTAlg: cose.AlgorithmEd25519,
+			}, msg)
+			assert.NoError(t, err)
 
-		msg.Signature = signed
+			msg.Signature = signed
 
-		assert.NotNil(t, signed)
-		assert.NoError(t, cwt.CheckProof(msg, proofChecker, nil))
+			assert.NotNil(t, signed)
+			assert.NoError(t, cwt.CheckProof(msg, proofChecker, nil))
+		})
 	}
 }
 
