@@ -9,18 +9,24 @@ package commontest
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+	"fmt"
 	"testing"
 
+	"github.com/fxamacker/cbor/v2"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	jsonld "github.com/trustbloc/did-go/doc/ld/processor"
 	ldtestutil "github.com/trustbloc/did-go/doc/ld/testutil"
 	"github.com/trustbloc/kms-go/spi/kms"
+	"github.com/veraison/go-cose"
 
 	"github.com/trustbloc/vc-go/crypto-ext/testutil"
+	"github.com/trustbloc/vc-go/cwt"
 	"github.com/trustbloc/vc-go/proof/creator"
 	"github.com/trustbloc/vc-go/proof/jwtproofs/eddsa"
 	"github.com/trustbloc/vc-go/proof/testsupport"
 	"github.com/trustbloc/vc-go/verifiable"
+	cwt2 "github.com/trustbloc/vc-go/verifiable/cwt"
 )
 
 const testCredential = `
@@ -60,6 +66,15 @@ type ldTestCase struct {
 
 type jwtTestCase struct {
 	Alg          verifiable.JWSAlgorithm
+	proofCreator *creator.ProofCreator
+	signingKey   testsupport.SigningKey
+	fail         bool
+	verFail      bool
+}
+
+type cwtTestCase struct {
+	Alg          verifiable.JWSAlgorithm
+	CborAlg      cose.Algorithm
 	proofCreator *creator.ProofCreator
 	signingKey   testsupport.SigningKey
 	fail         bool
@@ -181,6 +196,65 @@ func TestAllJWTSignersVerifiers(t *testing.T) {
 
 		err = vc.CheckProof(verifiable.WithJSONLDDocumentLoader(docLoader), verifiable.WithProofChecker(proofChecker))
 		checkError(t, err, testCase.verFail)
+	}
+}
+
+// TestAllCWTSignersVerifiers tests all supported jwt proof types.
+func TestAllCWTSignersVerifiers(t *testing.T) {
+	_, ldErr := ldtestutil.DocumentLoader()
+	require.NoError(t, ldErr)
+
+	allKeyTypes := []testsupport.SigningKey{
+		{Type: kms.ED25519Type, PublicKeyID: "did:example:12345#key-1"},
+		{Type: kms.ECDSAP256TypeIEEEP1363, PublicKeyID: "did:example:12345#key-2"},
+		{Type: kms.ECDSASecp256k1TypeIEEEP1363, PublicKeyID: "did:example:12345#key-3"},
+		{Type: kms.ECDSAP384TypeIEEEP1363, PublicKeyID: "did:example:12345#key-4"},
+		{Type: kms.ECDSAP521TypeIEEEP1363, PublicKeyID: "did:example:12345#key-5"},
+		{Type: kms.RSARS256Type, PublicKeyID: "did:example:12345#key-6"},
+	}
+
+	proofCreators, proofChecker := testsupport.NewKMSSignersAndVerifier(t, allKeyTypes)
+
+	testCases := []cwtTestCase{
+		{Alg: verifiable.EdDSA, proofCreator: proofCreators[0], signingKey: allKeyTypes[0], CborAlg: cose.AlgorithmEd25519},
+		{Alg: verifiable.ECDSASecp256r1, proofCreator: proofCreators[1], signingKey: allKeyTypes[1], CborAlg: cose.AlgorithmES256},
+		{Alg: verifiable.ECDSASecp384r1, proofCreator: proofCreators[3], signingKey: allKeyTypes[3], CborAlg: cose.AlgorithmES384},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(fmt.Sprintf("key id %v and algo %s",
+			testCase.signingKey.PublicKeyID,
+			testCase.CborAlg.String(),
+		), func(t *testing.T) {
+			data := "1234567890"
+			encoded, err := cbor.Marshal(data)
+			assert.NoError(t, err)
+			msg := &cose.Sign1Message{
+				Headers: cose.Headers{
+					Protected: cose.ProtectedHeader{
+						cose.HeaderLabelAlgorithm: testCase.CborAlg,
+					},
+					Unprotected: map[interface{}]interface{}{
+						int64(4): []byte(testCase.signingKey.PublicKeyID),
+					},
+				},
+				Payload: encoded,
+			}
+
+			signData, err := cwt2.GetProofValue(msg)
+			assert.NoError(t, err)
+
+			signed, err := testCase.proofCreator.SignCWT(cwt.SignParameters{
+				KeyID:  testCase.signingKey.PublicKeyID,
+				CWTAlg: testCase.CborAlg,
+			}, signData)
+			assert.NoError(t, err)
+
+			msg.Signature = signed
+
+			assert.NotNil(t, signed)
+			assert.NoError(t, cwt.CheckProof(msg, proofChecker, nil))
+		})
 	}
 }
 

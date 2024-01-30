@@ -9,6 +9,7 @@ package proof
 import (
 	"github.com/trustbloc/did-go/doc/ld/processor"
 	"github.com/trustbloc/kms-go/spi/kms"
+	"github.com/veraison/go-cose"
 )
 
 // SupportedVerificationMethod describes verification methods that supported by proof checker.
@@ -37,6 +38,7 @@ type LDProofDescriptor interface {
 // JWTProofDescriptor describes jwt proof.
 type JWTProofDescriptor interface {
 	JWTAlgorithm() string
+	CWTAlgorithm() cose.Algorithm
 
 	SupportedVerificationMethods() []SupportedVerificationMethod
 }

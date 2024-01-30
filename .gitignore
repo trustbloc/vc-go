@@ -36,3 +36,6 @@ dist
 build
 umd
 
+# Auto-generated mock files
+*_mocks_test.go
+gomocks_test.go

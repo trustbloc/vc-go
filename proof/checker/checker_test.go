@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/did-go/doc/ld/proof"
 	"github.com/trustbloc/kms-go/doc/jose"
+	"github.com/veraison/go-cose"
 
 	"github.com/trustbloc/vc-go/proof/checker"
 	"github.com/trustbloc/vc-go/proof/jwtproofs/eddsa"
@@ -32,6 +33,10 @@ func TestProofChecker_AllLD(t *testing.T) {
 
 	t.Run("Test With all jwt proofs", func(t *testing.T) {
 		commontest.TestEmbeddedProofChecker(t)
+	})
+
+	t.Run("Test With all cwt proofs", func(t *testing.T) {
+		commontest.TestAllCWTSignersVerifiers(t)
 	})
 }
 
@@ -92,6 +97,56 @@ func TestProofCheckerIssuer(t *testing.T) {
 	err := testable.CheckJWTProof(jose.Headers{jose.HeaderKeyID: "tid", jose.HeaderAlgorithm: "EdDSA"},
 		"abcd",
 		nil, nil)
+	require.ErrorContains(t, err, `invalid public key id: invalid issuer. expected "awesome" got "abcd"`)
+}
+
+func TestProofChecker_CheckCWTProof(t *testing.T) {
+	testable := checker.New(
+		testsupport.NewSingleKeyResolver("lookupId", []byte{}, "test", "issuerID"),
+		checker.WithCWTAlg(eddsa.New()))
+
+	err := testable.CheckCWTProof(checker.CheckCWTProofRequest{
+		Algo: cose.AlgorithmEd25519,
+	}, &cose.Sign1Message{}, "issuerID")
+	require.ErrorContains(t, err, "missed kid in cwt header")
+
+	err = testable.CheckCWTProof(checker.CheckCWTProofRequest{
+		KeyID: "tid",
+	}, &cose.Sign1Message{}, "issuerID")
+	require.ErrorContains(t, err, "missed alg in cwt header")
+
+	err = testable.CheckCWTProof(checker.CheckCWTProofRequest{
+		KeyID: "tid",
+		Algo:  1,
+	}, &cose.Sign1Message{}, "issuerID")
+	require.ErrorContains(t, err, "invalid public key id")
+
+	err = testable.CheckCWTProof(checker.CheckCWTProofRequest{
+		KeyID: "lookupId",
+		Algo:  1,
+	}, &cose.Sign1Message{}, "issuerID")
+	require.ErrorContains(t, err, "unsupported cwt alg:")
+
+	err = testable.CheckCWTProof(checker.CheckCWTProofRequest{
+		KeyID: "lookupId",
+		Algo:  cose.AlgorithmEd25519,
+	}, &cose.Sign1Message{}, "issuerID")
+	require.ErrorContains(t, err, "can't verifiy with \"test\" verification method")
+}
+
+func TestProofCheckerIssuerCwt(t *testing.T) {
+	testable := checker.New(
+		testsupport.NewSingleKeyResolver("lookupId", []byte{}, "test", "awesome"),
+		checker.WithCWTAlg(eddsa.New()))
+
+	err := testable.CheckCWTProof(
+		checker.CheckCWTProofRequest{
+			KeyID: "tid",
+			Algo:  cose.AlgorithmEd25519,
+		},
+		&cose.Sign1Message{},
+		"abcd")
+
 	require.ErrorContains(t, err, `invalid public key id: invalid issuer. expected "awesome" got "abcd"`)
 }
 

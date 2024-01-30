@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package checker
 
 import (
+	"crypto"
 	"fmt"
 
 	"github.com/tidwall/gjson"
@@ -15,6 +16,7 @@ import (
 	"github.com/trustbloc/kms-go/doc/jose"
 	"github.com/trustbloc/kms-go/doc/jose/jwk"
 	"github.com/trustbloc/kms-go/spi/kms"
+	"github.com/veraison/go-cose"
 
 	"github.com/trustbloc/vc-go/crypto-ext/pubkey"
 	proofdesc "github.com/trustbloc/vc-go/proof"
@@ -46,6 +48,10 @@ type jwtCheckDescriptor struct {
 	proofDescriptor proofdesc.JWTProofDescriptor
 }
 
+type cwtCheckDescriptor struct {
+	proofDescriptor proofdesc.JWTProofDescriptor
+}
+
 // nolint: gochecknoglobals
 var possibleIssuerPath = []string{
 	"vc.issuer.id",
@@ -59,6 +65,7 @@ var possibleIssuerPath = []string{
 type ProofCheckerBase struct {
 	supportedLDProofs  []ldCheckDescriptor
 	supportedJWTProofs []jwtCheckDescriptor
+	supportedCWTProofs []cwtCheckDescriptor
 	signatureVerifiers []signatureVerifier
 }
 
@@ -98,6 +105,17 @@ func WithJWTAlg(proofDescs ...proofdesc.JWTProofDescriptor) Opt {
 	return func(c *ProofCheckerBase) {
 		for _, proofDesc := range proofDescs {
 			c.supportedJWTProofs = append(c.supportedJWTProofs, jwtCheckDescriptor{
+				proofDescriptor: proofDesc,
+			})
+		}
+	}
+}
+
+// WithCWTAlg option to set supported jwt algs.
+func WithCWTAlg(proofDescs ...proofdesc.JWTProofDescriptor) Opt {
+	return func(c *ProofCheckerBase) {
+		for _, proofDesc := range proofDescs {
+			c.supportedCWTProofs = append(c.supportedCWTProofs, cwtCheckDescriptor{
 				proofDescriptor: proofDesc,
 			})
 		}
@@ -214,6 +232,49 @@ func (c *ProofChecker) CheckJWTProof(headers jose.Headers, expectedProofIssuer s
 	return verifier.Verify(signature, msg, pubKey)
 }
 
+// CheckCWTProof check cwt proof.
+func (c *ProofChecker) CheckCWTProof(
+	checkCWTRequest CheckCWTProofRequest,
+	msg *cose.Sign1Message,
+	expectedProofIssuer string,
+) error {
+	if checkCWTRequest.KeyID == "" {
+		return fmt.Errorf("missed kid in cwt header")
+	}
+
+	if checkCWTRequest.Algo == 0 {
+		return fmt.Errorf("missed alg in cwt header")
+	}
+
+	vm, err := c.verificationMethodResolver.ResolveVerificationMethod(checkCWTRequest.KeyID, expectedProofIssuer)
+	if err != nil {
+		return fmt.Errorf("invalid public key id: %w", err)
+	}
+
+	supportedProof, err := c.getSupportedCWTProofByAlg(checkCWTRequest.Algo)
+	if err != nil {
+		return err
+	}
+
+	pubKey, err := convertToPublicKey(supportedProof.proofDescriptor.SupportedVerificationMethods(), vm)
+	if err != nil {
+		return fmt.Errorf("cwt with alg %s check: %w", checkCWTRequest.Algo, err)
+	}
+
+	finalPubKey := crypto.PublicKey(pubKey)
+
+	if pubKey.JWK != nil {
+		finalPubKey = pubKey.JWK.Key
+	}
+
+	verifier, err := cose.NewVerifier(checkCWTRequest.Algo, finalPubKey)
+	if err != nil {
+		return err
+	}
+
+	return msg.Verify(nil, verifier)
+}
+
 // FindIssuer finds issuer in payload.
 func (c *ProofChecker) FindIssuer(payload []byte) string {
 	parsed := gjson.ParseBytes(payload)
@@ -229,7 +290,8 @@ func (c *ProofChecker) FindIssuer(payload []byte) string {
 
 func convertToPublicKey(
 	supportedMethods []proofdesc.SupportedVerificationMethod,
-	vm *vermethod.VerificationMethod) (*pubkey.PublicKey, error) {
+	vm *vermethod.VerificationMethod,
+) (*pubkey.PublicKey, error) {
 	for _, supported := range supportedMethods {
 		if supported.VerificationMethodType != vm.Type {
 			continue
@@ -284,6 +346,16 @@ func (c *ProofCheckerBase) getSupportedProofByAlg(jwtAlg string) (jwtCheckDescri
 	}
 
 	return jwtCheckDescriptor{}, fmt.Errorf("unsupported jwt alg: %s", jwtAlg)
+}
+
+func (c *ProofCheckerBase) getSupportedCWTProofByAlg(cwtAlg cose.Algorithm) (cwtCheckDescriptor, error) {
+	for _, supported := range c.supportedCWTProofs {
+		if supported.proofDescriptor.CWTAlgorithm() == cwtAlg {
+			return supported, nil
+		}
+	}
+
+	return cwtCheckDescriptor{}, fmt.Errorf("unsupported cwt alg: %s", cwtAlg)
 }
 
 func (c *ProofCheckerBase) getSignatureVerifier(keyType kms.KeyType) (signatureVerifier, error) {
