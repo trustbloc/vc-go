@@ -26,6 +26,7 @@ import (
 	"github.com/trustbloc/vc-go/proof/jwtproofs/eddsa"
 	"github.com/trustbloc/vc-go/proof/testsupport"
 	"github.com/trustbloc/vc-go/verifiable"
+	cwt2 "github.com/trustbloc/vc-go/verifiable/cwt"
 )
 
 const testCredential = `
@@ -240,10 +241,13 @@ func TestAllCWTSignersVerifiers(t *testing.T) {
 				Payload: encoded,
 			}
 
+			signData, err := cwt2.GetProofValue(msg)
+			assert.NoError(t, err)
+
 			signed, err := testCase.proofCreator.SignCWT(cwt.SignParameters{
 				KeyID:  testCase.signingKey.PublicKeyID,
 				CWTAlg: testCase.CborAlg,
-			}, msg)
+			}, signData)
 			assert.NoError(t, err)
 
 			msg.Signature = signed

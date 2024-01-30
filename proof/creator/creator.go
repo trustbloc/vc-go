@@ -9,7 +9,6 @@ package creator
 import (
 	"fmt"
 
-	"github.com/fxamacker/cbor/v2"
 	"github.com/trustbloc/did-go/doc/ld/processor"
 	"github.com/trustbloc/did-go/doc/ld/proof"
 	"github.com/trustbloc/kms-go/doc/jose"
@@ -172,32 +171,8 @@ func (c *ProofCreator) SignJWT(params jwt.SignParameters, data []byte) ([]byte, 
 }
 
 // SignCWT will sign document and return signature.
-func (c *ProofCreator) SignCWT(params cwt.SignParameters, message *cose.Sign1Message) ([]byte, error) {
+func (c *ProofCreator) SignCWT(params cwt.SignParameters, cborData []byte) ([]byte, error) {
 	supportedProof, err := c.getSupportedProofByCwtAlg(params.CWTAlg)
-	if err != nil {
-		return nil, err
-	}
-
-	var protected cbor.RawMessage
-	protected, err = message.Headers.MarshalProtected()
-
-	if err != nil {
-		return nil, err
-	}
-
-	cborProtectedData, err := deterministicBinaryString(protected)
-	if err != nil {
-		return nil, err
-	}
-
-	sigStructure := []interface{}{
-		"Signature1",      // context
-		cborProtectedData, // body_protected
-		[]byte{},          // external_aad
-		message.Payload,   // payload
-	}
-
-	cborData, err := cbor.Marshal(sigStructure)
 	if err != nil {
 		return nil, err
 	}
