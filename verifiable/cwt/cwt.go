@@ -11,6 +11,7 @@ import (
 	"github.com/veraison/go-cose"
 )
 
+// GetProofValue returns the proof value for the given COSE_Sign1 message.
 func GetProofValue(message *cose.Sign1Message) ([]byte, error) {
 	var protected cbor.RawMessage
 	protected, err := message.Headers.MarshalProtected()
