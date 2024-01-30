@@ -71,6 +71,15 @@ type jwtTestCase struct {
 	verFail      bool
 }
 
+type cwtTestCase struct {
+	Alg          verifiable.JWSAlgorithm
+	CborAlg      cose.Algorithm
+	proofCreator *creator.ProofCreator
+	signingKey   testsupport.SigningKey
+	fail         bool
+	verFail      bool
+}
+
 // TestAllLDSignersVerifiers tests all supported ld proof types.
 func TestAllLDSignersVerifiers(t *testing.T) {
 	docLoader, dlErr := ldtestutil.DocumentLoader()
@@ -196,23 +205,33 @@ func TestAllCWTSignersVerifiers(t *testing.T) {
 
 	allKeyTypes := []testsupport.SigningKey{
 		{Type: kms.ED25519Type, PublicKeyID: "did:example:12345#key-1"},
+		{Type: kms.ECDSAP256TypeIEEEP1363, PublicKeyID: "did:example:12345#key-2"},
+		{Type: kms.ECDSASecp256k1TypeIEEEP1363, PublicKeyID: "did:example:12345#key-3"},
+		{Type: kms.ECDSAP384TypeIEEEP1363, PublicKeyID: "did:example:12345#key-4"},
+		{Type: kms.ECDSAP521TypeIEEEP1363, PublicKeyID: "did:example:12345#key-5"},
+		{Type: kms.RSARS256Type, PublicKeyID: "did:example:12345#key-6"},
 	}
 
 	proofCreators, proofChecker := testsupport.NewKMSSignersAndVerifier(t, allKeyTypes)
 
-	testCases := []jwtTestCase{
-		{Alg: verifiable.EdDSA, proofCreator: proofCreators[0], signingKey: allKeyTypes[0]},
+	testCases := []cwtTestCase{
+		{Alg: verifiable.EdDSA, proofCreator: proofCreators[0], signingKey: allKeyTypes[0], CborAlg: cose.AlgorithmEd25519},
+		{Alg: verifiable.ECDSASecp256r1, proofCreator: proofCreators[1], signingKey: allKeyTypes[1], CborAlg: cose.AlgorithmES256},
+		{Alg: verifiable.ECDSASecp384r1, proofCreator: proofCreators[3], signingKey: allKeyTypes[3], CborAlg: cose.AlgorithmES384},
 	}
 
 	for _, testCase := range testCases {
-		t.Run(fmt.Sprintf("key id %v", testCase.signingKey.PublicKeyID), func(t *testing.T) {
+		t.Run(fmt.Sprintf("key id %v and algo %s",
+			testCase.signingKey.PublicKeyID,
+			testCase.CborAlg.String(),
+		), func(t *testing.T) {
 			data := "1234567890"
 			encoded, err := cbor.Marshal(data)
 			assert.NoError(t, err)
 			msg := &cose.Sign1Message{
 				Headers: cose.Headers{
 					Protected: cose.ProtectedHeader{
-						cose.HeaderLabelAlgorithm: cose.AlgorithmEd25519,
+						cose.HeaderLabelAlgorithm: testCase.CborAlg,
 					},
 					Unprotected: map[interface{}]interface{}{
 						int64(4): []byte(testCase.signingKey.PublicKeyID),
@@ -223,7 +242,7 @@ func TestAllCWTSignersVerifiers(t *testing.T) {
 
 			signed, err := testCase.proofCreator.SignCWT(cwt.SignParameters{
 				KeyID:  testCase.signingKey.PublicKeyID,
-				CWTAlg: cose.AlgorithmEd25519,
+				CWTAlg: testCase.CborAlg,
 			}, msg)
 			assert.NoError(t, err)
 
