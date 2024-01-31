@@ -11,7 +11,6 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"github.com/veraison/go-cose"
 
 	"github.com/trustbloc/vc-go/cwt"
 	"github.com/trustbloc/vc-go/proof/checker"
@@ -24,18 +23,15 @@ func TestWrapper(t *testing.T) {
 			ProofChecker: mockVerifier,
 		}
 
-		mockVerifier.EXPECT().CheckCWTProof(gomock.Any(), gomock.Any(), gomock.Any()).
-			DoAndReturn(func(
-				request checker.CheckCWTProofRequest,
-				message *cose.Sign1Message,
-				expectedProofIssuer string,
-			) error {
+		mockVerifier.EXPECT().CheckCWTProof(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			DoAndReturn(func(request checker.CheckCWTProofRequest, expectedProofIssuer string,
+				bytes []byte, bytes2 []byte) error {
 				assert.Equal(t, "coap://as.example.com", expectedProofIssuer)
 
 				return nil
 			})
 
-		assert.NoError(t, verifier.Verify(&cose.Sign1Message{},
-			"coap://as.example.com#AsymmetricECDSA256#321232131", 0))
+		assert.NoError(t, verifier.Verify("coap://as.example.com#AsymmetricECDSA256#321232131", 0,
+			nil, nil))
 	})
 }

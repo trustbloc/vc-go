@@ -253,7 +253,7 @@ func TestAllCWTSignersVerifiers(t *testing.T) {
 			msg.Signature = signed
 
 			assert.NotNil(t, signed)
-			assert.NoError(t, cwt.CheckProof(msg, proofChecker, nil))
+			assert.NoError(t, cwt.CheckProof(msg, proofChecker, nil, signData, msg.Signature))
 		})
 	}
 }

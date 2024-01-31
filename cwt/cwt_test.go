@@ -34,12 +34,15 @@ func TestParse(t *testing.T) {
 		assert.NoError(t, decodeErr)
 
 		proofChecker := NewMockProofChecker(gomock.NewController(t))
-		proofChecker.EXPECT().CheckCWTProof(gomock.Any(), gomock.Any(), gomock.Any()).
-			DoAndReturn(func(request checker.CheckCWTProofRequest, message *cose.Sign1Message, expectedIssuer string) error {
+		proofChecker.EXPECT().CheckCWTProof(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			DoAndReturn(func(request checker.CheckCWTProofRequest, expectedIssuer string, message, sign []byte) error {
 				assert.Equal(t, "AsymmetricECDSA256", request.KeyID)
 				assert.Equal(t, cose.AlgorithmES256, request.Algo)
 				assert.NotNil(t, message)
 				assert.Equal(t, "coap://as.example.com", expectedIssuer)
+				assert.NotNil(t, sign)
+				assert.NotNil(t, message)
+
 				return nil
 			})
 
@@ -53,8 +56,8 @@ func TestParse(t *testing.T) {
 		assert.NoError(t, decodeErr)
 
 		proofChecker := NewMockProofChecker(gomock.NewController(t))
-		proofChecker.EXPECT().CheckCWTProof(gomock.Any(), gomock.Any(), gomock.Any()).
-			DoAndReturn(func(request checker.CheckCWTProofRequest, message *cose.Sign1Message, expectedIssuer string) error {
+		proofChecker.EXPECT().CheckCWTProof(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			DoAndReturn(func(request checker.CheckCWTProofRequest, expectedIssuer string, message []byte, sign []byte) error {
 				return errors.New("invalid proof")
 			})
 
@@ -118,7 +121,7 @@ func TestParse(t *testing.T) {
 	})
 
 	t.Run("no algo", func(t *testing.T) {
-		assert.ErrorContains(t, cwt.CheckProof(&cose.Sign1Message{}, nil, nil),
+		assert.ErrorContains(t, cwt.CheckProof(&cose.Sign1Message{}, nil, nil, nil, nil),
 			"algorithm not found")
 	})
 
@@ -129,7 +132,7 @@ func TestParse(t *testing.T) {
 					cose.HeaderLabelAlgorithm: cose.AlgorithmES256,
 				},
 			},
-		}, nil, nil),
+		}, nil, nil, nil, nil),
 			"check cwt failure: kid header is required")
 	})
 }

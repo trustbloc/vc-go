@@ -107,30 +107,30 @@ func TestProofChecker_CheckCWTProof(t *testing.T) {
 
 	err := testable.CheckCWTProof(checker.CheckCWTProofRequest{
 		Algo: cose.AlgorithmEd25519,
-	}, &cose.Sign1Message{}, "issuerID")
+	}, "issuerID", nil, nil)
 	require.ErrorContains(t, err, "missed kid in cwt header")
 
 	err = testable.CheckCWTProof(checker.CheckCWTProofRequest{
 		KeyID: "tid",
-	}, &cose.Sign1Message{}, "issuerID")
+	}, "issuerID", nil, nil)
 	require.ErrorContains(t, err, "missed alg in cwt header")
 
 	err = testable.CheckCWTProof(checker.CheckCWTProofRequest{
 		KeyID: "tid",
 		Algo:  1,
-	}, &cose.Sign1Message{}, "issuerID")
+	}, "issuerID", nil, nil)
 	require.ErrorContains(t, err, "invalid public key id")
 
 	err = testable.CheckCWTProof(checker.CheckCWTProofRequest{
 		KeyID: "lookupId",
 		Algo:  1,
-	}, &cose.Sign1Message{}, "issuerID")
+	}, "issuerID", nil, nil)
 	require.ErrorContains(t, err, "unsupported cwt alg:")
 
 	err = testable.CheckCWTProof(checker.CheckCWTProofRequest{
 		KeyID: "lookupId",
 		Algo:  cose.AlgorithmEd25519,
-	}, &cose.Sign1Message{}, "issuerID")
+	}, "issuerID", nil, nil)
 	require.ErrorContains(t, err, "can't verifiy with \"test\" verification method")
 }
 
@@ -144,8 +144,7 @@ func TestProofCheckerIssuerCwt(t *testing.T) {
 			KeyID: "tid",
 			Algo:  cose.AlgorithmEd25519,
 		},
-		&cose.Sign1Message{},
-		"abcd")
+		"abcd", nil, nil)
 
 	require.ErrorContains(t, err, `invalid public key id: invalid issuer. expected "awesome" got "abcd"`)
 }
