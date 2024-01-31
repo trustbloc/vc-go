@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package checker
 
 import (
-	"crypto"
 	"fmt"
 
 	"github.com/tidwall/gjson"
@@ -235,8 +234,9 @@ func (c *ProofChecker) CheckJWTProof(headers jose.Headers, expectedProofIssuer s
 // CheckCWTProof check cwt proof.
 func (c *ProofChecker) CheckCWTProof(
 	checkCWTRequest CheckCWTProofRequest,
-	msg *cose.Sign1Message,
 	expectedProofIssuer string,
+	msg []byte,
+	signature []byte,
 ) error {
 	if checkCWTRequest.KeyID == "" {
 		return fmt.Errorf("missed kid in cwt header")
@@ -261,18 +261,12 @@ func (c *ProofChecker) CheckCWTProof(
 		return fmt.Errorf("cwt with alg %s check: %w", checkCWTRequest.Algo, err)
 	}
 
-	finalPubKey := crypto.PublicKey(pubKey)
-
-	if pubKey.JWK != nil {
-		finalPubKey = pubKey.JWK.Key
-	}
-
-	verifier, err := cose.NewVerifier(checkCWTRequest.Algo, finalPubKey)
+	verifier, err := c.getSignatureVerifier(pubKey.Type)
 	if err != nil {
 		return err
 	}
 
-	return msg.Verify(nil, verifier)
+	return verifier.Verify(signature, msg, pubKey)
 }
 
 // FindIssuer finds issuer in payload.

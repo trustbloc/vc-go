@@ -11,6 +11,8 @@ import (
 
 	"github.com/fxamacker/cbor/v2"
 	"github.com/veraison/go-cose"
+
+	"github.com/trustbloc/vc-go/verifiable/cwt"
 )
 
 const (
@@ -57,7 +59,12 @@ func ParseAndCheckProof(
 		expectedProofIssuer = &issStr
 	}
 
-	err = CheckProof(cwtParsed, proofChecker, expectedProofIssuer)
+	proofValue, err := cwt.GetProofValue(cwtParsed)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	err = CheckProof(cwtParsed, proofChecker, expectedProofIssuer, proofValue, cwtParsed.Signature)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -80,6 +87,8 @@ func CheckProof(
 	message *cose.Sign1Message,
 	proofChecker ProofChecker,
 	expectedProofIssuer *string,
+	msg []byte,
+	signature []byte,
 ) error {
 	alg, err := message.Headers.Protected.Algorithm()
 	if err != nil {
@@ -96,5 +105,5 @@ func CheckProof(
 		expectedProofIssuer: expectedProofIssuer,
 	}
 
-	return checker.Verify(message, string(keyIDBytes), alg)
+	return checker.Verify(string(keyIDBytes), alg, msg, signature)
 }

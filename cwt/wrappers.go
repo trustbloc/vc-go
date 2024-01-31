@@ -22,9 +22,10 @@ type Verifier struct {
 
 // Verify verifies CWT proof.
 func (v *Verifier) Verify(
-	proof *cose.Sign1Message,
 	keyID string,
 	algo cose.Algorithm,
+	msg []byte,
+	sign []byte,
 ) error {
 	var expectedProofIssuer string
 
@@ -38,5 +39,5 @@ func (v *Verifier) Verify(
 	return v.ProofChecker.CheckCWTProof(checker.CheckCWTProofRequest{
 		KeyID: keyID,
 		Algo:  algo,
-	}, proof, expectedProofIssuer)
+	}, expectedProofIssuer, msg, sign)
 }
