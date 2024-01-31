@@ -17,7 +17,7 @@ import (
 
 const (
 	issuerPayloadIndex = 1
-	keyIDHeaderIndex   = int64(4)
+	coseKey            = "COSE_Key"
 )
 
 // SignParameters contains parameters of signing for cwt vc.
@@ -95,7 +95,8 @@ func CheckProof(
 		return err
 	}
 
-	keyIDBytes, ok := message.Headers.Unprotected[keyIDHeaderIndex].([]byte)
+	// currently supported only COSE_Key, x5chain is not supported by go opensource implementation yet
+	keyIDBytes, ok := message.Headers.Protected[coseKey].([]byte)
 	if !ok {
 		return errors.New("check cwt failure: kid header is required")
 	}

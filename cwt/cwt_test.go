@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	exampleCWT = "d28443a10126a104524173796d6d657472696345434453413235365850a70175636f61703a2f2f61732e6578616d706c652e636f6d02656572696b77037818636f61703a2f2f6c696768742e6578616d706c652e636f6d041a5612aeb0051a5610d9f0061a5610d9f007420b7158405427c1ff28d23fbad1f29c4c7c6a555e601d6fa29f9179bc3d7438bacaca5acd08c8d4d4f96131680c429a01f85951ecee743a52b9b63632c57209120e1c9e30" //nolint:lll
+	exampleCWT = "d2845828a3012703746f70656e6964347663692d70726f6f662b63777468434f53455f4b657945616e794944a10445616e7949445842a4016b746573742d636c69656e740376687474703a2f2f3132372e302e302e313a3630343133061a65ba47ef0a746b596362437876656c6531706e393459704b6a44584009b11da68d72fc5e3fbf6aedd2c2dd81d99f69d93c5b063e7d714feae8b7b4e54b3d3780c1f7e43cc6a31405f3b67d81e1ca0a50423a8af34662022b70cd160c" //nolint:lll
 )
 
 func TestParse(t *testing.T) {
@@ -36,10 +36,10 @@ func TestParse(t *testing.T) {
 		proofChecker := NewMockProofChecker(gomock.NewController(t))
 		proofChecker.EXPECT().CheckCWTProof(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			DoAndReturn(func(request checker.CheckCWTProofRequest, expectedIssuer string, message, sign []byte) error {
-				assert.Equal(t, "AsymmetricECDSA256", request.KeyID)
-				assert.Equal(t, cose.AlgorithmES256, request.Algo)
+				assert.Equal(t, "anyID", request.KeyID)
+				assert.Equal(t, cose.AlgorithmEd25519, request.Algo)
 				assert.NotNil(t, message)
-				assert.Equal(t, "coap://as.example.com", expectedIssuer)
+				assert.Equal(t, "test-client", expectedIssuer)
 				assert.NotNil(t, sign)
 				assert.NotNil(t, message)
 
