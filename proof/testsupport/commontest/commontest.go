@@ -233,9 +233,7 @@ func TestAllCWTSignersVerifiers(t *testing.T) {
 				Headers: cose.Headers{
 					Protected: cose.ProtectedHeader{
 						cose.HeaderLabelAlgorithm: testCase.CborAlg,
-					},
-					Unprotected: map[interface{}]interface{}{
-						int64(4): []byte(testCase.signingKey.PublicKeyID),
+						"COSE_Key":                []byte(testCase.signingKey.PublicKeyID),
 					},
 				},
 				Payload: encoded,
