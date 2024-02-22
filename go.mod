@@ -23,9 +23,9 @@ require (
 	github.com/stretchr/testify v1.8.2
 	github.com/tidwall/gjson v1.14.3
 	github.com/tidwall/sjson v1.1.4
-	github.com/trustbloc/bbs-signature-go v1.0.2-0.20240117165819-e99610e107f4
-	github.com/trustbloc/did-go v1.1.1-0.20240214160354-aa500e57d8bd
-	github.com/trustbloc/kms-go v1.1.1-0.20240117181216-c38a74431167
+	github.com/trustbloc/bbs-signature-go v1.0.2
+	github.com/trustbloc/did-go v1.2.0
+	github.com/trustbloc/kms-go v1.1.1
 	github.com/veraison/go-cose v1.1.0
 	github.com/xeipuuv/gojsonschema v1.2.0
 	golang.org/x/exp v0.0.0-20230817173708-d852ddb80c63
