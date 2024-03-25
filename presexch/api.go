@@ -292,6 +292,7 @@ func (pd *PresentationDefinition) evalSubmissionRequirements(matched []*MatchVal
 
 	for i := range descriptorIDs {
 		found := false
+
 		for _, m := range matched {
 			if m.DescriptorID == i {
 				found = true
