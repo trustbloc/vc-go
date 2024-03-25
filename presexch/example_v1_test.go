@@ -1682,10 +1682,13 @@ func ExamplePresentationDefinition_Match() {
 	}
 
 	for _, descriptor := range verifierDefinitions.InputDescriptors {
-		receivedCred := matched[descriptor.ID]
-		fmt.Printf(
-			"verifier received the '%s' credential for the input descriptor id '%s'\n",
-			receivedCred.Credential.Contents().Context[1], descriptor.ID)
+		for _, match := range matched {
+			if match.DescriptorID == descriptor.ID {
+				fmt.Printf(
+					"verifier received the '%s' credential for the input descriptor id '%s'\n",
+					match.Credential.Contents().Context[1], descriptor.ID)
+			}
+		}
 	}
 
 	// Output:

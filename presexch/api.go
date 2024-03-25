@@ -59,6 +59,7 @@ type InputDescriptorMapping struct {
 type MatchValue struct {
 	PresentationID string
 	Credential     *verifiable.Credential
+	DescriptorID   string
 }
 
 // MatchOptions is a holder of options that can set when matching a submission against definitions.
@@ -111,7 +112,7 @@ func WithMergedSubmissionMap(submissionMap map[string]interface{}) MatchOption {
 
 // Match returns the credentials matched against the InputDescriptors ids.
 func (pd *PresentationDefinition) Match(vpList []*verifiable.Presentation,
-	contextLoader ld.DocumentLoader, options ...MatchOption) (map[string]MatchValue, error) {
+	contextLoader ld.DocumentLoader, options ...MatchOption) ([]*MatchValue, error) {
 	opts := &MatchOptions{}
 
 	for i := range options {
@@ -136,8 +137,8 @@ func getMatchedCreds( //nolint:gocyclo,funlen
 	vpList []*verifiable.Presentation,
 	contextLoader ld.DocumentLoader,
 	opts *MatchOptions,
-) (map[string]MatchValue, error) {
-	result := make(map[string]MatchValue)
+) ([]*MatchValue, error) {
+	var result []*MatchValue
 
 	descriptorIDs := descriptorIDs(pd.InputDescriptors)
 
@@ -236,10 +237,11 @@ func getMatchedCreds( //nolint:gocyclo,funlen
 
 			// TODO add support for constraints: https://github.com/hyperledger/aries-framework-go/issues/2108
 
-			result[mapping.ID] = MatchValue{
+			result = append(result, &MatchValue{
 				PresentationID: vp.ID,
 				Credential:     vc,
-			}
+				DescriptorID:   mapping.ID,
+			})
 		}
 	}
 
@@ -284,12 +286,19 @@ func selectVC(typelessVerifiable interface{},
 }
 
 // Ensures the matched credentials meet the submission requirements.
-func (pd *PresentationDefinition) evalSubmissionRequirements(matched map[string]MatchValue) error {
+func (pd *PresentationDefinition) evalSubmissionRequirements(matched []*MatchValue) error {
 	// TODO support submission requirement rules: https://github.com/hyperledger/aries-framework-go/issues/2109
 	descriptorIDs := descriptorIDs(pd.InputDescriptors)
 
 	for i := range descriptorIDs {
-		_, found := matched[i]
+		found := false
+		for _, m := range matched {
+			if m.DescriptorID == i {
+				found = true
+				break
+			}
+		}
+
 		if !found {
 			return fmt.Errorf("no credential provided for input descriptor %s", i)
 		}
