@@ -4,7 +4,7 @@
 
 module github.com/trustbloc/vc-go
 
-go 1.21
+go 1.22
 
 require (
 	github.com/PaesslerAG/gval v1.1.0
@@ -24,8 +24,8 @@ require (
 	github.com/tidwall/gjson v1.14.3
 	github.com/tidwall/sjson v1.1.4
 	github.com/trustbloc/bbs-signature-go v1.0.2
-	github.com/trustbloc/did-go v1.2.0
-	github.com/trustbloc/kms-go v1.1.1
+	github.com/trustbloc/did-go v1.2.1-0.20240403080251-cdfc1165460f
+	github.com/trustbloc/kms-go v1.1.2-0.20240403074855-38b6c31bf198
 	github.com/veraison/go-cose v1.1.0
 	github.com/xeipuuv/gojsonschema v1.2.0
 	golang.org/x/exp v0.0.0-20230817173708-d852ddb80c63
