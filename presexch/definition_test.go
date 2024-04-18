@@ -2185,6 +2185,47 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		checkSubmission(t, vp, pd)
 		checkVP(t, vp)
 	})
+
+	t.Run("Matches two descriptors(jwt_vp)", func(t *testing.T) {
+		pd := &PresentationDefinition{
+			ID: uuid.New().String(),
+			InputDescriptors: []*InputDescriptor{{
+				ID: uuid.New().String(),
+				Schema: []*Schema{{
+					URI: "https://example.org/examples#UniversityDegreeCredential",
+				}},
+			}, {
+				ID: uuid.New().String(),
+				Schema: []*Schema{{
+					URI: "https://example.org/examples#DocumentVerification",
+				}},
+			}},
+		}
+
+		vp, err := pd.CreateVP([]*verifiable.Credential{
+			createTestCredential(t, credentialProto{
+				Context: []string{verifiable.ContextURI, "https://www.w3.org/2018/credentials/examples/v1"},
+				Types:   []string{verifiable.VCType, "UniversityDegreeCredential"},
+				ID:      uuid.New().String(),
+			}),
+			createTestCredential(t, credentialProto{
+				Context: []string{verifiable.ContextURI, "https://trustbloc.github.io/context/vc/examples-v1.jsonld"},
+				Types:   []string{verifiable.VCType, "DocumentVerification"},
+				ID:      uuid.New().String(),
+			}),
+		}, lddl, WithDefaultPresentationFormat("jwt_vp"))
+
+		require.NoError(t, err)
+		require.NotNil(t, vp)
+
+		checkSubmission(t, vp, pd)
+
+		ps, ok := vp.CustomFields["presentation_submission"].(*PresentationSubmission)
+		require.True(t, ok)
+		require.Equal(t, "jwt_vp", ps.DescriptorMap[0].Format)
+
+		checkVP(t, vp)
+	})
 }
 
 func TestPresentationDefinition_CreateVPArray(t *testing.T) {
@@ -2224,6 +2265,50 @@ func TestPresentationDefinition_CreateVPArray(t *testing.T) {
 		require.Len(t, vpList, 2)
 
 		checkExternalSubmission(t, vpList, ps, pd)
+
+		require.Equal(t, "ldp_vp", ps.DescriptorMap[0].Format)
+
+		for _, vp := range vpList {
+			checkVP(t, vp)
+		}
+	})
+
+	t.Run("Matches two descriptors(jwt_vp)", func(t *testing.T) {
+		pd := &PresentationDefinition{
+			ID: uuid.New().String(),
+			InputDescriptors: []*InputDescriptor{{
+				ID: uuid.New().String(),
+				Schema: []*Schema{{
+					URI: "https://example.org/examples#UniversityDegreeCredential",
+				}},
+			}, {
+				ID: uuid.New().String(),
+				Schema: []*Schema{{
+					URI: "https://example.org/examples#DocumentVerification",
+				}},
+			}},
+		}
+
+		vpList, ps, err := pd.CreateVPArray([]*verifiable.Credential{
+			createTestCredential(t, credentialProto{
+				Context: []string{verifiable.ContextURI, "https://www.w3.org/2018/credentials/examples/v1"},
+				Types:   []string{verifiable.VCType, "UniversityDegreeCredential"},
+				ID:      uuid.New().String(),
+			}),
+			createTestCredential(t, credentialProto{
+				Context: []string{verifiable.ContextURI, "https://trustbloc.github.io/context/vc/examples-v1.jsonld"},
+				Types:   []string{verifiable.VCType, "DocumentVerification"},
+				ID:      uuid.New().String(),
+			}),
+		}, lddl, WithDefaultPresentationFormat("jwt_vp"))
+
+		require.NoError(t, err)
+		require.NotNil(t, vpList)
+		require.Len(t, vpList, 2)
+
+		checkExternalSubmission(t, vpList, ps, pd)
+
+		require.Equal(t, "jwt_vp", ps.DescriptorMap[0].Format)
 
 		for _, vp := range vpList {
 			checkVP(t, vp)
