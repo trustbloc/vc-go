@@ -223,6 +223,7 @@ type matchRequirementsOpts struct {
 	applySelectiveDisclosure bool
 	sdBBSProofCreator        *verifiable.BBSProofCreator
 	credOpts                 []verifiable.CredentialOpt
+	defaultVPFormat          string
 }
 
 // MatchRequirementsOpt is the MatchSubmissionRequirement option.
@@ -246,6 +247,13 @@ func WithSDCredentialOptions(options ...verifiable.CredentialOpt) MatchRequireme
 func WithSDBBSProofCreator(sdBBSProofCreator *verifiable.BBSProofCreator) MatchRequirementsOpt {
 	return func(opts *matchRequirementsOpts) {
 		opts.sdBBSProofCreator = sdBBSProofCreator
+	}
+}
+
+// WithDefaultPresentationFormat sets the default presentation format.
+func WithDefaultPresentationFormat(format string) MatchRequirementsOpt {
+	return func(opts *matchRequirementsOpts) {
+		opts.defaultVPFormat = format
 	}
 }
 
@@ -451,13 +459,13 @@ func makeRequirement(requirements []*SubmissionRequirement, descriptors []*Input
 // CreateVP creates verifiable presentation.
 func (pd *PresentationDefinition) CreateVP(credentials []*verifiable.Credential,
 	documentLoader ld.DocumentLoader, opts ...MatchRequirementsOpt) (*verifiable.Presentation, error) {
-	matchOpts := &matchRequirementsOpts{}
+	matchOpts := &matchRequirementsOpts{defaultVPFormat: FormatLDPVP}
 	for _, opt := range opts {
 		opt(matchOpts)
 	}
 
 	applicableCredentials, submission, err := presentationData(pd, credentials, documentLoader, false,
-		matchOpts.sdBBSProofCreator, matchOpts.credOpts...)
+		matchOpts.sdBBSProofCreator, matchOpts.defaultVPFormat, matchOpts.credOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -481,13 +489,13 @@ func (pd *PresentationDefinition) CreateVPArray(
 	documentLoader ld.DocumentLoader,
 	opts ...MatchRequirementsOpt,
 ) ([]*verifiable.Presentation, *PresentationSubmission, error) {
-	matchOpts := &matchRequirementsOpts{}
+	matchOpts := &matchRequirementsOpts{defaultVPFormat: FormatLDPVP}
 	for _, opt := range opts {
 		opt(matchOpts)
 	}
 
 	applicableCredentials, submission, err := presentationData(pd, credentials, documentLoader, true,
-		matchOpts.sdBBSProofCreator, matchOpts.credOpts...)
+		matchOpts.sdBBSProofCreator, matchOpts.defaultVPFormat, matchOpts.credOpts...)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -512,6 +520,7 @@ func presentationData(
 	documentLoader ld.DocumentLoader,
 	separatePresentations bool,
 	sdBBSProofCreator *verifiable.BBSProofCreator,
+	defaultVPFormat string,
 	opts ...verifiable.CredentialOpt,
 ) ([]*verifiable.Credential, *PresentationSubmission, error) {
 	if err := pd.ValidateSchema(); err != nil {
@@ -523,7 +532,8 @@ func presentationData(
 		return nil, nil, err
 	}
 
-	format, result, err := pd.applyRequirement(req, credentials, documentLoader, sdBBSProofCreator, opts...)
+	format, result, err := pd.applyRequirement(
+		req, credentials, documentLoader, sdBBSProofCreator, defaultVPFormat, opts...)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -582,7 +592,7 @@ func makeRequirementsForMatch(requirements []*SubmissionRequirement,
 // MatchSubmissionRequirement return information about matching VCs.
 func (pd *PresentationDefinition) MatchSubmissionRequirement(credentials []*verifiable.Credential,
 	documentLoader ld.DocumentLoader, opts ...MatchRequirementsOpt) ([]*MatchedSubmissionRequirement, error) {
-	matchOpts := &matchRequirementsOpts{}
+	matchOpts := &matchRequirementsOpts{defaultVPFormat: FormatLDPVP}
 	for _, opt := range opts {
 		opt(matchOpts)
 	}
@@ -694,6 +704,7 @@ func (pd *PresentationDefinition) applyRequirement( // nolint:funlen,gocyclo
 	creds []*verifiable.Credential,
 	documentLoader ld.DocumentLoader,
 	sdBBSProofCreator *verifiable.BBSProofCreator,
+	defaultVPFormat string,
 	opts ...verifiable.CredentialOpt,
 ) (string, map[string][]*credWrapper, error) {
 	reqLogic := req.toLogic()
@@ -765,10 +776,10 @@ func (pd *PresentationDefinition) applyRequirement( // nolint:funlen,gocyclo
 		if solved {
 			result := make(map[string][]*credWrapper)
 
-			// assume LDPVP format if pd.Format is not set.
+			// use defaultVPFormat format if pd.Format is not set.
 			// Usually pd.Format will be set when creds include a non-empty Proofs field since they represent the designated
 			// format.
-			vpFormat := FormatLDPVP
+			vpFormat := defaultVPFormat
 
 			for _, descID := range sol {
 				result[descID] = descriptorMatches[descID].creds
