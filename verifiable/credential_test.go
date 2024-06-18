@@ -7,6 +7,7 @@ package verifiable
 
 import (
 	"crypto"
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -15,10 +16,12 @@ import (
 	"time"
 
 	"github.com/piprate/json-gold/ld"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	jsonld "github.com/trustbloc/did-go/doc/ld/processor"
 	afgotime "github.com/trustbloc/did-go/doc/util/time"
 	"github.com/trustbloc/kms-go/spi/kms"
+	"github.com/veraison/go-cose"
 	"github.com/xeipuuv/gojsonschema"
 	"golang.org/x/exp/slices"
 
@@ -807,6 +810,32 @@ func TestCredential_MarshalJSON(t *testing.T) {
 		bytes, err := vc.MarshalJSON()
 		require.Error(t, err)
 		require.Nil(t, bytes)
+	})
+}
+
+func TestCredential_CreateSignedCOSEVC(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		vcc := vccProto
+		vc, err := CreateCredential(vcc, nil)
+		require.NoError(t, err)
+
+		pubKeyID := "did:123#issuer-key"
+		issuerSigner, _ := testsupport.NewKMSSigVerPair(t, kms.RSARS256Type, keyID)
+
+		jwtVC, err := vc.CreateSignedCOSEVC(true, cose.AlgorithmRS256, issuerSigner, pubKeyID)
+		require.NoError(t, err)
+		require.NotNil(t, jwtVC)
+
+		cwtCred, err := jwtVC.MarshalAsCWTLD()
+
+		require.NoError(t, err)
+		require.NotNil(t, cwtCred)
+		str := hex.EncodeToString(cwtCred)
+		assert.NotEmpty(t, str)
+
+		parsed, err := ParseCredential([]byte(str))
+		require.NoError(t, err)
+		require.NotNil(t, parsed)
 	})
 }
 

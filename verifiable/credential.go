@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"crypto"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -24,10 +25,12 @@ import (
 	"github.com/trustbloc/did-go/doc/ld/proof"
 	docjsonld "github.com/trustbloc/did-go/doc/ld/validator"
 	"github.com/trustbloc/kms-go/doc/jose"
+	"github.com/veraison/go-cose"
 	"github.com/xeipuuv/gojsonschema"
 
 	util "github.com/trustbloc/did-go/doc/util/time"
 
+	"github.com/trustbloc/vc-go/cwt"
 	"github.com/trustbloc/vc-go/dataintegrity"
 	"github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/sdjwt/common"
@@ -506,7 +509,8 @@ type Credential struct {
 	credentialContents CredentialContents
 	ldProofs           []Proof
 	//TODO: make this private. Currently used in tests to create invalid jwt vc's.
-	JWTEnvelope *JWTEnvelope
+	JWTEnvelope  *JWTEnvelope
+	COSEEnvelope *COSEEnvelope
 }
 
 // JWTEnvelope contains information about JWT that envelops credential.
@@ -517,6 +521,10 @@ type JWTEnvelope struct {
 	SDJWTVersion     common.SDJWTVersion
 	SDJWTDisclosures []*common.DisclosureClaim
 	SDHolderBinding  string
+}
+
+type COSEEnvelope struct {
+	Sign1MessageRaw []byte
 }
 
 // Contents returns credential contents as typed structure.
@@ -1706,7 +1714,11 @@ func (vc *Credential) JWTClaims(minimizeVC bool) (*JWTCredClaims, error) {
 
 // CreateSignedJWTVC envelops current vc into signed jwt.
 func (vc *Credential) CreateSignedJWTVC(
-	minimizeVC bool, signatureAlg JWSAlgorithm, proofCreator jwt.ProofCreator, keyID string) (*Credential, error) {
+	minimizeVC bool,
+	signatureAlg JWSAlgorithm,
+	proofCreator jwt.ProofCreator,
+	keyID string,
+) (*Credential, error) {
 	jwtClaims, err := vc.JWTClaims(minimizeVC)
 	if err != nil {
 		return nil, err
@@ -1724,6 +1736,33 @@ func (vc *Credential) CreateSignedJWTVC(
 		JWTEnvelope: &JWTEnvelope{
 			JWT:        jwsString,
 			JWTHeaders: joseHeaders,
+		},
+	}, nil
+}
+
+// CreateSignedCOSEVC envelops current vc into signed COSE.
+func (vc *Credential) CreateSignedCOSEVC(
+	minimizeVC bool,
+	signatureAlg cose.Algorithm,
+	proofCreator cwt.ProofCreator,
+	keyID string,
+) (*Credential, error) {
+	claims, err := vc.CWTClaims(minimizeVC)
+	if err != nil {
+		return nil, err
+	}
+
+	msg, err := claims.MarshaCOSE(signatureAlg, proofCreator, keyID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Credential{
+		credentialJSON:     vc.ToRawJSON(),
+		credentialContents: vc.Contents(),
+		ldProofs:           vc.ldProofs,
+		COSEEnvelope: &COSEEnvelope{
+			Sign1MessageRaw: msg,
 		},
 	}, nil
 }
@@ -1910,12 +1949,36 @@ func (vc *Credential) MarshalJSON() ([]byte, error) {
 
 // MarshalAsJSONLD converts Verifiable Credential to JSON bytes ignoring that it is in JWT form.
 func (vc *Credential) MarshalAsJSONLD() ([]byte, error) {
-	byteCred, err := json.Marshal(vc.ToRawJSON())
+	byteCred, err := json.Marshal(vc.ToRawClaimsMap())
 	if err != nil {
 		return nil, fmt.Errorf("JSON marshalling of verifiable credential: %w", err)
 	}
 
 	return byteCred, nil
+}
+
+// ToRawClaimsMap returns raw map[string]interface{} of VC claims.
+func (vc *Credential) ToRawClaimsMap() JSONObject {
+	return vc.ToRawJSON()
+}
+
+// MarshalAsCWTLD converts Verifiable Credential to CBOR bytes.
+func (vc *Credential) MarshalAsCWTLD() ([]byte, error) {
+	if vc.COSEEnvelope == nil {
+		return nil, errors.New("no COSE envelope found")
+	}
+
+	return vc.COSEEnvelope.Sign1MessageRaw, nil
+}
+
+// MarshalAsCWTLDHex converts Verifiable Credential to CBOR hex string.
+func (vc *Credential) MarshalAsCWTLDHex() (string, error) {
+	data, err := vc.MarshalAsCWTLD()
+	if err != nil {
+		return "", err
+	}
+
+	return hex.EncodeToString(data), nil
 }
 
 // WithModifiedID creates new credential with modified id and without proofs as they become invalid.
