@@ -1448,11 +1448,12 @@ func getPath(keys []interface{}, set map[string]int) *pathTransform {
 	return &pathTransform{newPath: strings.Join(newPath, "."), oldPath: strings.Join(originalPath, ".")}
 }
 
+//nolint:funlen
 func merge(
 	presentationFormat string,
 	setOfCredentials map[string][]*credWrapper,
 	separatePresentations bool,
-) ([]*verifiable.Credential, []*InputDescriptorMapping) { //nolint:lll
+) ([]*verifiable.Credential, []*InputDescriptorMapping) {
 	setOfCreds := make(map[string]int)
 
 	var (
@@ -1463,6 +1464,12 @@ func merge(
 	keys := make([]string, 0, len(setOfCredentials))
 	for k := range setOfCredentials {
 		keys = append(keys, k)
+	}
+
+	var jwtVPPath string
+
+	if presentationFormat == FormatJWTVP {
+		jwtVPPath = ".vp"
 	}
 
 	sort.Strings(keys)
@@ -1495,10 +1502,10 @@ func merge(
 
 			if separatePresentations {
 				desc.Path = fmt.Sprintf("$[%d]", setOfCreds[credWrap.uniqueID])
-				desc.PathNested.Path = "$.verifiableCredential[0]"
+				desc.PathNested.Path = fmt.Sprintf("$%s.verifiableCredential[0]", jwtVPPath)
 			} else {
 				desc.Path = "$"
-				desc.PathNested.Path = fmt.Sprintf("$.verifiableCredential[%d]", setOfCreds[credWrap.uniqueID])
+				desc.PathNested.Path = fmt.Sprintf("$%s.verifiableCredential[%d]", jwtVPPath, setOfCreds[credWrap.uniqueID])
 			}
 
 			descriptors = append(descriptors, desc)
