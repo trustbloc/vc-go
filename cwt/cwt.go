@@ -19,16 +19,6 @@ const (
 	issuerPayloadIndex = 1
 )
 
-type Claims struct {
-	Iss string `json:"iss,omitempty"`
-	Sub string `json:"sub,omitempty"`
-	Aud string `json:"aud,omitempty"`
-
-	Exp int64 `json:"exp,omitempty"`
-	Nbf int64 `json:"nbf,omitempty"`
-	Iat int64 `json:"iat,omitempty"`
-}
-
 // SignParameters contains parameters of signing for cwt vc.
 type SignParameters struct {
 	KeyID  string

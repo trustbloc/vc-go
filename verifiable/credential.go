@@ -524,6 +524,7 @@ type JWTEnvelope struct {
 	SDHolderBinding  string
 }
 
+// CWTEnvelope contains information about CWT that envelops credential.
 type CWTEnvelope struct {
 	Sign1MessageRaw    []byte
 	Sign1MessageParsed *cose.Sign1Message
@@ -1727,12 +1728,11 @@ func (vc *Credential) CreateSignedJWTVC(
 
 // CreateSignedCOSEVC envelops current vc into signed COSE.
 func (vc *Credential) CreateSignedCOSEVC(
-	minimizeVC bool,
 	signatureAlg cose.Algorithm,
 	proofCreator cwt.ProofCreator,
 	keyID string,
 ) (*Credential, error) {
-	claims, err := vc.CWTClaims(minimizeVC)
+	claims, err := vc.CWTClaims()
 	if err != nil {
 		return nil, err
 	}

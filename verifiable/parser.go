@@ -1,7 +1,14 @@
+/*
+Copyright SecureKey Technologies Inc. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
 package verifiable
 
 import (
 	"encoding/hex"
+	"errors"
 	"fmt"
 
 	"github.com/fxamacker/cbor/v2"
@@ -11,13 +18,16 @@ import (
 	"github.com/trustbloc/vc-go/sdjwt/common"
 )
 
+// CredentialParser is a parser for credentials.
 type CredentialParser interface {
 	Parse(vcData []byte, vcOpts *credentialOpts) (*Credential, error)
 }
 
+// CredentialJSONParser is a parser for JSON credentials.
 type CredentialJSONParser struct {
 }
 
+// Parse parses a JSON credential.
 func (p *CredentialJSONParser) Parse(
 	vcData []byte,
 	vcOpts *credentialOpts,
@@ -99,6 +109,7 @@ func (p *CredentialJSONParser) Parse(
 	return vc, nil
 }
 
+// CredentialCBORParser is a parser for CBOR credentials.
 type CredentialCBORParser struct{}
 
 func (p *CredentialCBORParser) convertToStringMap(
@@ -119,15 +130,42 @@ func (p *CredentialCBORParser) convertToStringMap(
 	return out
 }
 
+func (p *CredentialCBORParser) parseCred(data []byte) (*cose.Sign1Message, error) {
+	var message cose.Sign1Message
+
+	if err := cbor.Unmarshal(data, &message); err != nil {
+		return nil, fmt.Errorf("unmarshal cbor credential: %w", err)
+	}
+
+	return &message, nil
+}
+
+// Parse parses a CBOR credential.
 func (p *CredentialCBORParser) Parse(
 	vcData []byte,
 	vcOpts *credentialOpts,
 ) (*Credential, error) {
-	vcData, _ = hex.DecodeString(string(vcData)) // we are not sure, if its hex or not, so ignore err
+	var rawErr error
+	var hexRawErr error
+	var hexErr error
 
-	var message cose.Sign1Message
-	if err := cbor.Unmarshal(vcData, &message); err != nil {
-		return nil, fmt.Errorf("unmarshal cbor credential: %w", err)
+	message, rawErr := p.parseCred(vcData)
+
+	if rawErr != nil {
+		vcData, hexErr = hex.DecodeString(string(vcData))
+		if hexErr != nil {
+			return nil, errors.Join(errors.New("vcData is not a valid hex string"), hexErr)
+		}
+
+		message, hexRawErr = p.parseCred(vcData)
+		if hexRawErr != nil {
+			return nil, errors.Join(errors.New("unmarshal cbor cred after hex failed"), hexRawErr)
+		}
+	}
+
+	if message == nil {
+		return nil, errors.Join(errors.New("parsed cbor message is nil"), rawErr, hexRawErr,
+			hexErr)
 	}
 
 	var vcJSON map[string]interface{}
@@ -146,11 +184,18 @@ func (p *CredentialCBORParser) Parse(
 		return nil, err
 	}
 
+	if !vcOpts.disableValidation {
+		err = validateCredential(contents, convertedMap, vcOpts)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	finalCred := &Credential{
 		credentialContents: *contents,
 		CWTEnvelope: &CWTEnvelope{
 			Sign1MessageRaw:    vcData,
-			Sign1MessageParsed: &message,
+			Sign1MessageParsed: message,
 		},
 	}
 

@@ -817,7 +817,6 @@ func TestCredential_MarshalJSON(t *testing.T) {
 func TestCredential_CreateAndParseSignedCOSEVC(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		vcc := vccProto
-
 		vcc.Issuer.ID = "did:123"
 		vc, err := CreateCredential(vcc, nil)
 		require.NoError(t, err)
@@ -825,7 +824,7 @@ func TestCredential_CreateAndParseSignedCOSEVC(t *testing.T) {
 		pubKeyID := fmt.Sprintf("did:123#%v", keyID)
 		issuerSigner, proofChecker := testsupport.NewKMSSigVerPair(t, kms.RSARS256Type, pubKeyID)
 
-		cwtVC, err := vc.CreateSignedCOSEVC(true, cose.AlgorithmRS256, issuerSigner, pubKeyID)
+		cwtVC, err := vc.CreateSignedCOSEVC(cose.AlgorithmRS256, issuerSigner, pubKeyID)
 		require.NoError(t, err)
 		require.NotNil(t, cwtVC)
 
@@ -836,13 +835,36 @@ func TestCredential_CreateAndParseSignedCOSEVC(t *testing.T) {
 		str := hex.EncodeToString(cwtCred)
 		assert.NotEmpty(t, str)
 
-		parsed, err := ParseCredential([]byte(str), WithProofChecker(proofChecker))
-		require.NoError(t, err)
-		require.NotNil(t, parsed)
+		payloads := []struct {
+			Type string
+			Data []byte
+		}{
+			{
+				Type: "hex",
+				Data: []byte(str),
+			},
+			{
+				Type: "CBOR [raw]",
+				Data: cwtCred,
+			},
+		}
 
-		require.EqualValues(t, "did:123", parsed.Contents().Issuer.ID)
+		for _, payload := range payloads {
+			t.Run(payload.Type, func(t *testing.T) {
+				parsed, err := parseTestCredential(t, payload.Data,
+					WithProofChecker(proofChecker), WithStrictValidation())
+				require.NoError(t, err)
+				require.NotNil(t, parsed)
 
-		require.EqualValues(t, "Jayden Doe", parsed.Contents().Subject[0].CustomFields["name"])
+				require.EqualValues(t, "did:123", parsed.Contents().Issuer.ID)
+
+				require.EqualValues(t, "Jayden Doe", parsed.Contents().Subject[0].CustomFields["name"])
+
+				mBytes, err := parsed.MarshalAsCWTLD()
+				require.NoError(t, err)
+				require.NotNil(t, mBytes)
+			})
+		}
 	})
 }
 

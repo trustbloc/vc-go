@@ -11,7 +11,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"testing"
 	"time"
 
 	"github.com/trustbloc/bbs-signature-go/bbs12381g2pub"
@@ -307,78 +306,6 @@ func ExampleParseCredential() {
 	fmt.Println(string(vcDecodedBytes))
 
 	vcDecodedBytes, err = vcParsed.MarshalAsJSONLD()
-	if err != nil {
-		panic(fmt.Errorf("failed to marshal VC: %w", err))
-	}
-
-	// The Credential is now in JSON-LD form..
-	fmt.Println(string(vcDecodedBytes))
-
-	// Output:
-	// "eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDpleGFtcGxlOjc2ZTEyZWM3MTJlYmM2ZjFjMjIxZWJmZWIxZiNrZXkxIn0.eyJleHAiOjE1Nzc5MDY2MDQsImlhdCI6MTI2MjM3MzgwNCwiaXNzIjoiZGlkOmV4YW1wbGU6NzZlMTJlYzcxMmViYzZmMWMyMjFlYmZlYjFmIiwianRpIjoiaHR0cDovL2V4YW1wbGUuZWR1L2NyZWRlbnRpYWxzLzE4NzIiLCJuYmYiOjEyNjIzNzM4MDQsInN1YiI6ImRpZDpleGFtcGxlOmViZmViMWY3MTJlYmM2ZjFjMjc2ZTEyZWMyMSIsInZjIjp7IkBjb250ZXh0IjpbImh0dHBzOi8vd3d3LnczLm9yZy8yMDE4L2NyZWRlbnRpYWxzL3YxIiwiaHR0cHM6Ly93d3cudzMub3JnLzIwMTgvY3JlZGVudGlhbHMvZXhhbXBsZXMvdjEiXSwiY3JlZGVudGlhbFN1YmplY3QiOnsiZGVncmVlIjp7InR5cGUiOiJCYWNoZWxvckRlZ3JlZSIsInVuaXZlcnNpdHkiOiJNSVQifSwiaWQiOiJkaWQ6ZXhhbXBsZTplYmZlYjFmNzEyZWJjNmYxYzI3NmUxMmVjMjEiLCJuYW1lIjoiSmF5ZGVuIERvZSIsInNwb3VzZSI6ImRpZDpleGFtcGxlOmMyNzZlMTJlYzIxZWJmZWIxZjcxMmViYzZmMSJ9LCJpc3N1ZXIiOnsibmFtZSI6IkV4YW1wbGUgVW5pdmVyc2l0eSJ9LCJyZWZlcmVuY2VOdW1iZXIiOjgzMjk0ODQ3LCJ0eXBlIjpbIlZlcmlmaWFibGVDcmVkZW50aWFsIiwiVW5pdmVyc2l0eURlZ3JlZUNyZWRlbnRpYWwiXX19.EQ2uTjoSZqnudRLWUkymQPYSw7A9Rs2mk3ckw4TDm7EUyVU-1YA3cozniIjlGvFPJhNQ5oLvMlG4OmBS4VtoBg"
-	// {"@context":["https://www.w3.org/2018/credentials/v1","https://www.w3.org/2018/credentials/examples/v1"],"credentialSubject":{"degree":{"type":"BachelorDegree","university":"MIT"},"id":"did:example:ebfeb1f712ebc6f1c276e12ec21","name":"Jayden Doe","spouse":"did:example:c276e12ec21ebfeb1f712ebc6f1"},"expirationDate":"2020-01-01T19:23:24Z","id":"http://example.edu/credentials/1872","issuanceDate":"2010-01-01T19:23:24Z","issuer":{"id":"did:example:76e12ec712ebc6f1c221ebfeb1f","name":"Example University"},"referenceNumber":83294847,"type":["VerifiableCredential","UniversityDegreeCredential"]}
-}
-
-func TestExampleParseCredentialCwt(t *testing.T) {
-	// Issuer is about to issue the university degree credential for the Holder
-	vcEncoded := createExampleCredCF(verifiable.CredentialContents{
-		Context: []string{
-			"https://www.w3.org/2018/credentials/v1",
-			"https://www.w3.org/2018/credentials/examples/v1",
-		},
-		ID: "http://example.edu/credentials/1872",
-		Types: []string{
-			"VerifiableCredential",
-			"UniversityDegreeCredential",
-		},
-		Subject: serializeSingleSubject(UniversityDegreeSubject{
-			ID:     "did:example:ebfeb1f712ebc6f1c276e12ec21",
-			Name:   "Jayden Doe",
-			Spouse: "did:example:c276e12ec21ebfeb1f712ebc6f1",
-			Degree: UniversityDegree{
-				Type:       "BachelorDegree",
-				University: "MIT",
-			},
-		}),
-		Issuer: &verifiable.Issuer{
-			ID:           "did:example:76e12ec712ebc6f1c221ebfeb1f",
-			CustomFields: verifiable.CustomFields{"name": "Example University"},
-		},
-		Issued:  utiltime.NewTime(issued),
-		Expired: utiltime.NewTime(expired),
-		Schemas: []verifiable.TypedID{},
-	}, map[string]interface{}{
-		"referenceNumber": 83294847,
-	})
-
-	// ... in JWS form.
-	jwtClaims, err := vcEncoded.JWTClaims(true)
-	if err != nil {
-		panic(fmt.Errorf("failed to marshal JWT claims of VC: %w", err))
-	}
-
-	signer, verifier := testsupport.NewEd25519Pair(issuerPubKey, issuerPrivKey, "did:example:76e12ec712ebc6f1c221ebfeb1f#key1")
-
-	jws, err := jwtClaims.MarshalJWSString(verifiable.EdDSA, signer, "did:example:76e12ec712ebc6f1c221ebfeb1f#key1")
-	if err != nil {
-		panic(fmt.Errorf("failed to sign VC inside JWT: %w", err))
-	}
-
-	// The Holder receives JWS and decodes it.
-	vcParsed, err := verifiable.ParseCredential(
-		[]byte(jws),
-		verifiable.WithProofChecker(verifier),
-		verifiable.WithJSONLDDocumentLoader(getJSONLDDocumentLoader()))
-	if err != nil {
-		panic(fmt.Errorf("failed to decode VC JWS: %w", err))
-	}
-
-	// When parsing a verifiable.Credential from JWS, Credential.JWT is set to the raw JWS value.
-	// This allows the user to save the Credential and verify it later.
-
-	// When Credential.JWT is set, the Credential Marshals into a JSON string containing the original JWS.
-
-	vcDecodedBytes, err := vcParsed.MarshalAsCWTLD()
 	if err != nil {
 		panic(fmt.Errorf("failed to marshal VC: %w", err))
 	}

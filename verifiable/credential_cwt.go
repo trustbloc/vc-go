@@ -17,13 +17,13 @@ import (
 
 // CWTClaims converts Verifiable Credential into CWT Credential claims, which can be than serialized
 // e.g. into JWS.
-func (vc *Credential) CWTClaims(minimizeVC bool) (*CWTCredClaims, error) {
-	return newCWTCredClaims(vc, minimizeVC)
+func (vc *Credential) CWTClaims() (*CWTCredClaims, error) {
+	return newCWTCredClaims(vc)
 }
 
 // newJWTCredClaims creates JWT Claims of VC with an option to minimize certain fields of VC
 // which is put into "vc" claim.
-func newCWTCredClaims(vc *Credential, minimizeVC bool) (*CWTCredClaims, error) {
+func newCWTCredClaims(vc *Credential) (*CWTCredClaims, error) {
 	vcc := &vc.credentialContents
 
 	subjectID, err := SubjectID(vcc.Subject)
@@ -48,12 +48,6 @@ func newCWTCredClaims(vc *Credential, minimizeVC bool) (*CWTCredClaims, error) {
 	}
 
 	credentialJSONCopy := jsonutil.ShallowCopyObj(vc.credentialJSON)
-
-	if minimizeVC {
-		delete(credentialJSONCopy, jsonFldExpired)
-		delete(credentialJSONCopy, jsonFldIssued)
-		delete(credentialJSONCopy, jsonFldID)
-	}
 
 	credClaims := &CWTCredClaims{
 		CWTClaims: claims,
