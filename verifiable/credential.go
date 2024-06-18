@@ -1012,6 +1012,10 @@ func ParseCredential(vcData []byte, opts ...CredentialOpt) (*Credential, error) 
 		if err != nil {
 			finalErr = errors.Join(finalErr, err)
 		}
+
+		if vc != nil {
+			break
+		}
 	}
 
 	if vc == nil {
