@@ -46,6 +46,8 @@ const (
 	schemaPropertyCredentialSubject = "credentialSubject"
 	schemaPropertyIssuer            = "issuer"
 	schemaPropertyIssuanceDate      = "issuanceDate"
+
+	jsonLDStructureErrStr = "JSON-LD doc has different structure after compaction"
 )
 
 // DefaultSchemaTemplate describes default schema.
@@ -1010,6 +1012,10 @@ func ParseCredential(vcData []byte, opts ...CredentialOpt) (*Credential, error) 
 		vc, err = parser.Parse(vcData, vcOpts)
 
 		if err != nil {
+			if err.Error() == jsonLDStructureErrStr {
+				return nil, err
+			}
+
 			finalErr = errors.Join(finalErr, err)
 		}
 
