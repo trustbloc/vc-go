@@ -1,19 +1,27 @@
 package verifiable
 
 import (
+	"encoding/hex"
 	"fmt"
 
+	"github.com/fxamacker/cbor/v2"
 	"github.com/trustbloc/kms-go/doc/jose"
+	"github.com/veraison/go-cose"
 
 	"github.com/trustbloc/vc-go/sdjwt/common"
 )
 
+type CredentialParser interface {
+	Parse(vcData []byte, vcOpts *credentialOpts) (*Credential, error)
+}
+
 type CredentialJSONParser struct {
 }
 
-func (p *CredentialJSONParser) Parse() (*Credential, error) {
-	vcOpts := getCredentialOpts(opts)
-
+func (p *CredentialJSONParser) Parse(
+	vcData []byte,
+	vcOpts *credentialOpts,
+) (*Credential, error) {
 	vcStr := unwrapStringVC(vcData)
 
 	var (
@@ -87,4 +95,64 @@ func (p *CredentialJSONParser) Parse() (*Credential, error) {
 			SDHolderBinding:  jwtParseRes.sdHolderBinding,
 		}
 	}
+
+	return vc, nil
+}
+
+type CredentialCBORParser struct{}
+
+func (p *CredentialCBORParser) convertToStringMap(
+	input map[interface{}]interface{},
+) map[string]interface{} {
+	out := map[string]interface{}{}
+
+	for k, v := range input {
+		key := fmt.Sprintf("%v", k)
+
+		if m, ok := v.(map[interface{}]interface{}); ok {
+			out[key] = p.convertToStringMap(m)
+		} else {
+			out[key] = v
+		}
+	}
+
+	return out
+}
+
+func (p *CredentialCBORParser) Parse(
+	vcData []byte,
+	vcOpts *credentialOpts,
+) (*Credential, error) {
+	vcData, _ = hex.DecodeString(string(vcData)) // we are not sure, if its hex or not, so ignore err
+
+	var message cose.Sign1Message
+	if err := cbor.Unmarshal(vcData, &message); err != nil {
+		return nil, fmt.Errorf("unmarshal cbor credential: %w", err)
+	}
+
+	var vcJSON map[string]interface{}
+	if err := cbor.Unmarshal(message.Payload, &vcJSON); err != nil {
+		return nil, fmt.Errorf("unmarshal cbor credential payload: %w", err)
+	}
+
+	vcDataMap, ok := vcJSON["vc"].(map[interface{}]interface{})
+	if !ok {
+		return nil, fmt.Errorf("vc field not found in cbor credential")
+	}
+
+	convertedMap := p.convertToStringMap(vcDataMap)
+	contents, err := parseCredentialContents(convertedMap, false)
+	if err != nil {
+		return nil, err
+	}
+
+	finalCred := &Credential{
+		credentialContents: *contents,
+		CWTEnvelope: &CWTEnvelope{
+			Sign1MessageRaw:    vcData,
+			Sign1MessageParsed: &message,
+		},
+	}
+
+	return finalCred, nil
 }

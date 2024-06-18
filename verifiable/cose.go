@@ -32,7 +32,7 @@ func marshalCOSE(
 	msg := &cose.Sign1Message{
 		Headers: cose.Headers{
 			Protected: cose.ProtectedHeader{
-				cose.HeaderLabelAlgorithm: signatureAlg.String(),
+				cose.HeaderLabelAlgorithm: signatureAlg,
 			},
 			Unprotected: cose.UnprotectedHeader{
 				HeaderLabelTyp:        "application/vc+ld+json+cose",

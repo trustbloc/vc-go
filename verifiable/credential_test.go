@@ -9,6 +9,7 @@ import (
 	"crypto"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -813,29 +814,35 @@ func TestCredential_MarshalJSON(t *testing.T) {
 	})
 }
 
-func TestCredential_CreateSignedCOSEVC(t *testing.T) {
+func TestCredential_CreateAndParseSignedCOSEVC(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		vcc := vccProto
+
+		vcc.Issuer.ID = "did:123"
 		vc, err := CreateCredential(vcc, nil)
 		require.NoError(t, err)
 
-		pubKeyID := "did:123#issuer-key"
-		issuerSigner, _ := testsupport.NewKMSSigVerPair(t, kms.RSARS256Type, keyID)
+		pubKeyID := fmt.Sprintf("did:123#%v", keyID)
+		issuerSigner, proofChecker := testsupport.NewKMSSigVerPair(t, kms.RSARS256Type, pubKeyID)
 
-		jwtVC, err := vc.CreateSignedCOSEVC(true, cose.AlgorithmRS256, issuerSigner, pubKeyID)
+		cwtVC, err := vc.CreateSignedCOSEVC(true, cose.AlgorithmRS256, issuerSigner, pubKeyID)
 		require.NoError(t, err)
-		require.NotNil(t, jwtVC)
+		require.NotNil(t, cwtVC)
 
-		cwtCred, err := jwtVC.MarshalAsCWTLD()
+		cwtCred, err := cwtVC.MarshalAsCWTLD()
 
 		require.NoError(t, err)
 		require.NotNil(t, cwtCred)
 		str := hex.EncodeToString(cwtCred)
 		assert.NotEmpty(t, str)
 
-		parsed, err := ParseCredential([]byte(str))
+		parsed, err := ParseCredential([]byte(str), WithProofChecker(proofChecker))
 		require.NoError(t, err)
 		require.NotNil(t, parsed)
+
+		require.EqualValues(t, "did:123", parsed.Contents().Issuer.ID)
+
+		require.EqualValues(t, "Jayden Doe", parsed.Contents().Subject[0].CustomFields["name"])
 	})
 }
 

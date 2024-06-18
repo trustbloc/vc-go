@@ -53,17 +53,6 @@ func newCWTCredClaims(vc *Credential, minimizeVC bool) (*CWTCredClaims, error) {
 		delete(credentialJSONCopy, jsonFldExpired)
 		delete(credentialJSONCopy, jsonFldIssued)
 		delete(credentialJSONCopy, jsonFldID)
-
-		issuer, err := parseIssuer(credentialJSONCopy[jsonFldIssuer])
-		if err != nil {
-			return nil, err
-		}
-
-		if issuer != nil {
-			issuer.ID = ""
-
-			credentialJSONCopy[jsonFldIssuer] = serializeIssuer(*issuer)
-		}
 	}
 
 	credClaims := &CWTCredClaims{
