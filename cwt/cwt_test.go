@@ -25,10 +25,52 @@ import (
 )
 
 const (
-	exampleCWT = "d2845828a3012703746f70656e6964347663692d70726f6f662b63777468434f53455f4b657945616e794944a10445616e7949445842a4016b746573742d636c69656e740376687474703a2f2f3132372e302e302e313a3630343133061a65ba47ef0a746b596362437876656c6531706e393459704b6a44584009b11da68d72fc5e3fbf6aedd2c2dd81d99f69d93c5b063e7d714feae8b7b4e54b3d3780c1f7e43cc6a31405f3b67d81e1ca0a50423a8af34662022b70cd160c" //nolint:lll
+	//exampleCWT = "d2845828a3012703746f70656e6964347663692d70726f6f662b63777468434f53455f4b657945616e794944a10445616e7949445842a4016b746573742d636c69656e740376687474703a2f2f3132372e302e302e313a3630343133061a65ba47ef0a746b596362437876656c6531706e393459704b6a44584009b11da68d72fc5e3fbf6aedd2c2dd81d99f69d93c5b063e7d714feae8b7b4e54b3d3780c1f7e43cc6a31405f3b67d81e1ca0a50423a8af34662022b70cd160c" //nolint:lll
+	exampleCWT = "d2844aa201260445616e794944a05848a4066a313730363730363932370a746b596362437876656c6531706e393459704b6a44016b746573742d636c69656e740376687474703a2f2f3132372e302e302e313a3630343133589ad2844aa201260445616e794944a05848a4066a313730363730363932370a746b596362437876656c6531706e393459704b6a44016b746573742d636c69656e740376687474703a2f2f3132372e302e302e313a363034313358409d890356a79ebb3d53be14e98e875a870b4e3af426e0a847fd94013a378eae6376cbacb115a3296ba67622cc50dcae8de94c752f63afc7b7782c7ad45380b424" //nolint:lll
 )
 
+func TestCreateProof(t *testing.T) {
+	data := map[int]interface{}{
+		1:  "test-client",
+		3:  "http://127.0.0.1:60413",
+		6:  "1706706927",
+		10: "kYcbCxvele1pn94YpKjD",
+	}
+
+	encoded, err := cbor.Marshal(data)
+	assert.NoError(t, err)
+
+	msg := &cose.Sign1Message{
+		Headers: cose.Headers{
+			Protected: cose.ProtectedHeader{
+				cose.HeaderLabelAlgorithm: cose.AlgorithmES256,
+				cose.HeaderLabelKeyID:     []byte("anyID"),
+			},
+		},
+		Payload: encoded,
+	}
+
+	signature, err := SignP256(encoded, msg.Headers)
+	assert.NoError(t, err)
+
+	msg.Signature = signature
+
+	final, err := cbor.Marshal(msg)
+	assert.NoError(t, err)
+
+	hexVal := hex.EncodeToString(final)
+	assert.NotEmpty(t, hexVal)
+}
+
 func TestParse(t *testing.T) {
+	headers := cose.Headers{
+		Protected: cose.ProtectedHeader{
+			cose.HeaderLabelAlgorithm: cose.AlgorithmES256,
+			cose.HeaderLabelKeyID:     []byte("anyID"),
+		},
+		Unprotected: cose.UnprotectedHeader{},
+	}
+
 	t.Run("success", func(t *testing.T) {
 		input, decodeErr := hex.DecodeString(exampleCWT)
 		assert.NoError(t, decodeErr)
@@ -37,7 +79,7 @@ func TestParse(t *testing.T) {
 		proofChecker.EXPECT().CheckCWTProof(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			DoAndReturn(func(request checker.CheckCWTProofRequest, expectedIssuer string, message, sign []byte) error {
 				assert.Equal(t, "anyID", request.KeyID)
-				assert.Equal(t, cose.AlgorithmEd25519, request.Algo)
+				assert.Equal(t, cose.AlgorithmES256, request.Algo)
 				assert.NotNil(t, message)
 				assert.Equal(t, "test-client", expectedIssuer)
 				assert.NotNil(t, sign)
@@ -80,7 +122,7 @@ func TestParse(t *testing.T) {
 		encoded, err := cbor.Marshal(data)
 		assert.NoError(t, err)
 
-		signature, err := SignP256(encoded)
+		signature, err := SignP256(encoded, headers)
 		assert.NoError(t, err)
 
 		resp, _, err := cwt.ParseAndCheckProof(signature, nil, true)
@@ -96,7 +138,7 @@ func TestParse(t *testing.T) {
 		encoded, err := cbor.Marshal(data)
 		assert.NoError(t, err)
 
-		signature, err := SignP256(encoded)
+		signature, err := SignP256(encoded, headers)
 		assert.NoError(t, err)
 
 		resp, _, err := cwt.ParseAndCheckProof(signature, nil, true)
@@ -112,7 +154,7 @@ func TestParse(t *testing.T) {
 		encoded, err := cbor.Marshal(data)
 		assert.NoError(t, err)
 
-		signature, err := SignP256(encoded)
+		signature, err := SignP256(encoded, headers)
 		assert.NoError(t, err)
 
 		resp, _, err := cwt.ParseAndCheckProof(signature, nil, true)
@@ -137,7 +179,7 @@ func TestParse(t *testing.T) {
 	})
 }
 
-func SignP256(data []byte) ([]byte, error) {
+func SignP256(data []byte, headers cose.Headers) ([]byte, error) {
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return nil, err
@@ -149,11 +191,6 @@ func SignP256(data []byte) ([]byte, error) {
 	}
 
 	// create message header
-	headers := cose.Headers{
-		Protected: cose.ProtectedHeader{
-			cose.HeaderLabelAlgorithm: cose.AlgorithmES256,
-		},
-	}
 
 	// sign and marshal message
 	return cose.Sign1(rand.Reader, signer, headers, data, nil)

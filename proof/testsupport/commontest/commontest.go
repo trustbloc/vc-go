@@ -9,6 +9,7 @@ package commontest
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"testing"
 
@@ -22,6 +23,7 @@ import (
 
 	"github.com/trustbloc/vc-go/crypto-ext/testutil"
 	"github.com/trustbloc/vc-go/cwt"
+	"github.com/trustbloc/vc-go/proof"
 	"github.com/trustbloc/vc-go/proof/creator"
 	"github.com/trustbloc/vc-go/proof/jwtproofs/eddsa"
 	"github.com/trustbloc/vc-go/proof/testsupport"
@@ -232,11 +234,11 @@ func TestAllCWTSignersVerifiers(t *testing.T) {
 			msg := &cose.Sign1Message{
 				Headers: cose.Headers{
 					Protected: cose.ProtectedHeader{
-						cose.HeaderLabelAlgorithm: testCase.CborAlg,
+						cose.HeaderLabelAlgorithm:   testCase.CborAlg,
+						cose.HeaderLabelContentType: proof.CWTProofType,
+						cose.HeaderLabelKeyID:       []byte(testCase.signingKey.PublicKeyID),
 					},
-					Unprotected: cose.UnprotectedHeader{
-						cose.HeaderLabelKeyID: []byte(testCase.signingKey.PublicKeyID),
-					},
+					Unprotected: cose.UnprotectedHeader{},
 				},
 				Payload: encoded,
 			}
@@ -251,6 +253,13 @@ func TestAllCWTSignersVerifiers(t *testing.T) {
 			assert.NoError(t, err)
 
 			msg.Signature = signed
+
+			var marshalData []byte
+			marshalData, err = cbor.Marshal(msg)
+			assert.NoError(t, err)
+
+			hexStr := hex.EncodeToString(marshalData)
+			assert.NotNil(t, hexStr)
 
 			assert.NotNil(t, signed)
 			assert.NoError(t, cwt.CheckProof(msg, proofChecker, nil, signData, msg.Signature))

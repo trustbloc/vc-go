@@ -95,7 +95,7 @@ func CheckProof(
 	}
 
 	// currently supported only COSE_Key, x5chain is not supported by go opensource implementation yet
-	keyIDBytes, ok := message.Headers.Unprotected[cose.HeaderLabelKeyID].([]byte)
+	keyIDBytes, ok := message.Headers.Protected[cose.HeaderLabelKeyID].([]byte)
 	if !ok {
 		return errors.New("check cwt failure: kid header is required")
 	}

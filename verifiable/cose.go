@@ -33,10 +33,10 @@ func marshalCOSE(
 		Headers: cose.Headers{
 			Protected: cose.ProtectedHeader{
 				cose.HeaderLabelAlgorithm: signatureAlg,
+				cose.HeaderLabelKeyID:     []byte(keyID),
 			},
 			Unprotected: cose.UnprotectedHeader{
-				HeaderLabelTyp:        "application/vc+ld+json+cose",
-				cose.HeaderLabelKeyID: []byte(keyID),
+				HeaderLabelTyp: "application/vc+ld+json+cose",
 			},
 		},
 		Payload: payload,
