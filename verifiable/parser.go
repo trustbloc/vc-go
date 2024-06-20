@@ -152,6 +152,8 @@ func (p *CredentialCBORParser) Parse(
 	message, rawErr := p.parseCred(vcData)
 
 	if rawErr != nil {
+		vcData = unQuote(vcData)
+		
 		vcData, hexErr = hex.DecodeString(string(vcData))
 		if hexErr != nil {
 			return nil, errors.Join(errors.New("vcData is not a valid hex string"), hexErr)
