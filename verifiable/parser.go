@@ -192,6 +192,7 @@ func (p *CredentialCBORParser) Parse(
 	}
 
 	finalCred := &Credential{
+		credentialJSON:     convertedMap,
 		credentialContents: *contents,
 		CWTEnvelope: &CWTEnvelope{
 			Sign1MessageRaw:    vcData,
