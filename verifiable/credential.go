@@ -573,7 +573,7 @@ func (vc *Credential) ToJWTString() (string, error) {
 
 // ToUniversalForm returns vc in its natural form. For jwt-vc it is a jwt string. For json-ld vc it is a json object.
 func (vc *Credential) ToUniversalForm() (interface{}, error) {
-	if vc.isCWT() {
+	if vc.IsCWT() {
 		return vc.MarshalAsCWTLDHex()
 	}
 
@@ -600,7 +600,7 @@ func (vc *Credential) IsJWT() bool {
 }
 
 // IsCWT returns is vc envelop into cwt.
-func (vc *Credential) isCWT() bool {
+func (vc *Credential) IsCWT() bool {
 	return vc.CWTEnvelope != nil
 }
 
