@@ -573,6 +573,10 @@ func (vc *Credential) ToJWTString() (string, error) {
 
 // ToUniversalForm returns vc in its natural form. For jwt-vc it is a jwt string. For json-ld vc it is a json object.
 func (vc *Credential) ToUniversalForm() (interface{}, error) {
+	if vc.isCWT() {
+		return vc.MarshalAsCWTLDHex()
+	}
+	
 	if vc.IsJWT() {
 		jwtStr, err := vc.ToJWTString()
 		if err != nil {
@@ -593,6 +597,11 @@ func (vc *Credential) Proofs() []Proof {
 // IsJWT returns is vc envelop into jwt.
 func (vc *Credential) IsJWT() bool {
 	return vc.JWTEnvelope != nil
+}
+
+// IsCWT returns is vc envelop into cwt.
+func (vc *Credential) isCWT() bool {
+	return vc.CWTEnvelope != nil
 }
 
 // JWTHeaders returns jwt headers for jwt-vc.
@@ -1932,6 +1941,10 @@ func (vc *Credential) MarshalJSON() ([]byte, error) {
 	obj, err := vc.ToUniversalForm()
 	if err != nil {
 		return nil, fmt.Errorf("object marshalling of verifiable credential: %w", err)
+	}
+
+	if vc.isCWT() {
+		return []byte(obj.(string)), nil
 	}
 
 	byteCred, err := json.Marshal(obj)
