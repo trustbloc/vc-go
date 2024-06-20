@@ -576,7 +576,7 @@ func (vc *Credential) ToUniversalForm() (interface{}, error) {
 	if vc.isCWT() {
 		return vc.MarshalAsCWTLDHex()
 	}
-	
+
 	if vc.IsJWT() {
 		jwtStr, err := vc.ToJWTString()
 		if err != nil {
@@ -1941,10 +1941,6 @@ func (vc *Credential) MarshalJSON() ([]byte, error) {
 	obj, err := vc.ToUniversalForm()
 	if err != nil {
 		return nil, fmt.Errorf("object marshalling of verifiable credential: %w", err)
-	}
-
-	if vc.isCWT() {
-		return []byte(obj.(string)), nil
 	}
 
 	byteCred, err := json.Marshal(obj)
