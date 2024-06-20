@@ -1762,7 +1762,7 @@ func (vc *Credential) CreateSignedCOSEVC(
 	}
 
 	return &Credential{
-		credentialJSON:     vc.ToRawJSON(),
+		credentialJSON:     claims.VC,
 		credentialContents: vc.Contents(),
 		ldProofs:           vc.ldProofs,
 		CWTEnvelope: &CWTEnvelope{

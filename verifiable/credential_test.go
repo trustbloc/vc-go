@@ -835,6 +835,14 @@ func TestCredential_CreateAndParseSignedCOSEVC(t *testing.T) {
 		str := hex.EncodeToString(cwtCred)
 		assert.NotEmpty(t, str)
 
+		jsonLdBytes, err := cwtVC.MarshalAsJSONLD()
+		require.NoError(t, err)
+		require.NotNil(t, jsonLdBytes)
+
+		var parsedMap map[string]interface{}
+		require.NoError(t, json.Unmarshal(jsonLdBytes, &parsedMap))
+		require.EqualValues(t, "did:123", parsedMap["issuer"].(map[string]interface{})["id"])
+
 		payloads := []struct {
 			Type string
 			Data []byte
