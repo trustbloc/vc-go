@@ -17,6 +17,7 @@ import (
 	"github.com/PaesslerAG/jsonpath"
 	"github.com/piprate/json-gold/ld"
 
+	"github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/verifiable"
 )
 
@@ -167,16 +168,25 @@ func getMatchedCreds( //nolint:gocyclo,funlen
 			return nil, err
 		}
 
-		vpBits, err := vp.MarshalJSON()
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal vp: %w", err)
-		}
-
 		typelessVP := interface{}(nil)
 
-		err = json.Unmarshal(vpBits, &typelessVP)
-		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal vp: %w", err)
+		if vp.JWT != "" {
+			token, _, parseErr := jwt.Parse(vp.JWT)
+			if parseErr != nil {
+				return nil, fmt.Errorf("failed to parse vp.JWT: %w", parseErr)
+			}
+
+			typelessVP = token.Payload
+		} else {
+			b, marshalErr := vp.MarshalJSON()
+			if marshalErr != nil {
+				return nil, fmt.Errorf("failed to marshal vp: %w", marshalErr)
+			}
+
+			err = json.Unmarshal(b, &typelessVP)
+			if err != nil {
+				return nil, fmt.Errorf("failed to unmarshal vp: %w", err)
+			}
 		}
 
 		rawVPs[vpIdx] = typelessVP
