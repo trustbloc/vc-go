@@ -297,6 +297,18 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 
 				vp, err := pd.CreateVP(candidateVCs, lddl)
 
+				if tc.format == FormatJWTVP {
+					claims, err := vp.JWTClaims([]string{""}, false)
+					require.NoError(t, err)
+					require.NotNil(t, claims)
+
+					unsecuredJWT, err := claims.MarshalUnsecuredJWT()
+					require.NoError(t, err)
+					require.NotEmpty(t, unsecuredJWT)
+
+					vp.JWT = unsecuredJWT
+				}
+
 				require.NoError(t, err)
 				require.NotNil(t, vp)
 				require.Equal(t, 1, len(vp.Credentials()))
@@ -2186,7 +2198,7 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 		checkVP(t, vp)
 	})
 
-	t.Run("Matches two descriptors(jwt_vp)", func(t *testing.T) {
+	t.Run("Matches two descriptors (jwt_vp)", func(t *testing.T) {
 		pd := &PresentationDefinition{
 			ID: uuid.New().String(),
 			InputDescriptors: []*InputDescriptor{{
@@ -2202,21 +2214,35 @@ func TestPresentationDefinition_CreateVP(t *testing.T) {
 			}},
 		}
 
-		vp, err := pd.CreateVP([]*verifiable.Credential{
-			createTestCredential(t, credentialProto{
-				Context: []string{verifiable.ContextURI, "https://www.w3.org/2018/credentials/examples/v1"},
-				Types:   []string{verifiable.VCType, "UniversityDegreeCredential"},
-				ID:      uuid.New().String(),
-			}),
-			createTestCredential(t, credentialProto{
-				Context: []string{verifiable.ContextURI, "https://trustbloc.github.io/context/vc/examples-v1.jsonld"},
-				Types:   []string{verifiable.VCType, "DocumentVerification"},
-				ID:      uuid.New().String(),
-			}),
-		}, lddl, WithDefaultPresentationFormat("jwt_vp"))
+		vp, err := pd.CreateVP(
+			[]*verifiable.Credential{
+				createTestCredential(t, credentialProto{
+					Context: []string{verifiable.ContextURI, "https://www.w3.org/2018/credentials/examples/v1"},
+					Types:   []string{verifiable.VCType, "UniversityDegreeCredential"},
+					ID:      uuid.New().String(),
+				}),
+				createTestCredential(t, credentialProto{
+					Context: []string{verifiable.ContextURI, "https://trustbloc.github.io/context/vc/examples-v1.jsonld"},
+					Types:   []string{verifiable.VCType, "DocumentVerification"},
+					ID:      uuid.New().String(),
+				}),
+			},
+			lddl,
+			WithDefaultPresentationFormat(FormatJWTVP),
+		)
 
 		require.NoError(t, err)
 		require.NotNil(t, vp)
+
+		claims, err := vp.JWTClaims([]string{""}, false)
+		require.NoError(t, err)
+		require.NotNil(t, claims)
+
+		unsecuredJWT, err := claims.MarshalUnsecuredJWT()
+		require.NoError(t, err)
+		require.NotEmpty(t, unsecuredJWT)
+
+		vp.JWT = unsecuredJWT
 
 		checkSubmission(t, vp, pd)
 
@@ -2247,18 +2273,21 @@ func TestPresentationDefinition_CreateVPArray(t *testing.T) {
 			}},
 		}
 
-		vpList, ps, err := pd.CreateVPArray([]*verifiable.Credential{
-			createTestCredential(t, credentialProto{
-				Context: []string{verifiable.ContextURI, "https://www.w3.org/2018/credentials/examples/v1"},
-				Types:   []string{verifiable.VCType, "UniversityDegreeCredential"},
-				ID:      uuid.New().String(),
-			}),
-			createTestCredential(t, credentialProto{
-				Context: []string{verifiable.ContextURI, "https://trustbloc.github.io/context/vc/examples-v1.jsonld"},
-				Types:   []string{verifiable.VCType, "DocumentVerification"},
-				ID:      uuid.New().String(),
-			}),
-		}, lddl)
+		vpList, ps, err := pd.CreateVPArray(
+			[]*verifiable.Credential{
+				createTestCredential(t, credentialProto{
+					Context: []string{verifiable.ContextURI, "https://www.w3.org/2018/credentials/examples/v1"},
+					Types:   []string{verifiable.VCType, "UniversityDegreeCredential"},
+					ID:      uuid.New().String(),
+				}),
+				createTestCredential(t, credentialProto{
+					Context: []string{verifiable.ContextURI, "https://trustbloc.github.io/context/vc/examples-v1.jsonld"},
+					Types:   []string{verifiable.VCType, "DocumentVerification"},
+					ID:      uuid.New().String(),
+				}),
+			},
+			lddl,
+		)
 
 		require.NoError(t, err)
 		require.NotNil(t, vpList)
@@ -2266,14 +2295,14 @@ func TestPresentationDefinition_CreateVPArray(t *testing.T) {
 
 		checkExternalSubmission(t, vpList, ps, pd)
 
-		require.Equal(t, "ldp_vp", ps.DescriptorMap[0].Format)
+		require.Equal(t, FormatLDPVP, ps.DescriptorMap[0].Format)
 
 		for _, vp := range vpList {
 			checkVP(t, vp)
 		}
 	})
 
-	t.Run("Matches two descriptors(jwt_vp)", func(t *testing.T) {
+	t.Run("Matches two descriptors (jwt_vp)", func(t *testing.T) {
 		pd := &PresentationDefinition{
 			ID: uuid.New().String(),
 			InputDescriptors: []*InputDescriptor{{
@@ -2289,18 +2318,34 @@ func TestPresentationDefinition_CreateVPArray(t *testing.T) {
 			}},
 		}
 
-		vpList, ps, err := pd.CreateVPArray([]*verifiable.Credential{
-			createTestCredential(t, credentialProto{
-				Context: []string{verifiable.ContextURI, "https://www.w3.org/2018/credentials/examples/v1"},
-				Types:   []string{verifiable.VCType, "UniversityDegreeCredential"},
-				ID:      uuid.New().String(),
-			}),
-			createTestCredential(t, credentialProto{
-				Context: []string{verifiable.ContextURI, "https://trustbloc.github.io/context/vc/examples-v1.jsonld"},
-				Types:   []string{verifiable.VCType, "DocumentVerification"},
-				ID:      uuid.New().String(),
-			}),
-		}, lddl, WithDefaultPresentationFormat("jwt_vp"))
+		vpList, ps, err := pd.CreateVPArray(
+			[]*verifiable.Credential{
+				createTestCredential(t, credentialProto{
+					Context: []string{verifiable.ContextURI, "https://www.w3.org/2018/credentials/examples/v1"},
+					Types:   []string{verifiable.VCType, "UniversityDegreeCredential"},
+					ID:      uuid.New().String(),
+				}),
+				createTestCredential(t, credentialProto{
+					Context: []string{verifiable.ContextURI, "https://trustbloc.github.io/context/vc/examples-v1.jsonld"},
+					Types:   []string{verifiable.VCType, "DocumentVerification"},
+					ID:      uuid.New().String(),
+				}),
+			},
+			lddl,
+			WithDefaultPresentationFormat(FormatJWTVP),
+		)
+
+		for _, vp := range vpList {
+			claims, err := vp.JWTClaims([]string{""}, false)
+			require.NoError(t, err)
+			require.NotNil(t, claims)
+
+			unsecuredJWT, err := claims.MarshalUnsecuredJWT()
+			require.NoError(t, err)
+			require.NotEmpty(t, unsecuredJWT)
+
+			vp.JWT = unsecuredJWT
+		}
 
 		require.NoError(t, err)
 		require.NotNil(t, vpList)
@@ -2308,7 +2353,7 @@ func TestPresentationDefinition_CreateVPArray(t *testing.T) {
 
 		checkExternalSubmission(t, vpList, ps, pd)
 
-		require.Equal(t, "jwt_vp", ps.DescriptorMap[0].Format)
+		require.Equal(t, FormatJWTVP, ps.DescriptorMap[0].Format)
 
 		for _, vp := range vpList {
 			checkVP(t, vp)
@@ -2404,23 +2449,18 @@ func checkSubmission(t *testing.T, vp *verifiable.Presentation, pd *Presentation
 	require.NotEmpty(t, ps.ID)
 	require.Equal(t, ps.DefinitionID, pd.ID)
 
-	src, err := json.Marshal(vp)
-	require.NoError(t, err)
-
-	vpAsMap := map[string]interface{}{}
-	require.NoError(t, json.Unmarshal(src, &vpAsMap))
+	vpAsMap := vpToMap(t, vp)
 
 	builder := gval.Full(jsonpath.PlaceholderExtension())
+	eval := &pathEvaluator{builder: builder}
 
 	for _, descriptor := range ps.DescriptorMap {
 		require.NotEmpty(t, descriptor.ID)
 		require.NotEmpty(t, descriptor.Path)
 		require.NotEmpty(t, descriptor.Format)
 
-		path, err := builder.NewEvaluable(descriptor.Path)
-		require.NoError(t, err)
-		_, err = path(context.TODO(), vpAsMap)
-		require.NoError(t, err)
+		val := eval.Evaluate(t, vpAsMap, descriptor)
+		require.NotNil(t, val)
 	}
 }
 
@@ -2435,35 +2475,72 @@ func checkExternalSubmission(
 	require.NotEmpty(t, ps.ID)
 	require.Equal(t, ps.DefinitionID, pd.ID)
 
-	src, err := json.Marshal(vpList)
-	require.NoError(t, err)
+	var rawVPList []interface{}
 
-	rawVPList := []interface{}{}
-	require.NoError(t, json.Unmarshal(src, &rawVPList))
+	for _, vp := range vpList {
+		rawVPList = append(rawVPList, vpToMap(t, vp))
+	}
 
 	builder := gval.Full(jsonpath.PlaceholderExtension())
+	eval := &pathEvaluator{builder: builder}
 
 	for _, descriptor := range ps.DescriptorMap {
 		require.NotEmpty(t, descriptor.ID)
 		require.NotEmpty(t, descriptor.Path)
 		require.NotEmpty(t, descriptor.Format)
 
-		path, err := builder.NewEvaluable(descriptor.Path)
-		require.NoError(t, err)
-		_, err = path(context.TODO(), rawVPList)
-		require.NoError(t, err)
+		v := eval.Evaluate(t, rawVPList, descriptor)
+		require.NotNil(t, v)
 	}
+}
+
+func vpToMap(t *testing.T, vp *verifiable.Presentation) map[string]interface{} {
+	t.Helper()
+
+	var m map[string]interface{}
+
+	if vp.JWT != "" {
+		_, _, err := jwt.Parse(vp.JWT,
+			jwt.DecodeClaimsTo(&m),
+			jwt.WithIgnoreClaimsMapDecoding(true),
+		)
+		require.NoError(t, err)
+	} else {
+		b, err := json.Marshal(vp)
+		require.NoError(t, err)
+
+		require.NoError(t, json.Unmarshal(b, &m))
+	}
+
+	return m
+}
+
+type pathEvaluator struct {
+	builder gval.Language
+}
+
+func (p *pathEvaluator) Evaluate(t *testing.T, data interface{}, descriptor *InputDescriptorMapping) interface{} {
+	evaluable, err := p.builder.NewEvaluable(descriptor.Path)
+	require.NoError(t, err)
+
+	val, err := evaluable(context.Background(), data)
+	require.NoError(t, err)
+	require.NotNil(t, val)
+
+	if descriptor.PathNested != nil {
+		return p.Evaluate(t, val, descriptor.PathNested)
+	}
+
+	return val
 }
 
 func checkVP(t *testing.T, vp *verifiable.Presentation) {
 	t.Helper()
 
-	src, err := json.Marshal(vp)
+	b, err := json.Marshal(vp)
 	require.NoError(t, err)
 
-	println(string(src))
-
-	_, err = verifiable.ParsePresentation(src,
+	_, err = verifiable.ParsePresentation(b,
 		verifiable.WithPresDisabledProofCheck(),
 		verifiable.WithPresJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t)))
 	require.NoError(t, err)
