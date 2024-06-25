@@ -421,7 +421,7 @@ func ExampleCredential_AddLinkedDataProofMultiProofs() {
 	}
 
 	proofCreators, proofChecker, err := testsupport.NewKMSSignersAndVerifierErr(
-		[]testsupport.SigningKey{
+		[]*testsupport.SigningKey{
 			{Type: kms.ED25519Type, PublicKeyID: "did:example:76e12ec712ebc6f1c221ebfeb1f#key1"},
 			{Type: kms.ECDSASecp256k1TypeIEEEP1363, VMType: "JsonWebKey2020", PublicKeyID: "did:example:76e12ec712ebc6f1c221ebfeb1f#key2"},
 		})
