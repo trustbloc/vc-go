@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 	jsonld "github.com/trustbloc/did-go/doc/ld/processor"
 	ldtestutil "github.com/trustbloc/did-go/doc/ld/testutil"
+	"github.com/trustbloc/kms-go/doc/jose/jwk"
 	"github.com/trustbloc/kms-go/spi/kms"
 	"github.com/veraison/go-cose"
 
@@ -61,7 +62,7 @@ const testCredential = `
 type ldTestCase struct {
 	SignatureType string
 	proofCreator  *creator.ProofCreator
-	signingKey    testsupport.SigningKey
+	signingKey    *testsupport.SigningKey
 	fail          bool
 	skipJWS       bool
 }
@@ -69,7 +70,7 @@ type ldTestCase struct {
 type jwtTestCase struct {
 	Alg          verifiable.JWSAlgorithm
 	proofCreator *creator.ProofCreator
-	signingKey   testsupport.SigningKey
+	signingKey   *testsupport.SigningKey
 	fail         bool
 	verFail      bool
 }
@@ -78,7 +79,7 @@ type cwtTestCase struct {
 	Alg          verifiable.JWSAlgorithm
 	CborAlg      cose.Algorithm
 	proofCreator *creator.ProofCreator
-	signingKey   testsupport.SigningKey
+	signingKey   *testsupport.SigningKey
 	fail         bool
 	verFail      bool
 }
@@ -88,7 +89,7 @@ func TestAllLDSignersVerifiers(t *testing.T) {
 	docLoader, dlErr := ldtestutil.DocumentLoader()
 	require.NoError(t, dlErr)
 
-	allKeyTypes := []testsupport.SigningKey{
+	allKeyTypes := []*testsupport.SigningKey{
 		{Type: kms.ED25519Type, PublicKeyID: "did:example:12345#key-1"},
 		{Type: kms.ECDSASecp256k1TypeIEEEP1363, PublicKeyID: "did:example:12345#key-3"},
 		{Type: kms.BLS12381G2Type, PublicKeyID: "did:example:12345#key-8"},
@@ -159,7 +160,7 @@ func TestAllJWTSignersVerifiers(t *testing.T) {
 	docLoader, ldErr := ldtestutil.DocumentLoader()
 	require.NoError(t, ldErr)
 
-	allKeyTypes := []testsupport.SigningKey{
+	allKeyTypes := []*testsupport.SigningKey{
 		{Type: kms.ED25519Type, PublicKeyID: "did:example:12345#key-1"},
 		{Type: kms.ECDSAP256TypeIEEEP1363, PublicKeyID: "did:example:12345#key-2"},
 		{Type: kms.ECDSASecp256k1TypeIEEEP1363, PublicKeyID: "did:example:12345#key-3"},
@@ -206,7 +207,7 @@ func TestAllCWTSignersVerifiers(t *testing.T) {
 	_, ldErr := ldtestutil.DocumentLoader()
 	require.NoError(t, ldErr)
 
-	allKeyTypes := []testsupport.SigningKey{
+	allKeyTypes := []*testsupport.SigningKey{
 		{Type: kms.ED25519Type, PublicKeyID: "did:example:12345#key-1"},
 		{Type: kms.ECDSAP256TypeIEEEP1363, PublicKeyID: "did:example:12345#key-2"},
 		{Type: kms.ECDSASecp256k1TypeIEEEP1363, PublicKeyID: "did:example:12345#key-3"},
@@ -231,6 +232,22 @@ func TestAllCWTSignersVerifiers(t *testing.T) {
 			data := "1234567890"
 			encoded, err := cbor.Marshal(data)
 			assert.NoError(t, err)
+
+			var targetKey interface{}
+			if v, ok := testCase.signingKey.PublicKey.(*jwk.JWK); ok {
+				targetKey = v.Key
+			} else {
+				targetKey = testCase.signingKey.PublicKey
+			}
+
+			parsedPubKey, err := cose.NewKeyFromPublic(targetKey)
+			assert.NoError(t, err)
+			assert.NotNil(t, parsedPubKey)
+
+			keyBytes, err := parsedPubKey.MarshalCBOR()
+			assert.NoError(t, err)
+			pubKeyStr := hex.EncodeToString(keyBytes)
+			fmt.Println(pubKeyStr)
 			msg := &cose.Sign1Message{
 				Headers: cose.Headers{
 					Protected: cose.ProtectedHeader{

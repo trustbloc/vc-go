@@ -43,7 +43,7 @@ func TestLinkedDataProofSignerAndVerifier(t *testing.T) {
 }
 `
 
-	proofCreators, proofCheker := testsupport.NewKMSSignersAndVerifier(t, []testsupport.SigningKey{
+	proofCreators, proofCheker := testsupport.NewKMSSignersAndVerifier(t, []*testsupport.SigningKey{
 		{Type: kms.ED25519Type, PublicKeyID: "did:key:z6Mkj7of2aaooXhTJvJ5oCL9ZVcAS472ZBuSjYyXDa4bWT32#key1"},
 		{Type: kms.ECDSASecp256k1TypeIEEEP1363, PublicKeyID: "did:key:z6Mkj7of2aaooXhTJvJ5oCL9ZVcAS472ZBuSjYyXDa4bWT32#key2"},
 	})

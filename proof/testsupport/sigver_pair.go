@@ -248,7 +248,7 @@ func NewKMSSigVerPair(t *testing.T, keyType kmsapi.KeyType, verificationKeyID st
 	*creator.ProofCreator, *checker.ProofChecker) {
 	t.Helper()
 
-	proofCreators, proofChecker := NewKMSSignersAndVerifier(t, []SigningKey{{
+	proofCreators, proofChecker := NewKMSSignersAndVerifier(t, []*SigningKey{{
 		Type:        keyType,
 		PublicKeyID: verificationKeyID,
 	}})
@@ -261,10 +261,11 @@ type SigningKey struct {
 	Type        kmsapi.KeyType
 	PublicKeyID string
 	VMType      string
+	PublicKey   interface{} // TODO
 }
 
 // NewKMSSignersAndVerifier returns a pair of proof creator and checker.
-func NewKMSSignersAndVerifier(t *testing.T, signingKeys []SigningKey) (
+func NewKMSSignersAndVerifier(t *testing.T, signingKeys []*SigningKey) (
 	[]*creator.ProofCreator, *checker.ProofChecker) {
 	t.Helper()
 
@@ -277,7 +278,7 @@ func NewKMSSignersAndVerifier(t *testing.T, signingKeys []SigningKey) (
 // NewKMSSignersAndVerifierErr returns a pair of proof creator and checker.
 //
 //nolint:gocyclo
-func NewKMSSignersAndVerifierErr(signingKeys []SigningKey) (
+func NewKMSSignersAndVerifierErr(signingKeys []*SigningKey) (
 	[]*creator.ProofCreator, *checker.ProofChecker, error) {
 	kmsCrypto, err := kmscryptoutil.LocalKMSCryptoErr()
 	if err != nil {
@@ -297,20 +298,20 @@ func NewKMSSignersAndVerifierErr(signingKeys []SigningKey) (
 
 		switch sigKey.Type {
 		case kmsapi.RSARS256:
-			proofCreator, mocked, err = rsa256PairDesc(sigKey.PublicKeyID)
+			proofCreator, mocked, err = rsa256PairDesc(sigKey)
 			if err != nil {
 				return nil, nil, err
 			}
 
 		case kmsapi.ECDSASecp256k1TypeIEEEP1363:
-			proofCreator, mocked, err = ecdsaSecp256k1PairDesc(sigKey.PublicKeyID,
+			proofCreator, mocked, err = ecdsaSecp256k1PairDesc(sigKey,
 				sigKey.VMType == "" || sigKey.VMType == "JsonWebKey2020")
 			if err != nil {
 				return nil, nil, err
 			}
 
 		case kmsapi.BLS12381G2Type:
-			proofCreator, mocked, err = bbsPairDesc(sigKey.PublicKeyID)
+			proofCreator, mocked, err = bbsPairDesc(sigKey)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -330,7 +331,7 @@ func NewKMSSignersAndVerifierErr(signingKeys []SigningKey) (
 		&VMResolver{mockedVerificationMethods: mockedVerificationMethods}), nil
 }
 
-func rsa256PairDesc(publicKeyID string) (*creator.ProofCreator, mockedVerificationMethod, error) {
+func rsa256PairDesc(publicKeyID *SigningKey) (*creator.ProofCreator, mockedVerificationMethod, error) {
 	privKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		return nil, mockedVerificationMethod{}, err
@@ -342,8 +343,10 @@ func rsa256PairDesc(publicKeyID string) (*creator.ProofCreator, mockedVerificati
 		creator.New(
 			creator.WithJWTAlg(rs256.New(), testutil.NewRS256Signer(privKey)))
 
+	publicKeyID.PublicKey = pubKey
+
 	vm := mockedVerificationMethod{
-		lookupID: publicKeyID,
+		lookupID: publicKeyID.PublicKeyID,
 		verificationMethodValue: &vermethod.VerificationMethod{
 			Type:  "RsaVerificationKey2018",
 			Value: x509.MarshalPKCS1PublicKey(pubKey),
@@ -353,7 +356,7 @@ func rsa256PairDesc(publicKeyID string) (*creator.ProofCreator, mockedVerificati
 	return proofCreator, vm, nil
 }
 
-func bbsPairDesc(publicKeyID string) (*creator.ProofCreator, mockedVerificationMethod, error) {
+func bbsPairDesc(publicKeyID *SigningKey) (*creator.ProofCreator, mockedVerificationMethod, error) {
 	publicKey, privateKey, err := bbs12381g2pub.GenerateKeyPair(sha256.New, nil)
 	if err != nil {
 		return nil, mockedVerificationMethod{}, err
@@ -373,8 +376,10 @@ func bbsPairDesc(publicKeyID string) (*creator.ProofCreator, mockedVerificationM
 		creator.New(
 			creator.WithLDProofType(bbsblssignature2020.New(), signer))
 
+	publicKeyID.PublicKey = publicKey
+
 	vm := mockedVerificationMethod{
-		lookupID: publicKeyID,
+		lookupID: publicKeyID.PublicKeyID,
 		verificationMethodValue: &vermethod.VerificationMethod{
 			Type:  "Bls12381G2Key2020",
 			Value: srcPublicKey,
@@ -384,7 +389,7 @@ func bbsPairDesc(publicKeyID string) (*creator.ProofCreator, mockedVerificationM
 	return proofCreator, vm, nil
 }
 
-func ecdsaSecp256k1PairDesc(publicKeyID string, jwkVM bool) (*creator.ProofCreator, mockedVerificationMethod, error) {
+func ecdsaSecp256k1PairDesc(publicKeyID *SigningKey, jwkVM bool) (*creator.ProofCreator, mockedVerificationMethod, error) {
 	privKey, err := ecdsa.GenerateKey(btcec.S256(), rand.Reader)
 	if err != nil {
 		return nil, mockedVerificationMethod{}, err
@@ -398,8 +403,10 @@ func ecdsaSecp256k1PairDesc(publicKeyID string, jwkVM bool) (*creator.ProofCreat
 			creator.WithLDProofType(ecdsasecp256k1signature2019.New(), testutil.NewECDSASecp256k1Signer(privKey)),
 			creator.WithJWTAlg(es256k.New(), testutil.NewECDSASecp256k1Signer(privKey)))
 
+	publicKeyID.PublicKey = pubKey
+
 	vm := mockedVerificationMethod{
-		lookupID: publicKeyID,
+		lookupID: publicKeyID.PublicKeyID,
 		verificationMethodValue: &vermethod.VerificationMethod{
 			Type:  "EcdsaSecp256k1VerificationKey2019",
 			Value: elliptic.Marshal(pubKey.Curve, pubKey.X, pubKey.Y),
@@ -421,8 +428,10 @@ func ecdsaSecp256k1PairDesc(publicKeyID string, jwkVM bool) (*creator.ProofCreat
 	return proofCreator, vm, nil
 }
 
-func kmsPairDesc(kmsCrypto wrapperapi.KMSCrypto,
-	sigKey SigningKey) (*creator.ProofCreator, mockedVerificationMethod, error) {
+func kmsPairDesc(
+	kmsCrypto wrapperapi.KMSCrypto,
+	sigKey *SigningKey,
+) (*creator.ProofCreator, mockedVerificationMethod, error) {
 	pubJWK, err := kmsCrypto.Create(sigKey.Type)
 	if err != nil {
 		return nil, mockedVerificationMethod{}, err
@@ -452,6 +461,8 @@ func kmsPairDesc(kmsCrypto wrapperapi.KMSCrypto,
 		Type: "JsonWebKey2020",
 		JWK:  pubJWK,
 	}
+
+	sigKey.PublicKey = pubJWK
 
 	if sigKey.VMType != "" && sigKey.VMType != "JsonWebKey2020" {
 		pubKeyBytes, err := pubJWK.PublicKeyBytes()
