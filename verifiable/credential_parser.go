@@ -112,7 +112,7 @@ func (p *CredentialJSONParser) Parse(
 // CredentialCBORParser is a parser for CBOR credentials.
 type CredentialCBORParser struct{}
 
-func (p *CredentialCBORParser) convertToStringMap(
+func convertToStringMap(
 	input map[interface{}]interface{},
 ) map[string]interface{} {
 	out := map[string]interface{}{}
@@ -120,14 +120,25 @@ func (p *CredentialCBORParser) convertToStringMap(
 	for k, v := range input {
 		key := fmt.Sprintf("%v", k)
 
-		if m, ok := v.(map[interface{}]interface{}); ok {
-			out[key] = p.convertToStringMap(m)
-		} else {
-			out[key] = v
-		}
+		out[key] = convertElement(v)
 	}
 
 	return out
+}
+
+func convertElement(element interface{}) interface{} {
+	switch elem := element.(type) {
+	case map[interface{}]interface{}:
+		return convertToStringMap(elem)
+	case []interface{}:
+		for i, v := range elem {
+			elem[i] = convertElement(v)
+		}
+		return elem
+	default:
+		return elem
+	}
+
 }
 
 func (p *CredentialCBORParser) parseCred(data []byte) (*cose.Sign1Message, error) {
@@ -153,7 +164,7 @@ func (p *CredentialCBORParser) Parse(
 
 	if rawErr != nil {
 		vcData = unQuote(vcData)
-		
+
 		vcData, hexErr = hex.DecodeString(string(vcData))
 		if hexErr != nil {
 			return nil, errors.Join(errors.New("vcData is not a valid hex string"), hexErr)
@@ -180,7 +191,7 @@ func (p *CredentialCBORParser) Parse(
 		return nil, fmt.Errorf("vc field not found in cbor credential")
 	}
 
-	convertedMap := p.convertToStringMap(vcDataMap)
+	convertedMap := convertToStringMap(vcDataMap)
 	contents, err := parseCredentialContents(convertedMap, false)
 	if err != nil {
 		return nil, err

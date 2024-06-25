@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/fxamacker/cbor/v2"
 	jsonld "github.com/piprate/json-gold/ld"
 	"github.com/xeipuuv/gojsonschema"
 
@@ -229,10 +230,29 @@ func (vp *Presentation) MarshalJSON() ([]byte, error) {
 	return byteCred, nil
 }
 
+func (vp *Presentation) MarshalCBOR() ([]byte, error) {
+	if len(vp.CWT) > 0 {
+		return vp.CWT, nil
+	}
+
+	raw, err := vp.raw()
+	if err != nil {
+		return nil, fmt.Errorf("JSON marshalling of verifiable presentation: %w", err)
+	}
+
+	return cbor.Marshal(raw)
+}
+
 // JWTClaims converts Verifiable Presentation into JWT Presentation claims, which can be than serialized
 // e.g. into JWS.
 func (vp *Presentation) JWTClaims(audience []string, minimizeVP bool) (*JWTPresClaims, error) {
 	return newJWTPresClaims(vp, audience, minimizeVP)
+}
+
+// CWTClaims converts Verifiable Presentation into CWT Presentation claims, which can be than serialized
+// e.g. into JWS.
+func (vp *Presentation) CWTClaims(audience []string, minimizeVP bool) (*CWTPresClaims, error) {
+	return newCWTPresClaims(vp, audience, minimizeVP) // for now same as JWT
 }
 
 // Credentials returns current credentials of presentation.
@@ -424,6 +444,9 @@ func ParsePresentation(vpData []byte, opts ...PresentationOpt) (*Presentation, e
 		}
 
 		if parsed != nil {
+			finalErr = nil
+			err = nil
+
 			break
 		}
 	}
@@ -436,7 +459,7 @@ func ParsePresentation(vpData []byte, opts ...PresentationOpt) (*Presentation, e
 		return nil, errors.New("unable to parse presentation")
 	}
 
-	err = validateVP(parsed.VPDataDecoded, vpOpts)
+	err = validateVP(parsed.VPRaw, vpOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -591,7 +614,7 @@ func decodeCredentials(rawCred interface{}, opts *presentationOpts) ([]*Credenti
 	}
 }
 
-func validateVP(data []byte, opts *presentationOpts) error {
+func validateVP(data rawPresentation, opts *presentationOpts) error {
 	err := validateVPJSONSchema(data)
 	if err != nil {
 		return err
@@ -604,16 +627,16 @@ func validateVP(data []byte, opts *presentationOpts) error {
 	return validateVPJSONLD(data, opts)
 }
 
-func validateVPJSONLD(vpBytes []byte, opts *presentationOpts) error {
-	return docjsonld.ValidateJSONLD(string(vpBytes),
+func validateVPJSONLD(vpBytes rawPresentation, opts *presentationOpts) error {
+	return docjsonld.ValidateJSONLDMap(vpBytes,
 		docjsonld.WithDocumentLoader(opts.jsonldCredentialOpts.jsonldDocumentLoader),
 		docjsonld.WithExternalContext(opts.jsonldCredentialOpts.externalContext),
 		docjsonld.WithStrictValidation(opts.strictValidation),
 	)
 }
 
-func validateVPJSONSchema(data []byte) error {
-	loader := gojsonschema.NewStringLoader(string(data))
+func validateVPJSONSchema(data rawPresentation) error {
+	loader := gojsonschema.NewGoLoader(data)
 
 	result, err := gojsonschema.Validate(basePresentationSchemaLoader, loader)
 	if err != nil {

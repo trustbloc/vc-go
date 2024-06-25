@@ -128,14 +128,17 @@ func (p *PresentationCWTParser) parse(vpData []byte, _ *presentationOpts) (*pars
 		return nil, errors.Join(errors.New("parsed vp cbor message is nil"), rawErr, hexRawErr, hexErr)
 	}
 
-	var vpJSON map[string]interface{}
+	var vpJSON map[interface{}]interface{}
 	if err := cbor.Unmarshal(message.Payload, &vpJSON); err != nil {
 		return nil, fmt.Errorf("unmarshal cbor vp payload: %w", err)
 	}
 
+	convertedMap := convertToStringMap(vpJSON)
+	vpContent, _ := convertedMap["vp"].(map[string]interface{})
+
 	return &parsePresentationResponse{
 		VPDataDecoded: vpData,
-		VPRaw:         vpJSON,
+		VPRaw:         vpContent,
 		VPJwt:         "",
 		VPCwt:         vpData,
 	}, nil

@@ -19,7 +19,7 @@ const (
 
 // MarshalJWS serializes JWT presentation claims into signed form (JWS).
 func marshalCOSE(
-	claims *CWTCredClaims,
+	claims interface{},
 	signatureAlg cose.Algorithm,
 	signer cwt.ProofCreator,
 	keyID string,

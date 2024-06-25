@@ -151,7 +151,7 @@ var validPresentationWithJWTVC []byte //nolint:gochecknoglobals
 var presentationSubmissionV1 []byte //nolint:gochecknoglobals
 
 func TestParseCwtPresentation(t *testing.T) {
-	t.Run("CWT creates a new Verifiable Presentation with custom/additional fields", func(t *testing.T) {
+	t.Run("creates a new Verifiable Presentation with custom/additional fields", func(t *testing.T) {
 		verify := func(t *testing.T, vp *Presentation) {
 			require.Len(t, vp.CustomFields, 1)
 			require.Len(t, vp.CustomFields["presentation_submission"], 1)
