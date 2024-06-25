@@ -231,7 +231,7 @@ func (vp *Presentation) MarshalJSON() ([]byte, error) {
 }
 
 func (vp *Presentation) MarshalCBOR() ([]byte, error) {
-	if len(vp.CWT.Raw) > 0 {
+	if vp.CWT != nil && len(vp.CWT.Raw) > 0 {
 		return vp.CWT.Raw, nil
 	}
 
