@@ -175,7 +175,7 @@ type Presentation struct {
 	Holder        string
 	Proofs        []Proof
 	JWT           string
-	CWT           []byte
+	CWT           *VpCWT
 
 	CustomFields CustomFields
 }
@@ -231,8 +231,8 @@ func (vp *Presentation) MarshalJSON() ([]byte, error) {
 }
 
 func (vp *Presentation) MarshalCBOR() ([]byte, error) {
-	if len(vp.CWT) > 0 {
-		return vp.CWT, nil
+	if len(vp.CWT.Raw) > 0 {
+		return vp.CWT.Raw, nil
 	}
 
 	raw, err := vp.raw()
