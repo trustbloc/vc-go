@@ -86,11 +86,17 @@ type Format struct {
 	Ldp   *LdpType `json:"ldp,omitempty"`
 	LdpVC *LdpType `json:"ldp_vc,omitempty"`
 	LdpVP *LdpType `json:"ldp_vp,omitempty"`
+	CwtVP *CwtType `json:"cwt_vp,omitempty"`
 }
 
 func (f *Format) notNil() bool {
 	return f != nil &&
 		(f.Jwt != nil || f.JwtVC != nil || f.JwtVP != nil || f.Ldp != nil || f.LdpVC != nil || f.LdpVP != nil)
+}
+
+// CwtType contains alg.
+type CwtType struct {
+	Alg []string `json:"alg,omitempty"`
 }
 
 // JwtType contains alg.
