@@ -12,6 +12,11 @@ import (
 	"github.com/veraison/go-cose"
 )
 
+const (
+	// CWTProofType is the proof type for CWT.
+	CWTProofType = "application/openid4vci-proof+cwt"
+)
+
 // SupportedVerificationMethod describes verification methods that supported by proof checker.
 type SupportedVerificationMethod struct {
 	VerificationMethodType string // verification method type from did. E.g. Ed25519VerificationKey2020, JsonWebKey2020.
