@@ -267,9 +267,17 @@ func selectVC(typelessVerifiable interface{},
 	var err error
 
 	for {
+		typelessVerifiableCopy := typelessVerifiable
+
 		typelessVerifiable, err = selectByPath(builder, typelessVerifiable, mapping.Path)
 		if err != nil {
-			return nil, fmt.Errorf("failed to select vc from submission: %w", err)
+			// TODO: Remove this workaround once all dependent projects are updated to the latest version of vc-go and
+			// support the proper path for JWT VPs.
+			if typelessVerifiable, err = selectByPath(builder, typelessVerifiableCopy,
+				strings.Replace(mapping.Path, "$.", "$.vp.", 1), // adjust the path to the correct JWT VP path
+			); err != nil {
+				return nil, fmt.Errorf("failed to select vc from submission: %w", err)
+			}
 		}
 
 		if mapping.PathNested != nil {

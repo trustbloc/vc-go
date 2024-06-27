@@ -1696,6 +1696,97 @@ func ExamplePresentationDefinition_Match() {
 	// verifier received the 'https://example.context.jsonld/address' credential for the input descriptor id 'residence'
 }
 
+func ExamplePresentationDefinition_Match_jwt_vp_path_workaround() {
+	// verifier sends their presentation definitions to the holder
+	verifierDefinitions := &PresentationDefinition{
+		InputDescriptors: []*InputDescriptor{
+			{
+				ID: "banking",
+				Schema: []*Schema{{
+					URI: "https://example.org/examples#Customer",
+				}},
+			},
+		},
+	}
+
+	vc := fetchVC([]string{"https://example.context.jsonld/account"}, []string{"Customer"})
+
+	// holder builds their presentation submission against the verifier's definitions
+	vp, err := newPresentationSubmission(
+		&PresentationSubmission{DescriptorMap: []*InputDescriptorMapping{
+			{
+				ID:   "banking",
+				Path: "$.verifiableCredential[0]", // use invalid path (missing .vp) to demonstrate the workaround
+			},
+		}},
+		vc,
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	claims, err := vp.JWTClaims([]string{""}, false)
+	if err != nil {
+		panic(err)
+	}
+
+	unsecuredJWT, err := claims.MarshalUnsecuredJWT()
+	if err != nil {
+		panic(err)
+	}
+
+	vp.JWT = unsecuredJWT
+
+	// holder sends VP over the wire to the verifier
+	vpBytes, err := json.Marshal(vp)
+	if err != nil {
+		panic(err)
+	}
+
+	// load json-ld context
+	loader, err := ldtestutil.DocumentLoader(
+		ldcontext.Document{
+			URL:     "https://example.context.jsonld/account",
+			Content: []byte(exampleJSONLDContext),
+		},
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	receivedVP, err := verifiable.ParsePresentation(vpBytes,
+		verifiable.WithPresDisabledProofCheck(),
+		verifiable.WithPresJSONLDDocumentLoader(loader),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	// verifier matches the received VP against their definitions
+	matched, err := verifierDefinitions.Match(
+		[]*verifiable.Presentation{receivedVP}, loader,
+		WithCredentialOptions(
+			verifiable.WithDisabledProofCheck(),
+			verifiable.WithJSONLDDocumentLoader(loader)),
+	)
+	if err != nil {
+		panic(fmt.Errorf("presentation submission did not match definitions: %w", err))
+	}
+
+	for _, descriptor := range verifierDefinitions.InputDescriptors {
+		for _, match := range matched {
+			if match.DescriptorID == descriptor.ID {
+				fmt.Printf(
+					"verifier received the '%s' credential for the input descriptor id '%s'\n",
+					match.Credential.Contents().Context[1], descriptor.ID)
+			}
+		}
+	}
+
+	// Output:
+	// verifier received the 'https://example.context.jsonld/account' credential for the input descriptor id 'banking'
+}
+
 func newPresentationSubmission(
 	submission *PresentationSubmission, vcs ...*verifiable.Credential) (*verifiable.Presentation, error) {
 	vp, err := verifiable.NewPresentation(verifiable.WithCredentials(vcs...))
