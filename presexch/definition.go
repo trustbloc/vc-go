@@ -1118,6 +1118,7 @@ func getLimitedDisclosures(constraints *Constraints, displaySrc []byte, credenti
 
 			disclosures := credential.SDJWTDisclosures()
 			disclosuresMap := map[string]*common.DisclosureClaim{}
+
 			for _, dc := range disclosures {
 				disclosuresMap[dc.Digest] = dc
 			}
@@ -1148,6 +1149,7 @@ func getLimitedDisclosures(constraints *Constraints, displaySrc []byte, credenti
 	return limitedDisclosures, nil
 }
 
+// ExtractArrayValuesForSDJWTV5 extracts array values for SD JWT V5.
 func ExtractArrayValuesForSDJWTV5(obj map[string]interface{}) []string {
 	var extractedValues []string
 
