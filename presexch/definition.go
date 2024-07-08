@@ -1119,7 +1119,7 @@ func getLimitedDisclosures(constraints *Constraints, displaySrc []byte, credenti
 			disclosures := credential.SDJWTDisclosures()
 			disclosuresMap := map[string]*common.DisclosureClaim{}
 			for _, dc := range disclosures {
-				disclosuresMap[dc.Disclosure] = dc
+				disclosuresMap[dc.Digest] = dc
 			}
 
 			arrayElements := ExtractArrayValuesForSDJWTV5(parentObj)
