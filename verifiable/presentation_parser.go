@@ -72,7 +72,7 @@ func (p *PresentationJSONParser) parse(vpData []byte, vpOpts *presentationOpts) 
 		return &parsePresentationResponse{
 			VPDataDecoded: rawBytes,
 			VPRaw:         rawPres,
-			VPJwt:         vpStr,
+			VPJwt:         "",
 		}, nil
 	}
 
