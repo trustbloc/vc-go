@@ -27,7 +27,6 @@ import (
 	"golang.org/x/exp/slices"
 
 	"github.com/trustbloc/vc-go/proof/testsupport"
-
 	jsonutil "github.com/trustbloc/vc-go/util/json"
 )
 
@@ -2285,6 +2284,9 @@ func TestCredential_WithModified(t *testing.T) {
 	}, nil)
 	require.NoError(t, err)
 
+	now := time.Now()
+	expired := now.Add(time.Hour)
+
 	cred = cred.
 		WithModifiedID("newID").
 		WithModifiedSubject([]Subject{{ID: "newID"}}).
@@ -2293,7 +2295,9 @@ func TestCredential_WithModified(t *testing.T) {
 		WithModifiedStatus(&TypedID{
 			ID:   "newID",
 			Type: "newType",
-		})
+		}).
+		WithModifiedExpired(afgotime.NewTime(expired)).
+		WithModifiedIssued(afgotime.NewTime(now))
 
 	require.Equal(t, "newID", cred.Contents().ID)
 	require.Equal(t, "newID", cred.Contents().Subject[0].ID)
@@ -2301,6 +2305,8 @@ func TestCredential_WithModified(t *testing.T) {
 	require.Equal(t, []string{"newContext"}, cred.Contents().Context)
 	require.Equal(t, "newID", cred.Contents().Status.ID)
 	require.Equal(t, "newType", cred.Contents().Status.Type)
+	require.EqualValues(t, now, cred.Contents().Issued.Time)
+	require.EqualValues(t, expired, cred.Contents().Expired.Time)
 
 	cred = cred.
 		WithModifiedID("").

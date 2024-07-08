@@ -107,10 +107,9 @@ func newJWTCredClaims(vc *Credential, minimizeVC bool) (*JWTCredClaims, error) {
 
 	// currently jwt encoding supports only single subject (by the spec)
 	jwtClaims := &jwt.Claims{
-		Issuer:    vcc.Issuer.ID,                           // iss
-		NotBefore: josejwt.NewNumericDate(vcc.Issued.Time), // nbf
-		ID:        vcc.ID,                                  // jti
-		Subject:   subjectID,                               // sub
+		Issuer:  vcc.Issuer.ID, // iss
+		ID:      vcc.ID,        // jti
+		Subject: subjectID,     // sub
 	}
 
 	if vcc.Expired != nil {
@@ -119,6 +118,7 @@ func newJWTCredClaims(vc *Credential, minimizeVC bool) (*JWTCredClaims, error) {
 
 	if vcc.Issued != nil {
 		jwtClaims.IssuedAt = josejwt.NewNumericDate(vcc.Issued.Time)
+		jwtClaims.NotBefore = josejwt.NewNumericDate(vcc.Issued.Time)
 	}
 
 	credentialJSONCopy := jsonutil.ShallowCopyObj(vc.credentialJSON)

@@ -2004,6 +2004,34 @@ func (vc *Credential) WithModifiedID(id string) *Credential {
 	}
 }
 
+// WithModifiedIssued creates new credential with modified issued time and without proofs as they become invalid.
+func (vc *Credential) WithModifiedIssued(wrapper *util.TimeWrapper) *Credential {
+	newCredJSON := copyCredentialJSONWithoutProofs(vc.credentialJSON)
+	newContents := vc.Contents()
+
+	newContents.Issued = wrapper
+	newCredJSON[jsonFldIssued] = serializeTime(wrapper)
+
+	return &Credential{
+		credentialJSON:     newCredJSON,
+		credentialContents: newContents,
+	}
+}
+
+// WithModifiedExpired creates new credential with modified expired time and without proofs as they become invalid.
+func (vc *Credential) WithModifiedExpired(wrapper *util.TimeWrapper) *Credential {
+	newCredJSON := copyCredentialJSONWithoutProofs(vc.credentialJSON)
+	newContents := vc.Contents()
+
+	newContents.Expired = wrapper
+	newCredJSON[jsonFldExpired] = serializeTime(wrapper)
+
+	return &Credential{
+		credentialJSON:     newCredJSON,
+		credentialContents: newContents,
+	}
+}
+
 // WithModifiedContext creates new credential with modified context and without proofs as they become invalid.
 func (vc *Credential) WithModifiedContext(context []string) *Credential {
 	newCredJSON := copyCredentialJSONWithoutProofs(vc.credentialJSON)
