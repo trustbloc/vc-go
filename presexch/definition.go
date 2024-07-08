@@ -1116,7 +1116,22 @@ func getLimitedDisclosures(constraints *Constraints, displaySrc []byte, credenti
 				return nil, err
 			}
 
-			for _, dc := range credential.SDJWTDisclosures() {
+			allDisclosures := credential.SDJWTDisclosures()
+			disclosuresMap := map[string]*common.DisclosureClaim{}
+			for _, dc := range allDisclosures {
+				disclosuresMap[dc.Digest] = dc
+			}
+
+			for _, stringValue := range extractAdditionalDigests(parentObj) {
+				disVal, disOk := disclosuresMap[stringValue]
+				if !disOk {
+					continue
+				}
+
+				limitedDisclosures = append(limitedDisclosures, disVal)
+			}
+
+			for _, dc := range allDisclosures {
 				if dc.Name == key {
 					digest, err := common.GetHash(*credentialContents.SDJWTHashAlg, dc.Disclosure)
 					if err != nil {
@@ -1132,6 +1147,29 @@ func getLimitedDisclosures(constraints *Constraints, displaySrc []byte, credenti
 	}
 
 	return limitedDisclosures, nil
+}
+
+func extractAdditionalDigests(obj map[string]interface{}) []string {
+	var values []string
+
+	for _, v := range obj {
+		switch data := v.(type) {
+		case map[string]interface{}:
+			values = append(values, extractAdditionalDigests(data)...)
+		case []interface{}:
+			for _, item := range data {
+				if m, ok := item.(map[string]interface{}); ok {
+					values = append(values, extractAdditionalDigests(m)...)
+				}
+
+				if s, ok := item.(string); ok {
+					values = append(values, s)
+				}
+			}
+		}
+	}
+
+	return values
 }
 
 func frameCreds(frame map[string]interface{}, creds []*verifiable.Credential,
