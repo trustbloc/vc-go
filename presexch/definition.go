@@ -1130,7 +1130,6 @@ func getLimitedDisclosures(constraints *Constraints, displaySrc []byte, credenti
 
 				limitedDisclosures = append(limitedDisclosures, disVal)
 			}
-			// cmd
 
 			for _, dc := range allDisclosures {
 				if dc.Name == key {
@@ -1145,6 +1144,16 @@ func getLimitedDisclosures(constraints *Constraints, displaySrc []byte, credenti
 				}
 			}
 		}
+	}
+
+	finalDisclosures := map[*common.DisclosureClaim]struct{}{}
+	for _, closure := range limitedDisclosures {
+		finalDisclosures[closure] = struct{}{}
+	}
+
+	limitedDisclosures = nil
+	for closure, _ := range finalDisclosures {
+		limitedDisclosures = append(limitedDisclosures, closure)
 	}
 
 	return limitedDisclosures, nil
