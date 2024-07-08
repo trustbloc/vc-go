@@ -233,48 +233,44 @@ func (c *ProofChecker) CheckJWTProof(headers jose.Headers, expectedProofIssuer s
 	return verifier.Verify(signature, msg, pubKey)
 }
 
-// CheckCWTProof check cwt proof.
-func (c *ProofChecker) CheckCWTProof(
+func (c *ProofChecker) checkCWTProofByKeyID(
 	checkCWTRequest CheckCWTProofRequest,
 	expectedProofIssuer string,
 	msg []byte,
 	signature []byte,
 ) error {
-	if checkCWTRequest.KeyID == "" && checkCWTRequest.KeyMaterial == "" {
-		return fmt.Errorf("missed kid and COSE_Key in cwt header")
+	vm, err := c.verificationMethodResolver.ResolveVerificationMethod(checkCWTRequest.KeyID, expectedProofIssuer)
+	if err != nil {
+		return fmt.Errorf("invalid public key id: %w", err)
 	}
 
-	if checkCWTRequest.Algo == 0 {
-		return fmt.Errorf("missed alg in cwt header")
+	supportedProof, err := c.getSupportedCWTProofByAlg(checkCWTRequest.Algo)
+	if err != nil {
+		return err
 	}
 
+	pubKey, err := convertToPublicKey(supportedProof.proofDescriptor.SupportedVerificationMethods(), vm)
+	if err != nil {
+		return fmt.Errorf("cwt with alg %s check: %w", checkCWTRequest.Algo, err)
+	}
+
+	verifier, err := c.getSignatureVerifier(pubKey.Type)
+	if err != nil {
+		return err
+	}
+
+	return verifier.Verify(signature, msg, pubKey)
+}
+
+func (c *ProofChecker) checkCWTProofByCOSEKey(
+	checkCWTRequest CheckCWTProofRequest,
+	expectedProofIssuer string,
+	msg []byte,
+	signature []byte,
+) error {
 	if expectedProofIssuer != "" {
-		return fmt.Errorf("checking expected issuer is not supported by CWT")
+		return fmt.Errorf("checking expected issuer is not supported by CWT for COSE_KEY")
 	}
-
-	//if checkCWTRequest.KeyID != "" { // not according to spec
-	//	vm, err := c.verificationMethodResolver.ResolveVerificationMethod(checkCWTRequest.KeyID, expectedProofIssuer)
-	//	if err != nil {
-	//		return fmt.Errorf("invalid public key id: %w", err)
-	//	}
-	//
-	//	supportedProof, err := c.getSupportedCWTProofByAlg(checkCWTRequest.Algo)
-	//	if err != nil {
-	//		return err
-	//	}
-	//
-	//	pubKey, err := convertToPublicKey(supportedProof.proofDescriptor.SupportedVerificationMethods(), vm)
-	//	if err != nil {
-	//		return fmt.Errorf("cwt with alg %s check: %w", checkCWTRequest.Algo, err)
-	//	}
-	//
-	//	verifier, err := c.getSignatureVerifier(pubKey.Type)
-	//	if err != nil {
-	//		return err
-	//	}
-	//
-	//	return verifier.Verify(signature, msg, pubKey)
-	//}
 
 	keyMaterialBytes, err := hex.DecodeString(checkCWTRequest.KeyMaterial)
 	if err != nil {
@@ -312,6 +308,9 @@ func (c *ProofChecker) CheckCWTProof(
 			Value: nil,
 			JWK:   jwkWrapper,
 		})
+	if err != nil {
+		return fmt.Errorf("convertToPublicKey. cwt with alg %s check: %w", checkCWTRequest.Algo, err)
+	}
 
 	verifier, err := c.getSignatureVerifier(kmsKeyType)
 	if err != nil {
@@ -319,6 +318,38 @@ func (c *ProofChecker) CheckCWTProof(
 	}
 
 	return verifier.Verify(signature, msg, pubKeyFinal)
+}
+
+// CheckCWTProof check cwt proof.
+func (c *ProofChecker) CheckCWTProof(
+	checkCWTRequest CheckCWTProofRequest,
+	expectedProofIssuer string,
+	msg []byte,
+	signature []byte,
+) error {
+	if checkCWTRequest.KeyID == "" && checkCWTRequest.KeyMaterial == "" {
+		return fmt.Errorf("missed kid and COSE_Key in cwt header")
+	}
+
+	if checkCWTRequest.Algo == 0 {
+		return fmt.Errorf("missed alg in cwt header")
+	}
+
+	if checkCWTRequest.KeyID != "" {
+		return c.checkCWTProofByKeyID(
+			checkCWTRequest,
+			expectedProofIssuer,
+			msg,
+			signature,
+		)
+	}
+
+	return c.checkCWTProofByCOSEKey(
+		checkCWTRequest,
+		expectedProofIssuer,
+		msg,
+		signature,
+	)
 }
 
 // FindIssuer finds issuer in payload.

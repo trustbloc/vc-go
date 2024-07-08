@@ -15,7 +15,6 @@ import (
 // Verifier verifies CWT proof.
 type Verifier struct {
 	ProofChecker ProofChecker
-	//expectedProofIssuer *string
 }
 
 // Verify verifies CWT proof.
@@ -25,15 +24,6 @@ func (v *Verifier) Verify(
 	msg []byte,
 	sign []byte,
 ) error {
-	//var expectedProofIssuer string
-	//
-	//if v.expectedProofIssuer != nil {
-	//	expectedProofIssuer = *v.expectedProofIssuer
-	//} else {
-	//	// if expectedProofIssuer not set, we get issuer DID from first part of key id.
-	//	expectedProofIssuer = strings.Split(keyID, "#")[0]
-	//}
-
 	return v.ProofChecker.CheckCWTProof(checker.CheckCWTProofRequest{
 		KeyMaterial: keyMaterial,
 		Algo:        algo,

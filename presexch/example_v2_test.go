@@ -871,7 +871,7 @@ func ExamplePresentationDefinition_CreateVP_limitedDisclosureSkipsNonSDVCs() {
 		return vc
 	}
 
-	proofCreators, _, err := testsupport.NewKMSSignersAndVerifierErr([]testsupport.SigningKey{
+	proofCreators, _, err := testsupport.NewKMSSignersAndVerifierErr([]*testsupport.SigningKey{
 		{Type: kms.ECDSAP256TypeIEEEP1363, PublicKeyID: "#key-1"},
 	})
 	if err != nil {

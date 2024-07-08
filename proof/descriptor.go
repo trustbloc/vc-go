@@ -14,7 +14,9 @@ import (
 
 const (
 	// CWTProofType is the proof type for CWT.
-	CWTProofType  = "application/openid4vci-proof+cwt"
+	CWTProofType = "application/openid4vci-proof+cwt"
+
+	// COSEKeyHeader is the header for COSE key.
 	COSEKeyHeader = "COSE_Key"
 )
 
