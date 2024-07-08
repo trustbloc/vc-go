@@ -43,7 +43,7 @@ func TestParsePresentationFromCWS_EdDSA(t *testing.T) {
 		WithPresProofChecker(proofChecher))
 	require.NoError(t, err)
 
-	require.Equal(t, cwtBytes, vpFromJWS.CWT)
+	require.Equal(t, cwtBytes, vpFromJWS.CWT.Raw)
 
 	marshaled, err := vpFromJWS.MarshalCBOR()
 	require.NoError(t, err)
