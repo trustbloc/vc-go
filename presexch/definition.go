@@ -1116,7 +1116,22 @@ func getLimitedDisclosures(constraints *Constraints, displaySrc []byte, credenti
 				return nil, err
 			}
 
-			for _, dc := range credential.SDJWTDisclosures() {
+			disclosures := credential.SDJWTDisclosures()
+			disclosuresMap := map[string]*common.DisclosureClaim{}
+
+			for _, dc := range disclosures {
+				disclosuresMap[dc.Digest] = dc
+			}
+
+			arrayElements := ExtractArrayValuesForSDJWTV5(parentObj)
+			for _, elem := range arrayElements {
+				dis, disOk := disclosuresMap[elem]
+				if disOk {
+					limitedDisclosures = append(limitedDisclosures, dis)
+				}
+			}
+
+			for _, dc := range disclosures {
 				if dc.Name == key {
 					digest, err := common.GetHash(*credentialContents.SDJWTHashAlg, dc.Disclosure)
 					if err != nil {
@@ -1132,6 +1147,30 @@ func getLimitedDisclosures(constraints *Constraints, displaySrc []byte, credenti
 	}
 
 	return limitedDisclosures, nil
+}
+
+// ExtractArrayValuesForSDJWTV5 extracts array values for SD JWT V5.
+func ExtractArrayValuesForSDJWTV5(obj map[string]interface{}) []string {
+	var extractedValues []string
+
+	for key, v := range obj {
+		switch val := v.(type) {
+		case string:
+			if key == "..." {
+				extractedValues = append(extractedValues, val)
+			}
+		case map[string]interface{}:
+			extractedValues = append(extractedValues, ExtractArrayValuesForSDJWTV5(val)...)
+		case []interface{}:
+			for _, valData := range val {
+				if d1, ok1 := valData.(map[string]interface{}); ok1 {
+					extractedValues = append(extractedValues, ExtractArrayValuesForSDJWTV5(d1)...)
+				}
+			}
+		}
+	}
+
+	return extractedValues
 }
 
 func frameCreds(frame map[string]interface{}, creds []*verifiable.Credential,

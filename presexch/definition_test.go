@@ -2361,6 +2361,36 @@ func TestPresentationDefinition_CreateVPArray(t *testing.T) {
 	})
 }
 
+func TestExtractExtraFields(t *testing.T) {
+	results := ExtractArrayValuesForSDJWTV5(map[string]interface{}{
+		"_sd": []interface{}{
+			"k1NxQSAyCCHlGw-93hxPzOFqUY4Ye7gLqLiKMkSZfHLa48Sevxr5zGHS6Yrb3arK",
+			"wu3GHwpa1pJaIv2U71-Y_9kdzjBxlZYRVOG03SIqrOMuytclBPOAU1FSlAnEgOzh",
+		},
+		"type": []interface{}{
+			map[string]interface{}{
+				"...": "mhV9Kt70m-8slbu1TgIpdr6_AWO-kG51Q2amF3w9qQyyxM-aXsTn77uxMBAnFM67",
+			},
+		},
+		"someObject": map[string]interface{}{
+			"nested": map[string]interface{}{
+				"nested2": map[string]interface{}{
+					"type": []interface{}{
+						map[string]interface{}{
+							"...": "xxx",
+						},
+					},
+				},
+			},
+		},
+	})
+
+	require.EqualValues(t, []string{
+		"mhV9Kt70m-8slbu1TgIpdr6_AWO-kG51Q2amF3w9qQyyxM-aXsTn77uxMBAnFM67",
+		"xxx",
+	}, results)
+}
+
 func getTestVCWithContext(t *testing.T, issuerID string, ctx []string) *verifiable.Credential {
 	subjectJSON := map[string]interface{}{
 		"id":           uuid.New().String(),
