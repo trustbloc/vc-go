@@ -14,7 +14,8 @@ import (
 
 const (
 	// CWTProofType is the proof type for CWT.
-	CWTProofType = "application/openid4vci-proof+cwt"
+	CWTProofType  = "application/openid4vci-proof+cwt"
+	COSEKeyHeader = "COSE_Key"
 )
 
 // SupportedVerificationMethod describes verification methods that supported by proof checker.

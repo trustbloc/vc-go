@@ -247,13 +247,13 @@ func TestAllCWTSignersVerifiers(t *testing.T) {
 			keyBytes, err := parsedPubKey.MarshalCBOR()
 			assert.NoError(t, err)
 			pubKeyStr := hex.EncodeToString(keyBytes)
-			fmt.Println(pubKeyStr)
+
 			msg := &cose.Sign1Message{
 				Headers: cose.Headers{
 					Protected: cose.ProtectedHeader{
 						cose.HeaderLabelAlgorithm:   testCase.CborAlg,
 						cose.HeaderLabelContentType: proof.CWTProofType,
-						cose.HeaderLabelKeyID:       []byte(testCase.signingKey.PublicKeyID),
+						proof.COSEKeyHeader:         pubKeyStr,
 					},
 					Unprotected: cose.UnprotectedHeader{},
 				},

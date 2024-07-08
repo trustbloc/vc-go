@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package checker
 
 import (
+	"encoding/hex"
 	"fmt"
 
 	"github.com/tidwall/gjson"
@@ -14,6 +15,7 @@ import (
 	"github.com/trustbloc/did-go/doc/ld/proof"
 	"github.com/trustbloc/kms-go/doc/jose"
 	"github.com/trustbloc/kms-go/doc/jose/jwk"
+	"github.com/trustbloc/kms-go/doc/jose/jwk/jwksupport"
 	"github.com/trustbloc/kms-go/spi/kms"
 	"github.com/veraison/go-cose"
 
@@ -238,17 +240,65 @@ func (c *ProofChecker) CheckCWTProof(
 	msg []byte,
 	signature []byte,
 ) error {
-	if checkCWTRequest.KeyID == "" {
-		return fmt.Errorf("missed kid in cwt header")
+	if checkCWTRequest.KeyID == "" && checkCWTRequest.KeyMaterial == "" {
+		return fmt.Errorf("missed kid and COSE_Key in cwt header")
 	}
 
 	if checkCWTRequest.Algo == 0 {
 		return fmt.Errorf("missed alg in cwt header")
 	}
 
-	vm, err := c.verificationMethodResolver.ResolveVerificationMethod(checkCWTRequest.KeyID, expectedProofIssuer)
+	if expectedProofIssuer != "" {
+		return fmt.Errorf("checking expected issuer is not supported by CWT")
+	}
+
+	//if checkCWTRequest.KeyID != "" { // not according to spec
+	//	vm, err := c.verificationMethodResolver.ResolveVerificationMethod(checkCWTRequest.KeyID, expectedProofIssuer)
+	//	if err != nil {
+	//		return fmt.Errorf("invalid public key id: %w", err)
+	//	}
+	//
+	//	supportedProof, err := c.getSupportedCWTProofByAlg(checkCWTRequest.Algo)
+	//	if err != nil {
+	//		return err
+	//	}
+	//
+	//	pubKey, err := convertToPublicKey(supportedProof.proofDescriptor.SupportedVerificationMethods(), vm)
+	//	if err != nil {
+	//		return fmt.Errorf("cwt with alg %s check: %w", checkCWTRequest.Algo, err)
+	//	}
+	//
+	//	verifier, err := c.getSignatureVerifier(pubKey.Type)
+	//	if err != nil {
+	//		return err
+	//	}
+	//
+	//	return verifier.Verify(signature, msg, pubKey)
+	//}
+
+	keyMaterialBytes, err := hex.DecodeString(checkCWTRequest.KeyMaterial)
 	if err != nil {
-		return fmt.Errorf("invalid public key id: %w", err)
+		return fmt.Errorf("failed to decode key material: %w", err)
+	}
+
+	var targetKey cose.Key
+	if err = targetKey.UnmarshalCBOR(keyMaterialBytes); err != nil {
+		return fmt.Errorf("failed to unmarshal key material: %w", err)
+	}
+
+	pubKey, err := targetKey.PublicKey()
+	if err != nil {
+		return fmt.Errorf("failed to get public key: %w", err)
+	}
+
+	jwkWrapper, err := jwksupport.JWKFromKey(pubKey)
+	if err != nil {
+		return fmt.Errorf("failed to create JWK from key: %w", err)
+	}
+
+	kmsKeyType, err := jwkWrapper.KeyType()
+	if err != nil {
+		return fmt.Errorf("failed to get key type: %w", err)
 	}
 
 	supportedProof, err := c.getSupportedCWTProofByAlg(checkCWTRequest.Algo)
@@ -256,17 +306,19 @@ func (c *ProofChecker) CheckCWTProof(
 		return err
 	}
 
-	pubKey, err := convertToPublicKey(supportedProof.proofDescriptor.SupportedVerificationMethods(), vm)
-	if err != nil {
-		return fmt.Errorf("cwt with alg %s check: %w", checkCWTRequest.Algo, err)
-	}
+	pubKeyFinal, err := convertToPublicKey(
+		supportedProof.proofDescriptor.SupportedVerificationMethods(), &vermethod.VerificationMethod{
+			Type:  "JsonWebKey2020",
+			Value: nil,
+			JWK:   jwkWrapper,
+		})
 
-	verifier, err := c.getSignatureVerifier(pubKey.Type)
+	verifier, err := c.getSignatureVerifier(kmsKeyType)
 	if err != nil {
 		return err
 	}
 
-	return verifier.Verify(signature, msg, pubKey)
+	return verifier.Verify(signature, msg, pubKeyFinal)
 }
 
 // FindIssuer finds issuer in payload.

@@ -12,6 +12,7 @@ import (
 	"github.com/fxamacker/cbor/v2"
 	"github.com/veraison/go-cose"
 
+	"github.com/trustbloc/vc-go/proof"
 	"github.com/trustbloc/vc-go/verifiable/cwt"
 )
 
@@ -95,17 +96,15 @@ func CheckProof(
 	}
 
 	// currently supported only COSE_Key, x5chain is not supported by go opensource implementation yet
-	keyIDBytes, ok := message.Headers.Protected[cose.HeaderLabelKeyID].([]byte)
+	keyMaterial, ok := message.Headers.Protected[proof.COSEKeyHeader].(string)
 	if !ok {
-		return errors.New("check cwt failure: kid header is required")
+		return errors.New("check cwt failure: COSE_Key header is required")
 	}
-
-	rawKeyID := string(keyIDBytes)
 
 	checker := Verifier{
-		ProofChecker:        proofChecker,
-		expectedProofIssuer: expectedProofIssuer,
+		ProofChecker: proofChecker,
+		//expectedProofIssuer: expectedProofIssuer,
 	}
 
-	return checker.Verify(rawKeyID, alg, msg, signature)
+	return checker.Verify(keyMaterial, alg, msg, signature)
 }
