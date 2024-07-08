@@ -13,7 +13,6 @@ import (
 	"github.com/veraison/go-cose"
 
 	"github.com/trustbloc/vc-go/proof"
-	"github.com/trustbloc/vc-go/util/binary"
 	"github.com/trustbloc/vc-go/verifiable/cwt"
 )
 
@@ -105,14 +104,11 @@ func CheckProof(
 
 	// currently supported only COSE_Key, x5chain is not supported by go opensource implementation yet
 	keyMaterial, _ := message.Headers.Protected[proof.COSEKeyHeader].(string)   // nolint
-	keyIDBinary, _ := message.Headers.Protected[cose.HeaderLabelKeyID].(string) // nolint
+	keyIDBinary, _ := message.Headers.Protected[cose.HeaderLabelKeyID].([]byte) // nolint
 
 	var rawKeyID string
-	if keyIDBinary != "" {
-		rawKeyID, err = binary.DecodeBinaryStringToString(keyIDBinary)
-		if err != nil {
-			return err
-		}
+	if len(keyIDBinary) > 0 {
+		rawKeyID = string(keyIDBinary)
 	}
 
 	checker := Verifier{
