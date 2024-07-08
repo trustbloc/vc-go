@@ -1116,22 +1116,21 @@ func getLimitedDisclosures(constraints *Constraints, displaySrc []byte, credenti
 				return nil, err
 			}
 
-			allDisclosures := credential.SDJWTDisclosures()
+			disclosures := credential.SDJWTDisclosures()
 			disclosuresMap := map[string]*common.DisclosureClaim{}
-			for _, dc := range allDisclosures {
-				disclosuresMap[dc.Digest] = dc
+			for _, dc := range disclosures {
+				disclosuresMap[dc.Disclosure] = dc
 			}
 
-			for _, stringValue := range extractAdditionalDigests(parentObj) {
-				disVal, disOk := disclosuresMap[stringValue]
-				if !disOk {
-					continue
+			arrayElements := ExtractArrayValuesForSDJWTV5(parentObj)
+			for _, elem := range arrayElements {
+				dis, disOk := disclosuresMap[elem]
+				if disOk {
+					limitedDisclosures = append(limitedDisclosures, dis)
 				}
-
-				limitedDisclosures = append(limitedDisclosures, disVal)
 			}
 
-			for _, dc := range allDisclosures {
+			for _, dc := range disclosures {
 				if dc.Name == key {
 					digest, err := common.GetHash(*credentialContents.SDJWTHashAlg, dc.Disclosure)
 					if err != nil {
@@ -1146,40 +1145,30 @@ func getLimitedDisclosures(constraints *Constraints, displaySrc []byte, credenti
 		}
 	}
 
-	finalDisclosures := map[*common.DisclosureClaim]struct{}{}
-	for _, closure := range limitedDisclosures {
-		finalDisclosures[closure] = struct{}{}
-	}
-
-	limitedDisclosures = nil
-	for closure, _ := range finalDisclosures {
-		limitedDisclosures = append(limitedDisclosures, closure)
-	}
-
 	return limitedDisclosures, nil
 }
 
-func extractAdditionalDigests(obj map[string]interface{}) []string {
-	var values []string
+func ExtractArrayValuesForSDJWTV5(obj map[string]interface{}) []string {
+	var extractedValues []string
 
-	for _, v := range obj {
-		switch data := v.(type) {
+	for key, v := range obj {
+		switch val := v.(type) {
+		case string:
+			if key == "..." {
+				extractedValues = append(extractedValues, val)
+			}
 		case map[string]interface{}:
-			values = append(values, extractAdditionalDigests(data)...)
+			extractedValues = append(extractedValues, ExtractArrayValuesForSDJWTV5(val)...)
 		case []interface{}:
-			for _, item := range data {
-				if m, ok := item.(map[string]interface{}); ok {
-					values = append(values, extractAdditionalDigests(m)...)
-				}
-
-				if s, ok := item.(string); ok {
-					values = append(values, s)
+			for _, valData := range val {
+				if d1, ok1 := valData.(map[string]interface{}); ok1 {
+					extractedValues = append(extractedValues, ExtractArrayValuesForSDJWTV5(d1)...)
 				}
 			}
 		}
 	}
 
-	return values
+	return extractedValues
 }
 
 func frameCreds(frame map[string]interface{}, creds []*verifiable.Credential,
