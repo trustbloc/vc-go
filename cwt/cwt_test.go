@@ -174,7 +174,7 @@ func TestParse(t *testing.T) {
 				},
 			},
 		}, nil, nil, nil, nil),
-			"check cwt failure: kid header is required")
+			"check cwt failure: COSE_Key header is required")
 	})
 }
 
