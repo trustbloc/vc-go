@@ -40,6 +40,10 @@ func createTestProof() (string, error) {
 	}
 
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return "", err
+	}
+
 	encoded, err := cbor.Marshal(data)
 	if err != nil {
 		return "", err
