@@ -20,6 +20,7 @@ import (
 
 	"github.com/piprate/json-gold/ld"
 	util "github.com/trustbloc/did-go/doc/util/time"
+	"github.com/veraison/go-cose"
 	"github.com/xeipuuv/gojsonschema"
 
 	kmsapi "github.com/trustbloc/kms-go/spi/kms"
@@ -70,6 +71,24 @@ func KeyTypeToJWSAlgo(keyType kmsapi.KeyType) (JWSAlgorithm, error) {
 		return RS256, nil
 	case kmsapi.RSAPS256Type:
 		return PS256, nil
+	default:
+		return 0, errors.New("unsupported key type")
+	}
+}
+
+// KeyTypeToCWSAlgo returns the cose.Algorithm based on keyType.
+func KeyTypeToCWSAlgo(keyType kmsapi.KeyType) (cose.Algorithm, error) {
+	switch keyType {
+	case kmsapi.ECDSAP256TypeDER, kmsapi.ECDSAP256TypeIEEEP1363:
+		return cose.AlgorithmES256, nil
+	case kmsapi.ECDSAP384TypeDER, kmsapi.ECDSAP384TypeIEEEP1363:
+		return cose.AlgorithmES384, nil
+	case kmsapi.ED25519Type:
+		return cose.AlgorithmEdDSA, nil
+	case kmsapi.RSARS256Type:
+		return cose.AlgorithmRS256, nil
+	case kmsapi.RSAPS256Type:
+		return cose.AlgorithmPS256, nil
 	default:
 		return 0, errors.New("unsupported key type")
 	}

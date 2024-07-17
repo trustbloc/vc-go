@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"crypto"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -24,14 +25,17 @@ import (
 	"github.com/trustbloc/did-go/doc/ld/proof"
 	docjsonld "github.com/trustbloc/did-go/doc/ld/validator"
 	"github.com/trustbloc/kms-go/doc/jose"
+	"github.com/veraison/go-cose"
 	"github.com/xeipuuv/gojsonschema"
 
 	util "github.com/trustbloc/did-go/doc/util/time"
 
+	"github.com/trustbloc/vc-go/cwt"
 	"github.com/trustbloc/vc-go/dataintegrity"
 	"github.com/trustbloc/vc-go/jwt"
 	"github.com/trustbloc/vc-go/sdjwt/common"
 	jsonutil "github.com/trustbloc/vc-go/util/json"
+	cwt2 "github.com/trustbloc/vc-go/verifiable/cwt"
 	"github.com/trustbloc/vc-go/verifiable/lddocument"
 )
 
@@ -42,6 +46,8 @@ const (
 	schemaPropertyCredentialSubject = "credentialSubject"
 	schemaPropertyIssuer            = "issuer"
 	schemaPropertyIssuanceDate      = "issuanceDate"
+
+	jsonLDStructureErrStr = "JSON-LD doc has different structure after compaction"
 )
 
 // DefaultSchemaTemplate describes default schema.
@@ -507,6 +513,7 @@ type Credential struct {
 	ldProofs           []Proof
 	//TODO: make this private. Currently used in tests to create invalid jwt vc's.
 	JWTEnvelope *JWTEnvelope
+	CWTEnvelope *CWTEnvelope
 }
 
 // JWTEnvelope contains information about JWT that envelops credential.
@@ -517,6 +524,12 @@ type JWTEnvelope struct {
 	SDJWTVersion     common.SDJWTVersion
 	SDJWTDisclosures []*common.DisclosureClaim
 	SDHolderBinding  string
+}
+
+// CWTEnvelope contains information about CWT that envelops credential.
+type CWTEnvelope struct {
+	Sign1MessageRaw    []byte
+	Sign1MessageParsed *cose.Sign1Message
 }
 
 // Contents returns credential contents as typed structure.
@@ -560,6 +573,10 @@ func (vc *Credential) ToJWTString() (string, error) {
 
 // ToUniversalForm returns vc in its natural form. For jwt-vc it is a jwt string. For json-ld vc it is a json object.
 func (vc *Credential) ToUniversalForm() (interface{}, error) {
+	if vc.IsCWT() {
+		return vc.MarshalAsCWTLDHex()
+	}
+
 	if vc.IsJWT() {
 		jwtStr, err := vc.ToJWTString()
 		if err != nil {
@@ -580,6 +597,11 @@ func (vc *Credential) Proofs() []Proof {
 // IsJWT returns is vc envelop into jwt.
 func (vc *Credential) IsJWT() bool {
 	return vc.JWTEnvelope != nil
+}
+
+// IsCWT returns is vc envelop into cwt.
+func (vc *Credential) IsCWT() bool {
+	return vc.CWTEnvelope != nil
 }
 
 // JWTHeaders returns jwt headers for jwt-vc.
@@ -644,6 +666,8 @@ type CombinedProofChecker interface {
 	GetLDPDigest(proof *proof.Proof, doc []byte) ([]byte, error)
 
 	CheckJWTProof(headers jose.Headers, expectedProofIssuer string, msg, signature []byte) error
+
+	cwt.ProofChecker
 }
 
 // CredentialDecoder makes a custom decoding of Verifiable Credential in JSON form to existent
@@ -657,6 +681,7 @@ type CredentialTemplate func() *Credential
 type credentialOpts struct {
 	ldProofChecker        lddocument.ProofChecker
 	jwtProofChecker       jwt.ProofChecker
+	cwtProofChecker       cwt.ProofChecker
 	disabledCustomSchema  bool
 	schemaLoader          *CredentialSchemaLoader
 	modelValidationMode   vcModelValidationMode
@@ -708,6 +733,7 @@ func WithProofChecker(verifier CombinedProofChecker) CredentialOpt {
 	return func(opts *credentialOpts) {
 		opts.jwtProofChecker = verifier
 		opts.ldProofChecker = verifier
+		opts.cwtProofChecker = verifier
 	}
 }
 
@@ -722,6 +748,13 @@ func WithLDProofChecker(verifier lddocument.ProofChecker) CredentialOpt {
 func WithJWTProofChecker(verifier jwt.ProofChecker) CredentialOpt {
 	return func(opts *credentialOpts) {
 		opts.jwtProofChecker = verifier
+	}
+}
+
+// WithCWTProofChecker set proofChecker that used for validation of cwt proof.
+func WithCWTProofChecker(verifier cwt.ProofChecker) CredentialOpt {
+	return func(opts *credentialOpts) {
+		opts.cwtProofChecker = verifier
 	}
 }
 
@@ -975,78 +1008,33 @@ func ParseCredential(vcData []byte, opts ...CredentialOpt) (*Credential, error) 
 	// Apply options.
 	vcOpts := getCredentialOpts(opts)
 
-	vcStr := unwrapStringVC(vcData)
+	parsers := []CredentialParser{
+		&CredentialJSONParser{},
+		&CredentialCBORParser{},
+	}
 
-	var (
-		externalJWT string
-		jwtHeader   jose.Headers
-		err         error
+	var finalErr error
+	var vc *Credential
+	var err error
 
-		vcDataDecoded []byte
-	)
+	for _, parser := range parsers {
+		vc, err = parser.Parse(vcData, vcOpts)
 
-	jwtParseRes := tryParseAsJWSVC(vcStr)
-	if jwtParseRes.isJWS {
-		jwtHeader, vcDataDecoded, err = decodeJWTVC(jwtParseRes.onlyJWT)
 		if err != nil {
-			return nil, fmt.Errorf("decode new JWT credential: %w", err)
+			if err.Error() == jsonLDStructureErrStr {
+				return nil, err
+			}
+
+			finalErr = errors.Join(finalErr, err)
 		}
 
-		if err = validateDisclosures(vcDataDecoded, jwtParseRes.sdDisclosures); err != nil {
-			return nil, err
-		}
-
-		externalJWT = jwtParseRes.onlyJWT
-	} else {
-		// Decode json-ld credential, from unsecured JWT or raw JSON
-		vcDataDecoded, err = decodeLDVC(vcData, vcStr)
-		if err != nil {
-			return nil, fmt.Errorf("decode new credential: %w", err)
+		if vc != nil {
+			break
 		}
 	}
 
-	vcJSON, err := parseCredentialJSON(vcDataDecoded)
-	if err != nil {
-		return nil, err
-	}
-
-	contents, err := parseCredentialContents(vcJSON, jwtParseRes.isSDJWT)
-	if err != nil {
-		return nil, err
-	}
-
-	ldProofs, err := parseLDProof(vcJSON[jsonFldLDProof])
-	if err != nil {
-		return nil, fmt.Errorf("fill credential proof from raw: %w", err)
-	}
-
-	if externalJWT == "" && !vcOpts.disableValidation {
-		// TODO: consider new validation options for, eg, jsonschema only, for JWT VC
-		err = validateCredential(contents, vcJSON, vcOpts)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	vc := &Credential{
-		credentialJSON:     vcJSON,
-		credentialContents: *contents,
-		ldProofs:           ldProofs,
-	}
-
-	parsedDisclosures, err := parseDisclosures(jwtParseRes.sdDisclosures, contents.SDJWTHashAlg)
-	if err != nil {
-		return nil, fmt.Errorf("fill credential sdjwt disclosures from raw: %w", err)
-	}
-
-	if jwtParseRes.isJWS {
-		vc.JWTEnvelope = &JWTEnvelope{
-			JWT:              externalJWT,
-			JWTHeaders:       jwtHeader,
-			SDJWTVersion:     common.SDJWTVersionDefault,
-			SDJWTDisclosures: parsedDisclosures,
-			SDHolderBinding:  jwtParseRes.sdHolderBinding,
-		}
+	if vc == nil {
+		return nil, finalErr
 	}
 
 	if !vcOpts.disabledProofCheck {
@@ -1452,6 +1440,31 @@ func (vc *Credential) CheckProof(opts ...CredentialOpt) error {
 		return nil
 	}
 
+	if vc.CWTEnvelope != nil {
+		if vcOpts.cwtProofChecker == nil {
+			return errors.New("cwt proofChecker is not defined")
+		}
+
+		proofValue, err := cwt2.GetProofValue(vc.CWTEnvelope.Sign1MessageParsed)
+		if err != nil {
+			return err
+		}
+
+		err = cwt.CheckProof(
+			vc.CWTEnvelope.Sign1MessageParsed,
+			vcOpts.cwtProofChecker,
+			&issuerID,
+			proofValue,
+			vc.CWTEnvelope.Sign1MessageParsed.Signature,
+		)
+
+		if err != nil {
+			return fmt.Errorf("CWT proof check: %w", err)
+		}
+
+		return nil
+	}
+
 	return checkEmbeddedProof(vc.credentialJSON, &issuerID, getEmbeddedProofCheckOpts(vcOpts))
 }
 
@@ -1706,7 +1719,11 @@ func (vc *Credential) JWTClaims(minimizeVC bool) (*JWTCredClaims, error) {
 
 // CreateSignedJWTVC envelops current vc into signed jwt.
 func (vc *Credential) CreateSignedJWTVC(
-	minimizeVC bool, signatureAlg JWSAlgorithm, proofCreator jwt.ProofCreator, keyID string) (*Credential, error) {
+	minimizeVC bool,
+	signatureAlg JWSAlgorithm,
+	proofCreator jwt.ProofCreator,
+	keyID string,
+) (*Credential, error) {
 	jwtClaims, err := vc.JWTClaims(minimizeVC)
 	if err != nil {
 		return nil, err
@@ -1724,6 +1741,32 @@ func (vc *Credential) CreateSignedJWTVC(
 		JWTEnvelope: &JWTEnvelope{
 			JWT:        jwsString,
 			JWTHeaders: joseHeaders,
+		},
+	}, nil
+}
+
+// CreateSignedCOSEVC envelops current vc into signed COSE.
+func (vc *Credential) CreateSignedCOSEVC(
+	signatureAlg cose.Algorithm,
+	proofCreator cwt.ProofCreator,
+	keyID string,
+) (*Credential, error) {
+	claims, err := vc.CWTClaims()
+	if err != nil {
+		return nil, err
+	}
+
+	msg, err := claims.MarshaCOSE(signatureAlg, proofCreator, keyID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Credential{
+		credentialJSON:     claims.VC,
+		credentialContents: vc.Contents(),
+		ldProofs:           vc.ldProofs,
+		CWTEnvelope: &CWTEnvelope{
+			Sign1MessageRaw: msg,
 		},
 	}, nil
 }
@@ -1910,12 +1953,36 @@ func (vc *Credential) MarshalJSON() ([]byte, error) {
 
 // MarshalAsJSONLD converts Verifiable Credential to JSON bytes ignoring that it is in JWT form.
 func (vc *Credential) MarshalAsJSONLD() ([]byte, error) {
-	byteCred, err := json.Marshal(vc.ToRawJSON())
+	byteCred, err := json.Marshal(vc.ToRawClaimsMap())
 	if err != nil {
 		return nil, fmt.Errorf("JSON marshalling of verifiable credential: %w", err)
 	}
 
 	return byteCred, nil
+}
+
+// ToRawClaimsMap returns raw map[string]interface{} of VC claims.
+func (vc *Credential) ToRawClaimsMap() JSONObject {
+	return vc.ToRawJSON()
+}
+
+// MarshalAsCWTLD converts Verifiable Credential to CBOR bytes.
+func (vc *Credential) MarshalAsCWTLD() ([]byte, error) {
+	if vc.CWTEnvelope == nil {
+		return nil, errors.New("no COSE envelope found")
+	}
+
+	return vc.CWTEnvelope.Sign1MessageRaw, nil
+}
+
+// MarshalAsCWTLDHex converts Verifiable Credential to CBOR hex string.
+func (vc *Credential) MarshalAsCWTLDHex() (string, error) {
+	data, err := vc.MarshalAsCWTLD()
+	if err != nil {
+		return "", err
+	}
+
+	return hex.EncodeToString(data), nil
 }
 
 // WithModifiedID creates new credential with modified id and without proofs as they become invalid.

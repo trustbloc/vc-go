@@ -978,7 +978,7 @@ func TestParseCredential_ProofCreatedWithMillisec(t *testing.T) {
 func TestParseCredentialWithSeveralLinkedDataProofs(t *testing.T) {
 	r := require.New(t)
 
-	proofCreators, proofChecker := testsupport.NewKMSSignersAndVerifier(t, []testsupport.SigningKey{
+	proofCreators, proofChecker := testsupport.NewKMSSignersAndVerifier(t, []*testsupport.SigningKey{
 		{Type: kms.ED25519Type, VMType: "Ed25519VerificationKey2018", PublicKeyID: "did:example:76e12ec712ebc6f1c221ebfeb1f#key1"},
 		{Type: kms.ECDSAP256TypeIEEEP1363, PublicKeyID: "did:example:76e12ec712ebc6f1c221ebfeb1f#key2"},
 	})

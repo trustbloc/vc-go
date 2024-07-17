@@ -52,7 +52,7 @@ func TestCredJWSDecoderUnmarshal(t *testing.T) {
 	verificationKeyID := "did:example:76e12ec712ebc6f1c221ebfeb1f#key1"
 	otherVerificationKeyID := "did:example:76e12ec712ebc6f1c221ebfeb1f#key2"
 
-	proofCreators, proofChecker := testsupport.NewKMSSignersAndVerifier(t, []testsupport.SigningKey{
+	proofCreators, proofChecker := testsupport.NewKMSSignersAndVerifier(t, []*testsupport.SigningKey{
 		{Type: kms.RSARS256, PublicKeyID: verificationKeyID},
 		{Type: kms.RSARS256, PublicKeyID: otherVerificationKeyID},
 	})

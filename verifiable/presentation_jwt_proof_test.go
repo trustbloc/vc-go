@@ -185,7 +185,7 @@ func TestParsePresentationWithVCJWT(t *testing.T) {
 	r.NoError(err)
 
 	t.Run("Presentation with VC defined as JWS", func(t *testing.T) {
-		proofCreators, proofChecker := testsupport.NewKMSSignersAndVerifier(t, []testsupport.SigningKey{
+		proofCreators, proofChecker := testsupport.NewKMSSignersAndVerifier(t, []*testsupport.SigningKey{
 			{Type: kms.RSARS256Type, PublicKeyID: "did:example:76e12ec712ebc6f1c221ebfeb1f#issuer-key"},
 			{Type: kms.ED25519Type, PublicKeyID: "did:123#holder-key"},
 		})
@@ -221,7 +221,7 @@ func TestParsePresentationWithVCJWT(t *testing.T) {
 	})
 
 	t.Run("Presentation with VC defined as VC struct", func(t *testing.T) {
-		proofCreators, proofCreator := testsupport.NewKMSSignersAndVerifier(t, []testsupport.SigningKey{
+		proofCreators, proofCreator := testsupport.NewKMSSignersAndVerifier(t, []*testsupport.SigningKey{
 			{Type: kms.ED25519Type, PublicKeyID: "did:123#holder-key"},
 		})
 		// Create and encode VP.
@@ -251,7 +251,7 @@ func TestParsePresentationWithVCJWT(t *testing.T) {
 	})
 
 	t.Run("Failed check of VC due to invalid JWS", func(t *testing.T) {
-		proofCreators, _ := testsupport.NewKMSSignersAndVerifier(t, []testsupport.SigningKey{
+		proofCreators, _ := testsupport.NewKMSSignersAndVerifier(t, []*testsupport.SigningKey{
 			{Type: kms.RSARS256Type, PublicKeyID: "did:123#issuer-key"},
 		})
 
@@ -268,7 +268,7 @@ func TestParsePresentationWithVCJWT(t *testing.T) {
 		jwtClaims, err := vp.JWTClaims([]string{}, true)
 		require.NoError(t, err)
 
-		issuerProofCreator, proofChecker := testsupport.NewKMSSignersAndVerifier(t, []testsupport.SigningKey{
+		issuerProofCreator, proofChecker := testsupport.NewKMSSignersAndVerifier(t, []*testsupport.SigningKey{
 			{Type: kms.RSARS256Type, PublicKeyID: "did:123#issuer-key"},
 			{Type: kms.ED25519Type, PublicKeyID: "did:123#holder-key"},
 		})

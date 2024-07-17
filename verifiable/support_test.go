@@ -95,7 +95,7 @@ func createVCWithTwoLinkedDataProofs(t *testing.T) (*Credential, *checker.ProofC
 
 	created := time.Now()
 
-	proofCreators, proofChecker := testsupport.NewKMSSignersAndVerifier(t, []testsupport.SigningKey{
+	proofCreators, proofChecker := testsupport.NewKMSSignersAndVerifier(t, []*testsupport.SigningKey{
 		{
 			Type:        kmsapi.ED25519Type,
 			PublicKeyID: "did:example:76e12ec712ebc6f1c221ebfeb1f#key1",

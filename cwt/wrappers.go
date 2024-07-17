@@ -22,22 +22,24 @@ type Verifier struct {
 
 // Verify verifies CWT proof.
 func (v *Verifier) Verify(
+	keyMaterial string,
 	keyID string,
 	algo cose.Algorithm,
 	msg []byte,
 	sign []byte,
 ) error {
 	var expectedProofIssuer string
-
 	if v.expectedProofIssuer != nil {
 		expectedProofIssuer = *v.expectedProofIssuer
-	} else {
-		// if expectedProofIssuer not set, we get issuer DID from first part of key id.
+	}
+
+	if expectedProofIssuer == "" && keyID != "" {
 		expectedProofIssuer = strings.Split(keyID, "#")[0]
 	}
 
 	return v.ProofChecker.CheckCWTProof(checker.CheckCWTProofRequest{
-		KeyID: keyID,
-		Algo:  algo,
+		KeyMaterial: keyMaterial,
+		KeyID:       keyID,
+		Algo:        algo,
 	}, expectedProofIssuer, msg, sign)
 }

@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/fxamacker/cbor/v2"
 	jsonld "github.com/piprate/json-gold/ld"
 	"github.com/xeipuuv/gojsonschema"
 
@@ -17,8 +18,6 @@ import (
 	jsonutil "github.com/trustbloc/vc-go/util/json"
 
 	docjsonld "github.com/trustbloc/did-go/doc/ld/validator"
-
-	"github.com/trustbloc/vc-go/jwt"
 )
 
 const basePresentationSchema = `
@@ -176,7 +175,9 @@ type Presentation struct {
 	Holder        string
 	Proofs        []Proof
 	JWT           string
-	CustomFields  CustomFields
+	CWT           *VpCWT
+
+	CustomFields CustomFields
 }
 
 // NewPresentation creates a new Presentation with default context and type with the provided credentials.
@@ -229,10 +230,29 @@ func (vp *Presentation) MarshalJSON() ([]byte, error) {
 	return byteCred, nil
 }
 
+func (vp *Presentation) MarshalCBOR() ([]byte, error) {
+	if vp.CWT != nil && len(vp.CWT.Raw) > 0 {
+		return vp.CWT.Raw, nil
+	}
+
+	raw, err := vp.raw()
+	if err != nil {
+		return nil, fmt.Errorf("JSON marshalling of verifiable presentation: %w", err)
+	}
+
+	return cbor.Marshal(raw)
+}
+
 // JWTClaims converts Verifiable Presentation into JWT Presentation claims, which can be than serialized
 // e.g. into JWS.
 func (vp *Presentation) JWTClaims(audience []string, minimizeVP bool) (*JWTPresClaims, error) {
 	return newJWTPresClaims(vp, audience, minimizeVP)
+}
+
+// CWTClaims converts Verifiable Presentation into CWT Presentation claims, which can be than serialized
+// e.g. into JWS.
+func (vp *Presentation) CWTClaims(audience []string, minimizeVP bool) (*CWTPresClaims, error) {
+	return newCWTPresClaims(vp, audience, minimizeVP) // for now same as JWT
 }
 
 // Credentials returns current credentials of presentation.
@@ -404,17 +424,47 @@ func WithPresExpectedDataIntegrityFields(purpose, domain, challenge string) Pres
 func ParsePresentation(vpData []byte, opts ...PresentationOpt) (*Presentation, error) {
 	vpOpts := getPresentationOpts(opts)
 
-	vpDataDecoded, vpRaw, vpJWT, err := decodeRawPresentation(vpData, vpOpts)
+	parsers := []PresentationParser{
+		&PresentationJSONParser{},
+		&PresentationCWTParser{},
+	}
+
+	//var vpDataDecoded []byte
+	//var vpRaw rawPresentation
+	//var vpJWT string
+	var parsed *parsePresentationResponse
+	var finalErr error
+	var err error
+
+	for _, parser := range parsers {
+		parsed, err = parser.parse(vpData, vpOpts)
+
+		if err != nil {
+			finalErr = errors.Join(finalErr, err)
+		}
+
+		if parsed != nil {
+			finalErr = nil
+			err = nil
+
+			break
+		}
+	}
+
+	if finalErr != nil {
+		return nil, finalErr
+	}
+
+	if parsed == nil {
+		return nil, errors.New("unable to parse presentation")
+	}
+
+	err = validateVP(parsed.VPRaw, vpOpts)
 	if err != nil {
 		return nil, err
 	}
 
-	err = validateVP(vpDataDecoded, vpOpts)
-	if err != nil {
-		return nil, err
-	}
-
-	p, err := newPresentation(vpRaw, vpOpts)
+	p, err := newPresentation(parsed.VPRaw, vpOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -423,7 +473,8 @@ func ParsePresentation(vpData []byte, opts ...PresentationOpt) (*Presentation, e
 		return nil, fmt.Errorf("verifiableCredential is required")
 	}
 
-	p.JWT = vpJWT
+	p.JWT = parsed.VPJwt
+	p.CWT = parsed.VPCwt
 
 	return p, nil
 }
@@ -563,7 +614,7 @@ func decodeCredentials(rawCred interface{}, opts *presentationOpts) ([]*Credenti
 	}
 }
 
-func validateVP(data []byte, opts *presentationOpts) error {
+func validateVP(data rawPresentation, opts *presentationOpts) error {
 	err := validateVPJSONSchema(data)
 	if err != nil {
 		return err
@@ -576,16 +627,16 @@ func validateVP(data []byte, opts *presentationOpts) error {
 	return validateVPJSONLD(data, opts)
 }
 
-func validateVPJSONLD(vpBytes []byte, opts *presentationOpts) error {
-	return docjsonld.ValidateJSONLD(string(vpBytes),
+func validateVPJSONLD(vpBytes rawPresentation, opts *presentationOpts) error {
+	return docjsonld.ValidateJSONLDMap(vpBytes,
 		docjsonld.WithDocumentLoader(opts.jsonldCredentialOpts.jsonldDocumentLoader),
 		docjsonld.WithExternalContext(opts.jsonldCredentialOpts.externalContext),
 		docjsonld.WithStrictValidation(opts.strictValidation),
 	)
 }
 
-func validateVPJSONSchema(data []byte) error {
-	loader := gojsonschema.NewStringLoader(string(data))
+func validateVPJSONSchema(data rawPresentation) error {
+	loader := gojsonschema.NewGoLoader(data)
 
 	result, err := gojsonschema.Validate(basePresentationSchemaLoader, loader)
 	if err != nil {
@@ -598,66 +649,6 @@ func validateVPJSONSchema(data []byte) error {
 	}
 
 	return nil
-}
-
-//nolint:gocyclo
-func decodeRawPresentation(vpData []byte, vpOpts *presentationOpts) ([]byte, rawPresentation, string, error) {
-	vpStr := string(unQuote(vpData))
-
-	if jwt.IsJWS(vpStr) {
-		if !vpOpts.disabledProofCheck && vpOpts.proofChecker == nil {
-			return nil, nil, "", errors.New("proof checker is not defined")
-		}
-
-		proofChecker := vpOpts.proofChecker
-		if vpOpts.disabledProofCheck {
-			proofChecker = nil
-		}
-
-		vcDataFromJwt, rawCred, err := decodeVPFromJWS(vpStr, proofChecker)
-		if err != nil {
-			return nil, nil, "", fmt.Errorf("decoding of Verifiable Presentation from JWS: %w", err)
-		}
-
-		return vcDataFromJwt, rawCred, vpStr, nil
-	}
-
-	embeddedProofCheckOpts := &embeddedProofCheckOpts{
-		dataIntegrityOpts:    vpOpts.verifyDataIntegrity,
-		proofChecker:         vpOpts.proofChecker,
-		disabledProofCheck:   vpOpts.disabledProofCheck,
-		jsonldCredentialOpts: vpOpts.jsonldCredentialOpts,
-	}
-
-	if jwt.IsJWTUnsecured(vpStr) {
-		rawBytes, rawPres, err := decodeVPFromUnsecuredJWT(vpStr)
-		if err != nil {
-			return nil, nil, "", fmt.Errorf("decoding of Verifiable Presentation from unsecured JWT: %w", err)
-		}
-
-		if err := checkEmbeddedProofBytes(rawBytes, nil, embeddedProofCheckOpts); err != nil {
-			return nil, nil, "", err
-		}
-
-		return rawBytes, rawPres, "", nil
-	}
-
-	vpRaw, err := decodeVPFromJSON(vpData)
-	if err != nil {
-		return nil, nil, "", err
-	}
-
-	err = checkEmbeddedProofBytes(vpData, nil, embeddedProofCheckOpts)
-	if err != nil {
-		return nil, nil, "", err
-	}
-
-	// check that embedded proof is present, if not, it's not a verifiable presentation
-	if vpOpts.requireProof && vpRaw[vpFldProof] == nil {
-		return nil, nil, "", errors.New("embedded proof is missing")
-	}
-
-	return vpData, vpRaw, "", err
 }
 
 func decodeVPFromJSON(vpData []byte) (rawPresentation, error) {

@@ -9,6 +9,7 @@ package commontest
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"testing"
 
@@ -17,11 +18,13 @@ import (
 	"github.com/stretchr/testify/require"
 	jsonld "github.com/trustbloc/did-go/doc/ld/processor"
 	ldtestutil "github.com/trustbloc/did-go/doc/ld/testutil"
+	"github.com/trustbloc/kms-go/doc/jose/jwk" // nolint:typecheck
 	"github.com/trustbloc/kms-go/spi/kms"
 	"github.com/veraison/go-cose"
 
 	"github.com/trustbloc/vc-go/crypto-ext/testutil"
 	"github.com/trustbloc/vc-go/cwt"
+	"github.com/trustbloc/vc-go/proof"
 	"github.com/trustbloc/vc-go/proof/creator"
 	"github.com/trustbloc/vc-go/proof/jwtproofs/eddsa"
 	"github.com/trustbloc/vc-go/proof/testsupport"
@@ -59,7 +62,7 @@ const testCredential = `
 type ldTestCase struct {
 	SignatureType string
 	proofCreator  *creator.ProofCreator
-	signingKey    testsupport.SigningKey
+	signingKey    *testsupport.SigningKey
 	fail          bool
 	skipJWS       bool
 }
@@ -67,7 +70,7 @@ type ldTestCase struct {
 type jwtTestCase struct {
 	Alg          verifiable.JWSAlgorithm
 	proofCreator *creator.ProofCreator
-	signingKey   testsupport.SigningKey
+	signingKey   *testsupport.SigningKey
 	fail         bool
 	verFail      bool
 }
@@ -76,7 +79,7 @@ type cwtTestCase struct {
 	Alg          verifiable.JWSAlgorithm
 	CborAlg      cose.Algorithm
 	proofCreator *creator.ProofCreator
-	signingKey   testsupport.SigningKey
+	signingKey   *testsupport.SigningKey
 	fail         bool
 	verFail      bool
 }
@@ -86,7 +89,7 @@ func TestAllLDSignersVerifiers(t *testing.T) {
 	docLoader, dlErr := ldtestutil.DocumentLoader()
 	require.NoError(t, dlErr)
 
-	allKeyTypes := []testsupport.SigningKey{
+	allKeyTypes := []*testsupport.SigningKey{
 		{Type: kms.ED25519Type, PublicKeyID: "did:example:12345#key-1"},
 		{Type: kms.ECDSASecp256k1TypeIEEEP1363, PublicKeyID: "did:example:12345#key-3"},
 		{Type: kms.BLS12381G2Type, PublicKeyID: "did:example:12345#key-8"},
@@ -157,7 +160,7 @@ func TestAllJWTSignersVerifiers(t *testing.T) {
 	docLoader, ldErr := ldtestutil.DocumentLoader()
 	require.NoError(t, ldErr)
 
-	allKeyTypes := []testsupport.SigningKey{
+	allKeyTypes := []*testsupport.SigningKey{
 		{Type: kms.ED25519Type, PublicKeyID: "did:example:12345#key-1"},
 		{Type: kms.ECDSAP256TypeIEEEP1363, PublicKeyID: "did:example:12345#key-2"},
 		{Type: kms.ECDSASecp256k1TypeIEEEP1363, PublicKeyID: "did:example:12345#key-3"},
@@ -204,7 +207,7 @@ func TestAllCWTSignersVerifiers(t *testing.T) {
 	_, ldErr := ldtestutil.DocumentLoader()
 	require.NoError(t, ldErr)
 
-	allKeyTypes := []testsupport.SigningKey{
+	allKeyTypes := []*testsupport.SigningKey{
 		{Type: kms.ED25519Type, PublicKeyID: "did:example:12345#key-1"},
 		{Type: kms.ECDSAP256TypeIEEEP1363, PublicKeyID: "did:example:12345#key-2"},
 		{Type: kms.ECDSASecp256k1TypeIEEEP1363, PublicKeyID: "did:example:12345#key-3"},
@@ -229,12 +232,30 @@ func TestAllCWTSignersVerifiers(t *testing.T) {
 			data := "1234567890"
 			encoded, err := cbor.Marshal(data)
 			assert.NoError(t, err)
+
+			var targetKey interface{}
+			if v, ok := testCase.signingKey.PublicKey.(*jwk.JWK); ok {
+				targetKey = v.Key
+			} else {
+				targetKey = testCase.signingKey.PublicKey
+			}
+
+			parsedPubKey, err := cose.NewKeyFromPublic(targetKey)
+			assert.NoError(t, err)
+			assert.NotNil(t, parsedPubKey)
+
+			keyBytes, err := parsedPubKey.MarshalCBOR()
+			assert.NoError(t, err)
+			pubKeyStr := hex.EncodeToString(keyBytes)
+
 			msg := &cose.Sign1Message{
 				Headers: cose.Headers{
 					Protected: cose.ProtectedHeader{
-						cose.HeaderLabelAlgorithm: testCase.CborAlg,
-						"COSE_Key":                []byte(testCase.signingKey.PublicKeyID),
+						cose.HeaderLabelAlgorithm:   testCase.CborAlg,
+						cose.HeaderLabelContentType: proof.CWTProofType,
+						proof.COSEKeyHeader:         pubKeyStr,
 					},
+					Unprotected: cose.UnprotectedHeader{},
 				},
 				Payload: encoded,
 			}
@@ -249,6 +270,13 @@ func TestAllCWTSignersVerifiers(t *testing.T) {
 			assert.NoError(t, err)
 
 			msg.Signature = signed
+
+			var marshalData []byte
+			marshalData, err = cbor.Marshal(msg)
+			assert.NoError(t, err)
+
+			hexStr := hex.EncodeToString(marshalData)
+			assert.NotNil(t, hexStr)
 
 			assert.NotNil(t, signed)
 			assert.NoError(t, cwt.CheckProof(msg, proofChecker, nil, signData, msg.Signature))

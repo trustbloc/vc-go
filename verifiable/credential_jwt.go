@@ -31,7 +31,24 @@ const (
 // JWTCredClaims is JWT Claims extension by Verifiable Credential (with custom "vc" claim).
 type JWTCredClaims struct {
 	*jwt.Claims
+	VC map[string]interface{} `json:"vc,omitempty"`
+}
 
+// CWTClaims converts Verifiable Credential into CWT Credential claims, which can be than serialized.
+type CWTClaims struct {
+	Issuer    string               `json:"iss,omitempty"`
+	Subject   string               `json:"sub,omitempty"`
+	Audience  string               `json:"aud,omitempty"`
+	Expiry    *josejwt.NumericDate `json:"exp,omitempty"`
+	NotBefore *josejwt.NumericDate `json:"nbf,omitempty"`
+	IssuedAt  *josejwt.NumericDate `json:"iat,omitempty"`
+	Cti       []byte               `json:"cti,omitempty"`
+	ID        string               `json:"-"`
+}
+
+// CWTCredClaims converts Verifiable Credential into CWT Credential claims, which can be than serialized.
+type CWTCredClaims struct {
+	*CWTClaims
 	VC map[string]interface{} `json:"vc,omitempty"`
 }
 

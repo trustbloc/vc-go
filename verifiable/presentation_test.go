@@ -150,6 +150,43 @@ var validPresentationWithJWTVC []byte //nolint:gochecknoglobals
 //go:embed testdata/context/presentation_submission_v1.jsonld
 var presentationSubmissionV1 []byte //nolint:gochecknoglobals
 
+func TestParseCwtPresentation(t *testing.T) {
+	t.Run("creates a new Verifiable Presentation with custom/additional fields", func(t *testing.T) {
+		verify := func(t *testing.T, vp *Presentation) {
+			require.Len(t, vp.CustomFields, 1)
+			require.Len(t, vp.CustomFields["presentation_submission"], 1)
+			submission, ok := vp.CustomFields["presentation_submission"].(map[string]interface{})
+			require.True(t, ok)
+			require.Len(t, submission, 1)
+			descrMap, ok := submission["descriptor_map"].([]interface{})
+			require.True(t, ok)
+			require.Len(t, descrMap, 2)
+		}
+
+		loader := createTestDocumentLoader(t, ldcontext.Document{
+			URL:     "https://trustbloc.github.io/context/vc/presentation-exchange-submission-v1.jsonld",
+			Content: presentationSubmissionV1,
+		})
+
+		vp, err := ParsePresentation([]byte(validPresentationWithCustomFields),
+			WithPresDisabledProofCheck(),
+			WithPresJSONLDDocumentLoader(loader))
+		require.NoError(t, err)
+		require.NotNil(t, vp)
+		verify(t, vp)
+
+		b, e := vp.MarshalJSON()
+		require.NoError(t, e)
+		require.NotEmpty(t, b)
+
+		vp, err = ParsePresentation(b, WithPresStrictValidation(), WithPresDisabledProofCheck(),
+			WithPresJSONLDDocumentLoader(loader))
+		require.NoError(t, err)
+		require.NotNil(t, vp)
+		verify(t, vp)
+	})
+}
+
 func TestParsePresentation(t *testing.T) {
 	t.Run("creates a new Verifiable Presentation from JSON with valid structure", func(t *testing.T) {
 		vp, err := newTestPresentation(t, []byte(validPresentation), WithPresDisabledProofCheck(),

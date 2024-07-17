@@ -12,12 +12,12 @@ import (
 	"github.com/fxamacker/cbor/v2"
 	"github.com/veraison/go-cose"
 
+	"github.com/trustbloc/vc-go/proof"
 	"github.com/trustbloc/vc-go/verifiable/cwt"
 )
 
 const (
 	issuerPayloadIndex = 1
-	coseKey            = "COSE_Key"
 )
 
 // SignParameters contains parameters of signing for cwt vc.
@@ -59,6 +59,11 @@ func ParseAndCheckProof(
 		expectedProofIssuer = &issStr
 	}
 
+	_, ok := cwtParsed.Headers.Protected[proof.COSEKeyHeader].(string)
+	if !ok {
+		return nil, nil, errors.New("check cwt failure: COSE_Key header is required")
+	}
+
 	proofValue, err := cwt.GetProofValue(cwtParsed)
 	if err != nil {
 		return nil, nil, err
@@ -90,15 +95,20 @@ func CheckProof(
 	msg []byte,
 	signature []byte,
 ) error {
+	var err error
+
 	alg, err := message.Headers.Protected.Algorithm()
 	if err != nil {
 		return err
 	}
 
 	// currently supported only COSE_Key, x5chain is not supported by go opensource implementation yet
-	keyIDBytes, ok := message.Headers.Protected[coseKey].([]byte)
-	if !ok {
-		return errors.New("check cwt failure: kid header is required")
+	keyMaterial, _ := message.Headers.Protected[proof.COSEKeyHeader].(string)   // nolint
+	keyIDBinary, _ := message.Headers.Protected[cose.HeaderLabelKeyID].([]byte) // nolint
+
+	var rawKeyID string
+	if len(keyIDBinary) > 0 {
+		rawKeyID = string(keyIDBinary)
 	}
 
 	checker := Verifier{
@@ -106,5 +116,5 @@ func CheckProof(
 		expectedProofIssuer: expectedProofIssuer,
 	}
 
-	return checker.Verify(string(keyIDBytes), alg, msg, signature)
+	return checker.Verify(keyMaterial, rawKeyID, alg, msg, signature)
 }
