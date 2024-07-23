@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/kms-go/spi/kms"
 	"github.com/veraison/go-cose"
@@ -32,8 +33,9 @@ func TestParsePresentationFromCWS_EdDSA(t *testing.T) {
 	cwtClaims, err := vp.CWTClaims([]string{}, false)
 	require.NoError(t, err)
 
-	cwtBytes, err := cwtClaims.MarshalCWT(cose.AlgorithmEdDSA, proofCreator, holderKeyID)
+	cwtBytes, msg, err := cwtClaims.MarshalCWT(cose.AlgorithmEdDSA, proofCreator, holderKeyID)
 	require.NoError(t, err)
+	assert.NotNil(t, msg)
 
 	hexStr := hex.EncodeToString(cwtBytes)
 	fmt.Println(hexStr)

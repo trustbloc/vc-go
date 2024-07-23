@@ -23,10 +23,10 @@ func marshalCOSE(
 	signatureAlg cose.Algorithm,
 	signer cwt.ProofCreator,
 	keyID string,
-) ([]byte, error) {
+) ([]byte, *cose.Sign1Message, error) {
 	payload, err := cbor.Marshal(claims)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	msg := &cose.Sign1Message{
@@ -44,7 +44,7 @@ func marshalCOSE(
 
 	signData, err := cwt2.GetProofValue(msg)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	signed, err := signer.SignCWT(cwt.SignParameters{
@@ -52,15 +52,15 @@ func marshalCOSE(
 		CWTAlg: signatureAlg,
 	}, signData)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	msg.Signature = signed
 
 	final, err := cbor.Marshal(msg)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return final, nil
+	return final, msg, nil
 }

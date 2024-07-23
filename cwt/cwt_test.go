@@ -35,7 +35,7 @@ func createTestProof() (string, error) {
 	data := map[int]interface{}{
 		1:  "test-client",
 		3:  "http://127.0.0.1:60413",
-		6:  "1706706927",
+		6:  1706706927,
 		10: "kYcbCxvele1pn94YpKjD",
 	}
 

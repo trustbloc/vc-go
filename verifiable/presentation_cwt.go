@@ -33,6 +33,6 @@ func (c *CWTPresClaims) MarshalCWT(
 	signatureAlg cose.Algorithm,
 	signer cwt.ProofCreator,
 	keyID string,
-) ([]byte, error) {
+) ([]byte, *cose.Sign1Message, error) {
 	return marshalCOSE(c, signatureAlg, signer, keyID)
 }
