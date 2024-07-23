@@ -1756,7 +1756,7 @@ func (vc *Credential) CreateSignedCOSEVC(
 		return nil, err
 	}
 
-	msg, err := claims.MarshaCOSE(signatureAlg, proofCreator, keyID)
+	msgRaw, msg, err := claims.MarshaCOSE(signatureAlg, proofCreator, keyID)
 	if err != nil {
 		return nil, err
 	}
@@ -1766,7 +1766,8 @@ func (vc *Credential) CreateSignedCOSEVC(
 		credentialContents: vc.Contents(),
 		ldProofs:           vc.ldProofs,
 		CWTEnvelope: &CWTEnvelope{
-			Sign1MessageRaw: msg,
+			Sign1MessageRaw:    msgRaw,
+			Sign1MessageParsed: msg,
 		},
 	}, nil
 }
