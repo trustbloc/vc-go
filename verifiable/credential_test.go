@@ -136,8 +136,8 @@ func TestParseCredential(t *testing.T) {
 
 		// check refresh service
 		require.NotNil(t, vcc.RefreshService)
-		require.Equal(t, "https://example.edu/refresh/3732", vcc.RefreshService[0].ID)
-		require.Equal(t, "ManualRefreshService2018", vcc.RefreshService[0].Type)
+		require.Equal(t, "https://example.edu/refresh/3732", vcc.RefreshService.ID)
+		require.Equal(t, "ManualRefreshService2018", vcc.RefreshService.Type)
 
 		require.NotNil(t, vcc.Evidence)
 
@@ -2296,6 +2296,13 @@ func TestCredential_WithModified(t *testing.T) {
 			ID:   "newID",
 			Type: "newType",
 		}).
+		WithModifiedRefreshService(&RefreshService{
+			Url: "https://localhost/1234",
+			TypedID: TypedID{
+				ID:   "12345",
+				Type: "SomeRefreshService",
+			},
+		}).
 		WithModifiedExpired(afgotime.NewTime(expired)).
 		WithModifiedIssued(afgotime.NewTime(now))
 
@@ -2307,13 +2314,17 @@ func TestCredential_WithModified(t *testing.T) {
 	require.Equal(t, "newType", cred.Contents().Status.Type)
 	require.EqualValues(t, now, cred.Contents().Issued.Time)
 	require.EqualValues(t, expired, cred.Contents().Expired.Time)
+	require.EqualValues(t, "12345", cred.Contents().RefreshService.ID)
+	require.EqualValues(t, "https://localhost/1234", cred.Contents().RefreshService.Url)
+	require.EqualValues(t, "SomeRefreshService", cred.Contents().RefreshService.Type)
 
 	cred = cred.
 		WithModifiedID("").
 		WithModifiedSubject(nil).
 		WithModifiedIssuer(nil).
 		WithModifiedContext(nil).
-		WithModifiedStatus(nil)
+		WithModifiedStatus(nil).
+		WithModifiedRefreshService(nil)
 
 	require.Empty(t, cred.Contents().ID)
 	require.Empty(t, cred.Contents().Subject)
@@ -2328,4 +2339,5 @@ func TestCredential_WithModified(t *testing.T) {
 	require.NotContains(t, raw, jsonFldIssuer)
 	require.NotContains(t, raw, jsonFldContext)
 	require.NotContains(t, raw, jsonFldStatus)
+	require.NotContains(t, raw, jsonFldRefreshService)
 }

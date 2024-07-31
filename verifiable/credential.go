@@ -497,7 +497,7 @@ type CredentialContents struct {
 	Schemas        []TypedID
 	Evidence       Evidence
 	TermsOfUse     []TypedID
-	RefreshService []TypedID
+	RefreshService *RefreshService
 	SDJWTHashAlg   *crypto.Hash
 }
 
@@ -1197,7 +1197,7 @@ func parseCredentialContents(raw JSONObject, isSDJWT bool) (*CredentialContents,
 		return nil, fmt.Errorf("fill credential terms of use from raw: %w", err)
 	}
 
-	refreshService, err := parseTypedID(raw[jsonFldRefreshService])
+	refreshService, err := parseRefreshService(raw[jsonFldRefreshService])
 	if err != nil {
 		return nil, fmt.Errorf("fill credential refresh service from raw: %w", err)
 	}
@@ -1248,6 +1248,27 @@ func parseCredentialContents(raw JSONObject, isSDJWT bool) (*CredentialContents,
 		RefreshService: refreshService,
 		SDJWTHashAlg:   sdJWTHashAlgCode,
 	}, nil
+}
+
+func parseRefreshService(typeIDRaw interface{}) (*RefreshService, error) {
+	typed, err := parseTypedID(typeIDRaw)
+	if err != nil {
+		return nil, fmt.Errorf("parse refresh service: %w", err)
+	}
+
+	if len(typed) == 0 {
+		return nil, nil
+	}
+
+	urlVal := typed[0].CustomFields["url"]
+	delete(typed[0].CustomFields, "url")
+
+	srv := &RefreshService{
+		TypedID: typed[0],
+		Url:     fmt.Sprint(urlVal),
+	}
+
+	return srv, nil
 }
 
 func parseTypedID(typeIDRaw interface{}) ([]TypedID, error) {
@@ -1853,8 +1874,8 @@ func serializeCredentialContents(vcc *CredentialContents, proofs []Proof) (JSONO
 		vcJSON[jsonFldEvidence] = vcc.Evidence
 	}
 
-	if len(vcc.RefreshService) > 0 {
-		vcJSON[jsonFldRefreshService] = typedIDsToRaw(vcc.RefreshService)
+	if vcc.RefreshService != nil {
+		vcJSON[jsonFldRefreshService] = serializeRefreshObj(*vcc.RefreshService)
 	}
 
 	if len(vcc.TermsOfUse) > 0 {
@@ -2064,6 +2085,25 @@ func (vc *Credential) WithModifiedStatus(status *TypedID) *Credential {
 		newCredJSON[jsonFldStatus] = serializeTypedIDObj(*status)
 	} else {
 		delete(newCredJSON, jsonFldStatus)
+	}
+
+	return &Credential{
+		credentialJSON:     newCredJSON,
+		credentialContents: newContents,
+	}
+}
+
+// WithModifiedRefreshService creates new credential with modified status and without proofs as they become invalid.
+func (vc *Credential) WithModifiedRefreshService(refreshService *RefreshService) *Credential {
+	newCredJSON := copyCredentialJSONWithoutProofs(vc.credentialJSON)
+	newContents := vc.Contents()
+
+	newContents.RefreshService = refreshService
+
+	if refreshService != nil {
+		newCredJSON[jsonFldRefreshService] = serializeRefreshObj(*refreshService)
+	} else {
+		delete(newCredJSON, jsonFldRefreshService)
 	}
 
 	return &Credential{

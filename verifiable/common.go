@@ -130,8 +130,9 @@ type Proof map[string]interface{}
 type CustomFields map[string]interface{}
 
 const (
-	jsonFldTypedIDID   = "id"
-	jsonFldTypedIDType = "type"
+	jsonFldTypedIDID    = "id"
+	jsonFldTypedIDType  = "type"
+	jsonFldTypedURLType = "url"
 )
 
 // TypedID defines a flexible structure with id and name fields and arbitrary extra fields
@@ -141,6 +142,11 @@ type TypedID struct {
 	Type string
 
 	CustomFields
+}
+
+type RefreshService struct {
+	TypedID
+	Url string `json:"url"`
 }
 
 func parseTypedIDObj(typedIDObj JSONObject) (TypedID, error) {
@@ -168,6 +174,14 @@ func serializeTypedIDObj(typedID TypedID) JSONObject {
 
 	json[jsonFldTypedIDID] = typedID.ID
 	json[jsonFldTypedIDType] = typedID.Type
+
+	return json
+}
+
+func serializeRefreshObj(typedID RefreshService) JSONObject {
+	json := serializeTypedIDObj(typedID.TypedID)
+
+	json[jsonFldTypedURLType] = typedID.Url
 
 	return json
 }
