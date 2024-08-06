@@ -1021,7 +1021,7 @@ func ParseCredential(vcData []byte, opts ...CredentialOpt) (*Credential, error) 
 		vc, err = parser.Parse(vcData, vcOpts)
 
 		if err != nil {
-			if err.Error() == jsonLDStructureErrStr {
+			if strings.HasPrefix(err.Error(), jsonLDStructureErrStr) {
 				return nil, err
 			}
 

@@ -24,7 +24,7 @@ require (
 	github.com/tidwall/gjson v1.14.3
 	github.com/tidwall/sjson v1.1.4
 	github.com/trustbloc/bbs-signature-go v1.0.2
-	github.com/trustbloc/did-go v1.2.2-0.20240806130009-b08fb5beb908
+	github.com/trustbloc/did-go v1.2.2-0.20240806133233-5ca7a88add46
 	github.com/trustbloc/kms-go v1.1.2
 	github.com/veraison/go-cose v1.1.1-0.20240126165338-2300d5c96dbd
 	github.com/xeipuuv/gojsonschema v1.2.0
@@ -42,7 +42,6 @@ require (
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.1 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
-	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/google/tink/go v1.7.0 // indirect
 	github.com/hyperledger/fabric-amcl v0.0.0-20230602173724-9e02669dceb2 // indirect
 	github.com/kilic/bls12-381 v0.1.1-0.20210503002446-7b7597926c69 // indirect
