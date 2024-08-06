@@ -1260,8 +1260,8 @@ func parseRefreshService(typeIDRaw interface{}) (*RefreshService, error) {
 		return nil, nil
 	}
 
-	urlVal := typed[0].CustomFields["url"]
-	delete(typed[0].CustomFields, "url")
+	urlVal := typed[0].CustomFields[jsonFldTypedURLType]
+	delete(typed[0].CustomFields, jsonFldTypedURLType)
 
 	srv := &RefreshService{
 		TypedID: typed[0],

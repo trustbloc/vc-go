@@ -181,6 +181,7 @@ func serializeTypedIDObj(typedID TypedID) JSONObject {
 func serializeRefreshObj(typedID RefreshService) JSONObject {
 	json := serializeTypedIDObj(typedID.TypedID)
 
+	delete(json, jsonFldTypedIDID)
 	json[jsonFldTypedURLType] = typedID.Url
 
 	return json
