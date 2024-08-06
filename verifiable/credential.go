@@ -859,6 +859,13 @@ func WithJSONLDOnlyValidRDF() CredentialOpt {
 	}
 }
 
+// WithJSONLDIncludeDetailedStructureDiffOnError indicates the need to include detailed structure diff.
+func WithJSONLDIncludeDetailedStructureDiffOnError() CredentialOpt {
+	return func(opts *credentialOpts) {
+		opts.jsonldIncludeDetailedStructureDiffOnError = true
+	}
+}
+
 // parseIssuer parses raw issuer.
 //
 // Issuer can be defined by:
@@ -1153,11 +1160,21 @@ func validateBaseContextWithExtendedValidation(vcJSON JSONObject, vcc *Credentia
 
 func validateJSONLD(vcJSON JSONObject, vcOpts *credentialOpts) error {
 	// TODO: docjsonld.ValidateJSONLDMap has bug that it modify contexts of input vcJSON. Fix in did-go
-	return docjsonld.ValidateJSONLDMap(jsonutil.ShallowCopyObj(vcJSON),
+	validateOpts := []docjsonld.ValidateOpts{
 		docjsonld.WithDocumentLoader(vcOpts.jsonldCredentialOpts.jsonldDocumentLoader),
 		docjsonld.WithExternalContext(vcOpts.jsonldCredentialOpts.externalContext),
 		docjsonld.WithStrictValidation(vcOpts.strictValidation),
 		docjsonld.WithStrictContextURIPosition(baseContext),
+	}
+
+	if vcOpts.jsonldIncludeDetailedStructureDiffOnError {
+		validateOpts = append(validateOpts,
+			docjsonld.WithJSONLDIncludeDetailedStructureDiffOnError(),
+		)
+	}
+
+	return docjsonld.ValidateJSONLDMap(jsonutil.ShallowCopyObj(vcJSON),
+		validateOpts...,
 	)
 }
 

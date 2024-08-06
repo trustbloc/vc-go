@@ -117,9 +117,10 @@ func (ja JWSAlgorithm) Name() (string, error) {
 }
 
 type jsonldCredentialOpts struct {
-	jsonldDocumentLoader ld.DocumentLoader
-	externalContext      []string
-	jsonldOnlyValidRDF   bool
+	jsonldDocumentLoader                      ld.DocumentLoader
+	externalContext                           []string
+	jsonldOnlyValidRDF                        bool
+	jsonldIncludeDetailedStructureDiffOnError bool
 }
 
 // Proof defines embedded proof of Verifiable Credential.
