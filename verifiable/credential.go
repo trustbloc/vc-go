@@ -497,7 +497,7 @@ type CredentialContents struct {
 	Schemas        []TypedID
 	Evidence       Evidence
 	TermsOfUse     []TypedID
-	RefreshService *RefreshService
+	RefreshService *TypedID
 	SDJWTHashAlg   *crypto.Hash
 }
 
@@ -1250,7 +1250,7 @@ func parseCredentialContents(raw JSONObject, isSDJWT bool) (*CredentialContents,
 	}, nil
 }
 
-func parseRefreshService(typeIDRaw interface{}) (*RefreshService, error) {
+func parseRefreshService(typeIDRaw interface{}) (*TypedID, error) {
 	typed, err := parseTypedID(typeIDRaw)
 	if err != nil {
 		return nil, fmt.Errorf("parse refresh service: %w", err)
@@ -1260,15 +1260,7 @@ func parseRefreshService(typeIDRaw interface{}) (*RefreshService, error) {
 		return nil, nil
 	}
 
-	urlVal := typed[0].CustomFields[jsonFldTypedURLType]
-	delete(typed[0].CustomFields, jsonFldTypedURLType)
-
-	srv := &RefreshService{
-		TypedID: typed[0],
-		Url:     fmt.Sprint(urlVal),
-	}
-
-	return srv, nil
+	return &typed[0], nil
 }
 
 func parseTypedID(typeIDRaw interface{}) ([]TypedID, error) {
@@ -1875,7 +1867,7 @@ func serializeCredentialContents(vcc *CredentialContents, proofs []Proof) (JSONO
 	}
 
 	if vcc.RefreshService != nil {
-		vcJSON[jsonFldRefreshService] = serializeRefreshObj(*vcc.RefreshService)
+		vcJSON[jsonFldRefreshService] = serializeTypedIDObj(*vcc.RefreshService)
 	}
 
 	if len(vcc.TermsOfUse) > 0 {
@@ -2094,14 +2086,14 @@ func (vc *Credential) WithModifiedStatus(status *TypedID) *Credential {
 }
 
 // WithModifiedRefreshService creates new credential with modified status and without proofs as they become invalid.
-func (vc *Credential) WithModifiedRefreshService(refreshService *RefreshService) *Credential {
+func (vc *Credential) WithModifiedRefreshService(refreshService *TypedID) *Credential {
 	newCredJSON := copyCredentialJSONWithoutProofs(vc.credentialJSON)
 	newContents := vc.Contents()
 
 	newContents.RefreshService = refreshService
 
 	if refreshService != nil {
-		newCredJSON[jsonFldRefreshService] = serializeRefreshObj(*refreshService)
+		newCredJSON[jsonFldRefreshService] = serializeTypedIDObj(*refreshService)
 	} else {
 		delete(newCredJSON, jsonFldRefreshService)
 	}
