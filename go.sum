@@ -134,6 +134,8 @@ github.com/trustbloc/bbs-signature-go v1.0.2 h1:gepEsbLiZHv/vva9FKG5gF38mGtOIyGe
 github.com/trustbloc/bbs-signature-go v1.0.2/go.mod h1:xYotcXHAbcE0TO+SteW0J6XI3geQaXq4wdnXR2k+XCU=
 github.com/trustbloc/did-go v1.2.2-0.20240806135738-0d3b4e666ca1 h1:WgkXqF/4vz390bgXSxIHu1t66TGpLDEoMUfltspf2Cw=
 github.com/trustbloc/did-go v1.2.2-0.20240806135738-0d3b4e666ca1/go.mod h1:packTRoBoo8DrwOE7QKsI98xXS3Vf6ovUXYD4FUAcB4=
+github.com/trustbloc/did-go v1.2.2-0.20240812120408-296eef43066c h1:tfQAZz0NfqQCIQYphcYvih7X/s3uNnaV8oo5/RCAh9E=
+github.com/trustbloc/did-go v1.2.2-0.20240812120408-296eef43066c/go.mod h1:packTRoBoo8DrwOE7QKsI98xXS3Vf6ovUXYD4FUAcB4=
 github.com/trustbloc/kms-go v1.1.2 h1:nAlhDoHkSyX1eQFRz/sJsdgmJuNadyX7FJEy/9ROwys=
 github.com/trustbloc/kms-go v1.1.2/go.mod h1:OKOtsLbE6W5s4mpjWkvk8XEqcmt9vTgVmDNkHELpWO0=
 github.com/veraison/go-cose v1.1.1-0.20240126165338-2300d5c96dbd h1:QhdCHSW1/oosJbzBTEYLU6xcKxXbQzzqFnhCtW2UWbA=
