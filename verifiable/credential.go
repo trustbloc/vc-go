@@ -497,7 +497,7 @@ type CredentialContents struct {
 	Schemas        []TypedID
 	Evidence       Evidence
 	TermsOfUse     []TypedID
-	RefreshService []TypedID
+	RefreshService *TypedID
 	SDJWTHashAlg   *crypto.Hash
 }
 
@@ -859,6 +859,13 @@ func WithJSONLDOnlyValidRDF() CredentialOpt {
 	}
 }
 
+// WithJSONLDIncludeDetailedStructureDiffOnError indicates the need to include detailed structure diff.
+func WithJSONLDIncludeDetailedStructureDiffOnError() CredentialOpt {
+	return func(opts *credentialOpts) {
+		opts.jsonldIncludeDetailedStructureDiffOnError = true
+	}
+}
+
 // parseIssuer parses raw issuer.
 //
 // Issuer can be defined by:
@@ -1021,7 +1028,7 @@ func ParseCredential(vcData []byte, opts ...CredentialOpt) (*Credential, error) 
 		vc, err = parser.Parse(vcData, vcOpts)
 
 		if err != nil {
-			if err.Error() == jsonLDStructureErrStr {
+			if strings.HasPrefix(err.Error(), jsonLDStructureErrStr) {
 				return nil, err
 			}
 
@@ -1153,11 +1160,21 @@ func validateBaseContextWithExtendedValidation(vcJSON JSONObject, vcc *Credentia
 
 func validateJSONLD(vcJSON JSONObject, vcOpts *credentialOpts) error {
 	// TODO: docjsonld.ValidateJSONLDMap has bug that it modify contexts of input vcJSON. Fix in did-go
-	return docjsonld.ValidateJSONLDMap(jsonutil.ShallowCopyObj(vcJSON),
+	validateOpts := []docjsonld.ValidateOpts{
 		docjsonld.WithDocumentLoader(vcOpts.jsonldCredentialOpts.jsonldDocumentLoader),
 		docjsonld.WithExternalContext(vcOpts.jsonldCredentialOpts.externalContext),
 		docjsonld.WithStrictValidation(vcOpts.strictValidation),
 		docjsonld.WithStrictContextURIPosition(baseContext),
+	}
+
+	if vcOpts.jsonldIncludeDetailedStructureDiffOnError {
+		validateOpts = append(validateOpts,
+			docjsonld.WithJSONLDIncludeDetailedStructureDiffOnError(),
+		)
+	}
+
+	return docjsonld.ValidateJSONLDMap(jsonutil.ShallowCopyObj(vcJSON),
+		validateOpts...,
 	)
 }
 
@@ -1197,7 +1214,7 @@ func parseCredentialContents(raw JSONObject, isSDJWT bool) (*CredentialContents,
 		return nil, fmt.Errorf("fill credential terms of use from raw: %w", err)
 	}
 
-	refreshService, err := parseTypedID(raw[jsonFldRefreshService])
+	refreshService, err := parseRefreshService(raw[jsonFldRefreshService])
 	if err != nil {
 		return nil, fmt.Errorf("fill credential refresh service from raw: %w", err)
 	}
@@ -1248,6 +1265,19 @@ func parseCredentialContents(raw JSONObject, isSDJWT bool) (*CredentialContents,
 		RefreshService: refreshService,
 		SDJWTHashAlg:   sdJWTHashAlgCode,
 	}, nil
+}
+
+func parseRefreshService(typeIDRaw interface{}) (*TypedID, error) {
+	typed, err := parseTypedID(typeIDRaw)
+	if err != nil {
+		return nil, fmt.Errorf("parse refresh service: %w", err)
+	}
+
+	if len(typed) == 0 {
+		return nil, nil
+	}
+
+	return &typed[0], nil
 }
 
 func parseTypedID(typeIDRaw interface{}) ([]TypedID, error) {
@@ -1853,8 +1883,8 @@ func serializeCredentialContents(vcc *CredentialContents, proofs []Proof) (JSONO
 		vcJSON[jsonFldEvidence] = vcc.Evidence
 	}
 
-	if len(vcc.RefreshService) > 0 {
-		vcJSON[jsonFldRefreshService] = typedIDsToRaw(vcc.RefreshService)
+	if vcc.RefreshService != nil {
+		vcJSON[jsonFldRefreshService] = serializeTypedIDObj(*vcc.RefreshService)
 	}
 
 	if len(vcc.TermsOfUse) > 0 {
@@ -2064,6 +2094,25 @@ func (vc *Credential) WithModifiedStatus(status *TypedID) *Credential {
 		newCredJSON[jsonFldStatus] = serializeTypedIDObj(*status)
 	} else {
 		delete(newCredJSON, jsonFldStatus)
+	}
+
+	return &Credential{
+		credentialJSON:     newCredJSON,
+		credentialContents: newContents,
+	}
+}
+
+// WithModifiedRefreshService creates new credential with modified status and without proofs as they become invalid.
+func (vc *Credential) WithModifiedRefreshService(refreshService *TypedID) *Credential {
+	newCredJSON := copyCredentialJSONWithoutProofs(vc.credentialJSON)
+	newContents := vc.Contents()
+
+	newContents.RefreshService = refreshService
+
+	if refreshService != nil {
+		newCredJSON[jsonFldRefreshService] = serializeTypedIDObj(*refreshService)
+	} else {
+		delete(newCredJSON, jsonFldRefreshService)
 	}
 
 	return &Credential{

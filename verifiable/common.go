@@ -117,9 +117,10 @@ func (ja JWSAlgorithm) Name() (string, error) {
 }
 
 type jsonldCredentialOpts struct {
-	jsonldDocumentLoader ld.DocumentLoader
-	externalContext      []string
-	jsonldOnlyValidRDF   bool
+	jsonldDocumentLoader                      ld.DocumentLoader
+	externalContext                           []string
+	jsonldOnlyValidRDF                        bool
+	jsonldIncludeDetailedStructureDiffOnError bool
 }
 
 // Proof defines embedded proof of Verifiable Credential.
@@ -130,8 +131,9 @@ type Proof map[string]interface{}
 type CustomFields map[string]interface{}
 
 const (
-	jsonFldTypedIDID   = "id"
-	jsonFldTypedIDType = "type"
+	jsonFldTypedIDID    = "id"
+	jsonFldTypedIDType  = "type"
+	jsonFldTypedURLType = "url"
 )
 
 // TypedID defines a flexible structure with id and name fields and arbitrary extra fields

@@ -2613,7 +2613,7 @@ type credentialProto struct {
 	Schemas        []verifiable.TypedID
 	Evidence       verifiable.Evidence
 	TermsOfUse     []verifiable.TypedID
-	RefreshService []verifiable.TypedID
+	RefreshService *verifiable.TypedID
 	SDJWTHashAlg   *crypto.Hash
 
 	CustomFields verifiable.CustomFields
