@@ -2312,7 +2312,6 @@ func TestCredential_WithModified(t *testing.T) {
 	require.EqualValues(t, now, cred.Contents().Issued.Time)
 	require.EqualValues(t, expired, cred.Contents().Expired.Time)
 	require.EqualValues(t, "12345", cred.Contents().RefreshService.ID)
-	require.EqualValues(t, "https://localhost/1234", cred.Contents().RefreshService.ID)
 	require.EqualValues(t, "SomeRefreshService", cred.Contents().RefreshService.Type)
 
 	cred = cred.
