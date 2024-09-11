@@ -34,7 +34,7 @@ const (
 
 func TestResolve(t *testing.T) { //nolint:maintidx
 	srcVC, err := verifiable.CreateCredential(verifiable.CredentialContents{
-		Context: []string{verifiable.ContextURI},
+		Context: []string{verifiable.V1ContextURI},
 		Types:   []string{verifiable.VCType},
 		ID:      uuid.NewString(),
 		Schemas: []verifiable.TypedID{},

@@ -144,7 +144,84 @@ const validPresentationWithCustomFields = `
 }
 `
 
-//go:embed testdata/validPresentationWithJWTVC.jsonld
+const v2ValidPresentation = `{
+  "@context": [
+    "https://www.w3.org/ns/credentials/v2",
+    "https://www.w3.org/ns/credentials/examples/v2"
+  ],
+  "id": "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c5",
+  "type": ["VerifiablePresentation"],
+  "verifiableCredential": [{
+    "@context": "https://www.w3.org/ns/credentials/v2",
+    "id": "data:application/vc+sd-jwt,QzVjV...RMjU",
+    "type": "EnvelopedVerifiableCredential",
+    "credentialSubject": {
+	  "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+      "validFrom": "2010-01-01T19:23:24Z",
+      "validUntil": "2026-02-01T19:23:24Z",
+	  "alumniOf": "Example University"
+    }
+  }],
+  "holder": "did:example:ebfeb1f712ebc6f1c276e12ec21"
+}`
+
+const v2PresentationWithoutCredentials = `{
+  "@context": [
+    "https://www.w3.org/ns/credentials/v2",
+    "https://www.w3.org/ns/credentials/examples/v2"
+  ],
+  "id": "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c5",
+  "type": ["VerifiablePresentation"],
+  "holder": "did:example:ebfeb1f712ebc6f1c276e12ec21"
+}`
+
+const v2ValidPresentationWithCustomFields = `
+{
+  "@context": [
+    "https://www.w3.org/ns/credentials/v2",
+	"https://trustbloc.github.io/context/vc/presentation-exchange-submission-v1.jsonld"
+  ],
+  "id": "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c5",
+   "type": [
+        "VerifiablePresentation",
+        "PresentationSubmission"
+    ],
+    "presentation_submission": {
+        "descriptor_map": [
+            {
+                "id": "degree_input_1",
+                "path": "$.verifiableCredential.[0]"
+            },
+            {
+                "id": "citizenship_input_1",
+                "path": "$.verifiableCredential.[1]"
+            }
+        ]
+    },
+  "verifiableCredential": [
+    {
+      "@context": [
+    "https://www.w3.org/ns/credentials/v2",
+    "https://www.w3.org/ns/credentials/examples/v2"
+      ],
+      "id": "http://example.edu/credentials/58473",
+      "type": ["VerifiableCredential", "UniversityDegreeCredential"],
+      "issuer": "https://example.edu/issuers/14",
+      "validFrom": "2010-01-01T19:23:24Z",
+      "credentialSubject": {
+        "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+        "alumniOf": "Example University"
+      },
+      "proof": {
+        "type": "RsaSignature2018"
+      }
+    }
+  ],
+  "holder": "did:example:ebfeb1f712ebc6f1c276e12ec21"
+}
+`
+
+//go:embed testdata/v1_validPresentationWithJWTVC.jsonld
 var validPresentationWithJWTVC []byte //nolint:gochecknoglobals
 
 //go:embed testdata/context/presentation_submission_v1.jsonld
@@ -440,6 +517,102 @@ func TestParsePresentation(t *testing.T) {
 	})
 }
 
+func TestV2ParsePresentation(t *testing.T) {
+	t.Run("creates a new Verifiable Presentation from JSON with valid structure", func(t *testing.T) {
+		vp, err := newTestPresentation(t, []byte(v2ValidPresentation), WithPresDisabledProofCheck(),
+			WithPresStrictValidation())
+		require.NoError(t, err)
+		require.NotNil(t, vp)
+
+		// validate @context
+		require.Equal(t, []string{
+			"https://www.w3.org/ns/credentials/v2",
+			"https://www.w3.org/ns/credentials/examples/v2",
+		}, vp.Context)
+
+		// check id
+		require.Equal(t, "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c5", vp.ID)
+
+		// check type
+		require.Equal(t, []string{"VerifiablePresentation"}, vp.Type)
+
+		// check verifiableCredentials
+		require.NotNil(t, vp.Credentials())
+		require.Len(t, vp.Credentials(), 1)
+
+		// check holder
+		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ec21", vp.Holder)
+	})
+
+	t.Run("creates a new Verifiable Presentation from valid JSON without credentials", func(t *testing.T) {
+		vp, err := newTestPresentation(t, []byte(v2PresentationWithoutCredentials),
+			WithPresDisabledProofCheck(),
+			WithPresStrictValidation())
+		require.NoError(t, err)
+		require.NotNil(t, vp)
+
+		// validate @context
+		require.Equal(t, []string{
+			"https://www.w3.org/ns/credentials/v2",
+			"https://www.w3.org/ns/credentials/examples/v2",
+		}, vp.Context)
+
+		// check id
+		require.Equal(t, "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c5", vp.ID)
+
+		// check type
+		require.Equal(t, []string{"VerifiablePresentation"}, vp.Type)
+
+		// check verifiableCredentials
+		require.Nil(t, vp.Credentials())
+		require.Empty(t, vp.Credentials())
+
+		// check holder
+		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ec21", vp.Holder)
+
+		// check rawPresentation
+		rp, err := vp.raw()
+		require.NoError(t, err)
+
+		require.IsType(t, nil, rp[vpFldCredential])
+	})
+
+	t.Run("creates a new Verifiable Presentation with custom/additional fields", func(t *testing.T) {
+		verify := func(t *testing.T, vp *Presentation) {
+			require.Len(t, vp.CustomFields, 1)
+			require.Len(t, vp.CustomFields["presentation_submission"], 1)
+			submission, ok := vp.CustomFields["presentation_submission"].(map[string]interface{})
+			require.True(t, ok)
+			require.Len(t, submission, 1)
+			descrMap, ok := submission["descriptor_map"].([]interface{})
+			require.True(t, ok)
+			require.Len(t, descrMap, 2)
+		}
+
+		loader := createTestDocumentLoader(t, ldcontext.Document{
+			URL:     "https://trustbloc.github.io/context/vc/presentation-exchange-submission-v1.jsonld",
+			Content: presentationSubmissionV1,
+		})
+
+		vp, err := ParsePresentation([]byte(v2ValidPresentationWithCustomFields),
+			WithPresDisabledProofCheck(),
+			WithPresJSONLDDocumentLoader(loader))
+		require.NoError(t, err)
+		require.NotNil(t, vp)
+		verify(t, vp)
+
+		b, e := vp.MarshalJSON()
+		require.NoError(t, e)
+		require.NotEmpty(t, b)
+
+		vp, err = ParsePresentation(b, WithPresStrictValidation(), WithPresDisabledProofCheck(),
+			WithPresJSONLDDocumentLoader(loader))
+		require.NoError(t, err)
+		require.NotNil(t, vp)
+		verify(t, vp)
+	})
+}
+
 func TestValidateVP_Context(t *testing.T) {
 	t.Run("rejects verifiable presentation with empty context", func(t *testing.T) {
 		var raw rawPresentation
@@ -464,7 +637,7 @@ func TestValidateVP_Context(t *testing.T) {
 		require.NoError(t, err)
 		vp, err := newTestPresentation(t, bytes, WithPresDisabledProofCheck())
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "does not match: \"https://www.w3.org/2018/credentials/v1\"")
+		require.Contains(t, err.Error(), "unsupported @context: https://www.w3.org/2018/credentials/v2")
 		require.Nil(t, vp)
 	})
 
@@ -487,7 +660,7 @@ func TestValidateVP_Context(t *testing.T) {
 		require.NoError(t, err)
 		vp, err := newTestPresentation(t, bytes, WithPresDisabledProofCheck())
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "does not match: \"https://www.w3.org/2018/credentials/v1\"")
+		require.Contains(t, err.Error(), "unsupported @context: https://www.w3.org/2018/credentials/v2")
 		require.Nil(t, vp)
 	})
 }
@@ -598,7 +771,7 @@ func TestPresentation_MarshalJSON(t *testing.T) {
 func TestNewPresentation(t *testing.T) {
 	r := require.New(t)
 
-	vc, err := ParseCredential([]byte(validCredential),
+	vc, err := ParseCredential([]byte(v1ValidCredential),
 		WithJSONLDDocumentLoader(createTestDocumentLoader(t)),
 		WithDisabledProofCheck())
 	r.NoError(err)
@@ -629,7 +802,7 @@ func TestPresentation_decodeCredentials(t *testing.T) {
 	proofCreator, proofChecker := testsupport.NewKMSSigVerPair(t, kms.ED25519Type,
 		"did:example:76e12ec712ebc6f1c221ebfeb1f#k1")
 
-	vc, err := parseTestCredential(t, []byte(validCredential), WithDisabledProofCheck())
+	vc, err := parseTestCredential(t, []byte(v1ValidCredential), WithDisabledProofCheck())
 	r.NoError(err)
 
 	jwtClaims, err := vc.JWTClaims(false)

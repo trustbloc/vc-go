@@ -33,9 +33,6 @@ func TestRefineVcFromJwtClaims(t *testing.T) {
 	vcID := "http://example.edu/credentials/3732"
 	expired := time.Date(2029, time.August, 10, 0, 0, 0, 0, time.UTC)
 
-	vcMap := map[string]interface{}{
-		"issuer": "unknown",
-	}
 	credClaims := &jwt.Claims{
 		Issuer:    issuerID,
 		NotBefore: josejwt.NewNumericDate(issued),
@@ -44,16 +41,36 @@ func TestRefineVcFromJwtClaims(t *testing.T) {
 		Expiry:    josejwt.NewNumericDate(expired),
 	}
 
-	jwtCredClaims := &JWTCredClaims{
-		Claims: credClaims,
-		VC:     vcMap,
-	}
+	t.Run("Credentials V1", func(t *testing.T) {
+		vcMap := map[string]interface{}{
+			"issuer": "unknown",
+		}
+		jwtCredClaims := &JWTCredClaims{
+			Claims: credClaims,
+			VC:     vcMap,
+		}
 
-	jwtCredClaims.refineFromJWTClaims()
+		require.NoError(t, jwtCredClaims.refineFromJWTClaims())
+		require.Equal(t, issuerID, vcMap["issuer"])
+		require.Equal(t, "2019-08-10T00:00:00Z", vcMap["issuanceDate"])
+		require.Equal(t, "2029-08-10T00:00:00Z", vcMap["expirationDate"])
+	})
 
-	require.Equal(t, issuerID, vcMap["issuer"])
-	require.Equal(t, "2019-08-10T00:00:00Z", vcMap["issuanceDate"])
-	require.Equal(t, "2029-08-10T00:00:00Z", vcMap["expirationDate"])
+	t.Run("Credentials V2", func(t *testing.T) {
+		vcMap := map[string]interface{}{
+			"@context": []string{V2ContextURI},
+			"issuer":   "unknown",
+		}
+		jwtCredClaims := &JWTCredClaims{
+			Claims: credClaims,
+			VC:     vcMap,
+		}
+
+		require.NoError(t, jwtCredClaims.refineFromJWTClaims())
+		require.Equal(t, issuerID, vcMap["issuer"])
+		require.Equal(t, "2019-08-10T00:00:00Z", vcMap["validFrom"])
+		require.Equal(t, "2029-08-10T00:00:00Z", vcMap["validUntil"])
+	})
 }
 
 func TestJWTCredClaims_ToSDJWTCredentialPayload(t *testing.T) {

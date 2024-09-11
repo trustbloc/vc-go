@@ -200,7 +200,7 @@ func TestIsValidDomainCredentialJWT(t *testing.T) {
 		dlcJWT, err := verifiable.CreateCredential(verifiable.CredentialContents{
 			Issued:  afgotime.NewTime(time.Now()),
 			Expired: afgotime.NewTime(time.Now().Add(time.Hour)),
-			Context: []string{verifiable.ContextURI, ContextV1},
+			Context: []string{verifiable.V1ContextURI, ContextV1},
 			Types:   []string{verifiable.VCType, domainLinkageCredentialType},
 			Subject: []verifiable.Subject{{ID: testDID, CustomFields: map[string]interface{}{"origin": testJWTDomain}}},
 			Issuer:  &verifiable.Issuer{ID: testDID},
@@ -241,7 +241,7 @@ func TestIsValidDomainCredentialJWT(t *testing.T) {
 		dlcJWT, err := verifiable.CreateCredential(verifiable.CredentialContents{
 			Issued:  afgotime.NewTime(time.Now()),
 			Expired: afgotime.NewTime(time.Now().Add(time.Hour)),
-			Context: []string{verifiable.ContextURI, ContextV1},
+			Context: []string{verifiable.V1ContextURI, ContextV1},
 			Types:   []string{verifiable.VCType, domainLinkageCredentialType},
 			Subject: []verifiable.Subject{{ID: testDID, CustomFields: map[string]interface{}{"origin": testJWTDomain}}},
 			Issuer:  &verifiable.Issuer{ID: testDID},
@@ -286,7 +286,7 @@ func TestIsValidDomainCredentialJWT(t *testing.T) {
 		dlcJWT, err := verifiable.CreateCredential(verifiable.CredentialContents{
 			Issued:  afgotime.NewTime(time.Now()),
 			Expired: afgotime.NewTime(time.Now().Add(time.Hour)),
-			Context: []string{verifiable.ContextURI, ContextV1},
+			Context: []string{verifiable.V1ContextURI, ContextV1},
 			Types:   []string{verifiable.VCType, domainLinkageCredentialType},
 			Subject: []verifiable.Subject{{ID: testDID, CustomFields: map[string]interface{}{"origin": testJWTDomain}}},
 			Issuer:  &verifiable.Issuer{ID: testDID},
@@ -330,7 +330,7 @@ func TestIsValidDomainCredentialJWT(t *testing.T) {
 		dlcJWT, err := verifiable.CreateCredential(verifiable.CredentialContents{
 			Issued:  afgotime.NewTime(time.Now()),
 			Expired: afgotime.NewTime(time.Now().Add(time.Hour)),
-			Context: []string{verifiable.ContextURI, ContextV1},
+			Context: []string{verifiable.V1ContextURI, ContextV1},
 			Types:   []string{verifiable.VCType, domainLinkageCredentialType},
 			Subject: []verifiable.Subject{{ID: testDID, CustomFields: map[string]interface{}{"origin": testJWTDomain}}},
 			Issuer:  &verifiable.Issuer{ID: testDID},
@@ -365,7 +365,7 @@ func TestIsValidDomainCredentialJWT(t *testing.T) {
 		dlcJWT, err := verifiable.CreateCredential(verifiable.CredentialContents{
 			Issued:  afgotime.NewTime(time.Now()),
 			Expired: afgotime.NewTime(time.Now().Add(time.Hour)),
-			Context: []string{verifiable.ContextURI, ContextV1},
+			Context: []string{verifiable.V1ContextURI, ContextV1},
 			Types:   []string{verifiable.VCType, domainLinkageCredentialType},
 			Subject: []verifiable.Subject{{ID: testDID, CustomFields: map[string]interface{}{"origin": testJWTDomain}}},
 			Issuer:  &verifiable.Issuer{ID: testDID},
@@ -440,7 +440,7 @@ func TestIsValidDomainCredentialJWT(t *testing.T) {
 		dlcJWT, err := verifiable.CreateCredential(verifiable.CredentialContents{
 			Issued:  afgotime.NewTime(time.Now()),
 			Expired: afgotime.NewTime(time.Now().Add(time.Hour)),
-			Context: []string{verifiable.ContextURI, ContextV1},
+			Context: []string{verifiable.V1ContextURI, ContextV1},
 			Types:   []string{verifiable.VCType, domainLinkageCredentialType},
 			Subject: []verifiable.Subject{{ID: "did:key:different", CustomFields: map[string]interface{}{"origin": testJWTDomain}}}, // nolint:lll
 			Issuer:  &verifiable.Issuer{ID: testDID},
@@ -461,7 +461,7 @@ func TestIsValidDomainCredentialJWT(t *testing.T) {
 		dlcJWT, err := verifiable.CreateCredential(verifiable.CredentialContents{
 			Issued:  afgotime.NewTime(time.Now()),
 			Expired: afgotime.NewTime(time.Now().Add(time.Hour)),
-			Context: []string{verifiable.ContextURI, ContextV1},
+			Context: []string{verifiable.V1ContextURI, ContextV1},
 			Types:   []string{verifiable.VCType, domainLinkageCredentialType},
 			Subject: []verifiable.Subject{{ID: testDID, CustomFields: map[string]interface{}{"origin": testJWTDomain}}},
 			Issuer:  &verifiable.Issuer{ID: testDID},
@@ -472,7 +472,9 @@ func TestIsValidDomainCredentialJWT(t *testing.T) {
 
 		dlcJWT = createEdDSAJWS(t, dlcJWT, ed25519ProofCreator, testKID, false)
 
-		borkenJWT, err := verifiable.CreateCredential(verifiable.CredentialContents{}, nil)
+		borkenJWT, err := verifiable.CreateCredential(verifiable.CredentialContents{
+			Context: []string{verifiable.V1ContextURI},
+		}, nil)
 		require.NoError(t, err)
 
 		borkenJWT.JWTEnvelope = dlcJWT.JWTEnvelope

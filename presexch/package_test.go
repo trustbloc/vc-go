@@ -74,7 +74,7 @@ func Test_mDLNestedCtx(t *testing.T) {
 
 	cred, err := verifiable.CreateCredential(verifiable.CredentialContents{
 		Context: []string{
-			verifiable.ContextURI,
+			verifiable.V1ContextURI,
 			"https://trustbloc.github.io/context/vc/examples/mdl-v1.jsonld",
 		},
 		Types: []string{verifiable.VCType, "mDL"},

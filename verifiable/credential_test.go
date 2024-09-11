@@ -91,7 +91,7 @@ var vccProto = CredentialContents{
 
 func TestParseCredential(t *testing.T) {
 	t.Run("test creation of new Verifiable Credential from JSON with valid structure", func(t *testing.T) {
-		vc, err := parseTestCredential(t, []byte(validCredential), WithStrictValidation(), WithDisabledProofCheck())
+		vc, err := parseTestCredential(t, []byte(v1ValidCredential), WithStrictValidation(), WithDisabledProofCheck())
 		require.NoError(t, err)
 		require.NotNil(t, vc)
 
@@ -163,9 +163,9 @@ func TestParseCredential(t *testing.T) {
 
 func TestParseCredentialWithoutIssuanceDate(t *testing.T) {
 	t.Run("test creation of new Verifiable Credential with disabled issuance date check", func(t *testing.T) {
-		schema := JSONSchemaLoader(WithDisableRequiredField("issuanceDate"))
+		schema := JSONSchemaLoaderV1(WithDisableRequiredField("issuanceDate"))
 
-		vc, err := parseTestCredential(t, []byte(credentialWithoutIssuanceDate), WithDisabledProofCheck(),
+		vc, err := parseTestCredential(t, []byte(v1CredentialWithoutIssuanceDate), WithDisabledProofCheck(),
 			WithStrictValidation(),
 			WithSchema(schema))
 		require.NoError(t, err)
@@ -173,30 +173,52 @@ func TestParseCredentialWithoutIssuanceDate(t *testing.T) {
 	})
 
 	t.Run("'issuanceDate is required' error", func(t *testing.T) {
-		_, err := parseTestCredential(t, []byte(credentialWithoutIssuanceDate), WithDisabledProofCheck(),
+		_, err := parseTestCredential(t, []byte(v1CredentialWithoutIssuanceDate), WithDisabledProofCheck(),
 			WithStrictValidation())
 		require.Error(t, err)
 	})
 }
 
-func TestValidateVerCredContext(t *testing.T) {
+func TestParseV2CredentialWithoutValidFrom(t *testing.T) {
+	t.Run("test creation of new Verifiable Credential with disabled issuer check", func(t *testing.T) {
+		schema := JSONSchemaLoaderV2(WithDisableRequiredField("issuer"))
+
+		vc, err := parseTestCredential(t, []byte(v2CredentialWithoutIssuer), WithDisabledProofCheck(),
+			WithStrictValidation(),
+			WithSchema(schema))
+		require.NoError(t, err)
+		require.NotNil(t, vc)
+	})
+
+	t.Run("'issuer is required' error", func(t *testing.T) {
+		_, err := parseTestCredential(t, []byte(v2CredentialWithoutIssuer), WithDisabledProofCheck(),
+			WithStrictValidation())
+		require.ErrorContains(t, err, "issuer is required")
+	})
+}
+
+func TestValidateV1VerCredContext(t *testing.T) {
 	t.Run("test verifiable credential with a single context", func(t *testing.T) {
 		var raw JSONObject
 
-		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-		raw[jsonFldContext] = []string{"https://www.w3.org/2018/credentials/v1"}
+		cc := &CredentialContents{Context: []string{"https://www.w3.org/2018/credentials/v1"}}
 
-		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
+		require.NoError(t, json.Unmarshal([]byte(v1ValidCredential), &raw))
+		raw[jsonFldContext] = cc.Context
+
+		err := validateCredentialUsingJSONSchema(raw, cc, &credentialOpts{})
 		require.NoError(t, err)
 	})
 
 	t.Run("test verifiable credential with a single invalid context", func(t *testing.T) {
 		var raw JSONObject
 
-		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-		raw[jsonFldContext] = []string{"https://www.w3.org/2018/credentials/v2"}
+		cc := &CredentialContents{Context: []string{"https://www.w3.org/2018/credentials/v2"}}
 
-		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
+		require.NoError(t, json.Unmarshal([]byte(v1ValidCredential), &raw))
+		raw[jsonFldContext] = cc.Context
+
+		err := validateCredentialUsingJSONSchema(raw, cc, &credentialOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "does not match: \"https://www.w3.org/2018/credentials/v1\"")
 	})
@@ -204,10 +226,10 @@ func TestValidateVerCredContext(t *testing.T) {
 	t.Run("test verifiable credential with empty context", func(t *testing.T) {
 		var raw JSONObject
 
-		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
+		require.NoError(t, json.Unmarshal([]byte(v1ValidCredential), &raw))
 		delete(raw, jsonFldContext)
 
-		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
+		err := validateCredentialUsingJSONSchema(raw, &CredentialContents{}, &credentialOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "@context is required")
 	})
@@ -215,26 +237,30 @@ func TestValidateVerCredContext(t *testing.T) {
 	t.Run("test verifiable credential with multiple contexts", func(t *testing.T) {
 		var raw JSONObject
 
-		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-		raw[jsonFldContext] = []string{
+		cc := &CredentialContents{Context: []string{
 			"https://www.w3.org/2018/credentials/v1",
 			"https://www.w3.org/2018/credentials/examples/v1",
-		}
+		}}
 
-		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
+		require.NoError(t, json.Unmarshal([]byte(v1ValidCredential), &raw))
+		raw[jsonFldContext] = cc.Context
+
+		err := validateCredentialUsingJSONSchema(raw, cc, &credentialOpts{})
 		require.NoError(t, err)
 	})
 
 	t.Run("test verifiable credential with multiple invalid contexts", func(t *testing.T) {
 		var raw JSONObject
 
-		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-		raw[jsonFldContext] = []string{
+		cc := &CredentialContents{Context: []string{
 			"https://www.w3.org/2018/credentials/v2",
 			"https://www.w3.org/2018/credentials/examples/v1",
-		}
+		}}
 
-		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
+		require.NoError(t, json.Unmarshal([]byte(v1ValidCredential), &raw))
+		raw[jsonFldContext] = cc.Context
+
+		err := validateCredentialUsingJSONSchema(raw, cc, &credentialOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "@context.0: @context.0 does not match: \"https://www.w3.org/2018/credentials/v1\"")
 	})
@@ -242,7 +268,7 @@ func TestValidateVerCredContext(t *testing.T) {
 	t.Run("test verifiable credential with object context", func(t *testing.T) {
 		var raw JSONObject
 
-		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
+		require.NoError(t, json.Unmarshal([]byte(v1ValidCredential), &raw))
 
 		raw[jsonFldContext] = []interface{}{"https://www.w3.org/2018/credentials/examples/v1", map[string]interface{}{
 			"image": map[string]string{
@@ -250,9 +276,38 @@ func TestValidateVerCredContext(t *testing.T) {
 			},
 		}}
 
-		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
+		err := validateCredentialUsingJSONSchema(raw, &CredentialContents{}, &credentialOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "@context.0: @context.0 does not match: \"https://www.w3.org/2018/credentials/v1\"")
+	})
+}
+
+func TestValidateV2VerCredContext(t *testing.T) {
+	t.Run("test verifiable credential with a single context", func(t *testing.T) {
+		var raw JSONObject
+
+		cc := &CredentialContents{Context: []string{"https://www.w3.org/ns/credentials/v2"}}
+
+		require.NoError(t, json.Unmarshal([]byte(v2ValidCredential), &raw))
+		raw[jsonFldContext] = cc.Context
+
+		err := validateCredentialUsingJSONSchema(raw, cc, &credentialOpts{})
+		require.NoError(t, err)
+	})
+
+	t.Run("test verifiable credential with multiple contexts", func(t *testing.T) {
+		var raw JSONObject
+
+		cc := &CredentialContents{Context: []string{
+			"https://www.w3.org/ns/credentials/v2",
+			"https://www.w3.org/ns/credentials/examples/v2",
+		}}
+
+		require.NoError(t, json.Unmarshal([]byte(v2ValidCredential), &raw))
+		raw[jsonFldContext] = cc.Context
+
+		err := validateCredentialUsingJSONSchema(raw, cc, &credentialOpts{})
+		require.NoError(t, err)
 	})
 }
 
@@ -273,10 +328,10 @@ func TestValidateVerCredType(t *testing.T) {
 	t.Run("test verifiable credential with no type", func(t *testing.T) {
 		var raw JSONObject
 
-		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
+		require.NoError(t, json.Unmarshal([]byte(v1ValidCredential), &raw))
 		raw[jsonFldType] = []string{}
 
-		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
+		err := validateCredentialUsingJSONSchema(raw, &CredentialContents{}, &credentialOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "Array must have at least 1 items")
 	})
@@ -284,10 +339,12 @@ func TestValidateVerCredType(t *testing.T) {
 	t.Run("test verifiable credential with not first VerifiableCredential type", func(t *testing.T) {
 		var raw JSONObject
 
-		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
+		cc := &CredentialContents{Context: []string{"https://www.w3.org/2018/credentials/v1"}}
+
+		require.NoError(t, json.Unmarshal([]byte(v1ValidCredential), &raw))
 		raw[jsonFldType] = []string{"NotVerifiableCredential"}
 
-		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
+		err := validateCredentialUsingJSONSchema(raw, cc, &credentialOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "Does not match pattern '^VerifiableCredential$")
 	})
@@ -295,10 +352,10 @@ func TestValidateVerCredType(t *testing.T) {
 	t.Run("test verifiable credential with VerifiableCredential type only as string", func(t *testing.T) {
 		var raw JSONObject
 
-		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
+		require.NoError(t, json.Unmarshal([]byte(v1ValidCredential), &raw))
 		raw[jsonFldType] = "VerifiableCredential"
 
-		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
+		err := validateCredentialUsingJSONSchema(raw, &CredentialContents{Context: []string{"https://www.w3.org/2018/credentials/v1"}}, &credentialOpts{})
 		require.NoError(t, err)
 	})
 
@@ -306,10 +363,10 @@ func TestValidateVerCredType(t *testing.T) {
 		func(t *testing.T) {
 			var raw JSONObject
 
-			require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
+			require.NoError(t, json.Unmarshal([]byte(v1ValidCredential), &raw))
 			raw[jsonFldType] = []string{"UniversityDegreeCredentail", "VerifiableCredential"}
 
-			err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
+			err := validateCredentialUsingJSONSchema(raw, &CredentialContents{Context: []string{"https://www.w3.org/2018/credentials/v1"}}, &credentialOpts{})
 			require.NoError(t, err)
 		})
 }
@@ -318,10 +375,10 @@ func TestValidateVerCredCredentialSubject(t *testing.T) {
 	t.Run("test verifiable credential with no credential subject", func(t *testing.T) {
 		var raw JSONObject
 
-		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
+		require.NoError(t, json.Unmarshal([]byte(v1ValidCredential), &raw))
 		delete(raw, jsonFldSubject)
 
-		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
+		err := validateCredentialUsingJSONSchema(raw, &CredentialContents{Context: []string{"https://www.w3.org/2018/credentials/v1"}}, &credentialOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "credentialSubject is required")
 	})
@@ -330,21 +387,21 @@ func TestValidateVerCredCredentialSubject(t *testing.T) {
 		var raw JSONObject
 		var subject interface{}
 
-		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
+		require.NoError(t, json.Unmarshal([]byte(v1ValidCredential), &raw))
 		require.NoError(t, json.Unmarshal([]byte(singleCredentialSubject), &subject))
 		raw[jsonFldSubject] = subject
 
-		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
+		err := validateCredentialUsingJSONSchema(raw, &CredentialContents{Context: []string{"https://www.w3.org/2018/credentials/v1"}}, &credentialOpts{})
 		require.NoError(t, err)
 	})
 
 	t.Run("test verifiable credential with single string credential subject", func(t *testing.T) {
 		var raw JSONObject
-		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
+		require.NoError(t, json.Unmarshal([]byte(v1ValidCredential), &raw))
 
 		raw[jsonFldSubject] = "did:example:ebfeb1f712ebc6f1c276e12ec21"
 
-		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
+		err := validateCredentialUsingJSONSchema(raw, &CredentialContents{Context: []string{"https://www.w3.org/2018/credentials/v1"}}, &credentialOpts{})
 		require.NoError(t, err)
 	})
 
@@ -352,7 +409,7 @@ func TestValidateVerCredCredentialSubject(t *testing.T) {
 		var raw JSONObject
 		var subject interface{}
 
-		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
+		require.NoError(t, json.Unmarshal([]byte(v1ValidCredential), &raw))
 		require.NoError(t, json.Unmarshal([]byte(multipleCredentialSubjects), &subject))
 		raw[jsonFldSubject] = subject
 
@@ -363,11 +420,11 @@ func TestValidateVerCredCredentialSubject(t *testing.T) {
 	t.Run("test verifiable credential with invalid type of credential subject", func(t *testing.T) {
 		var raw JSONObject
 
-		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
+		require.NoError(t, json.Unmarshal([]byte(v1ValidCredential), &raw))
 
 		raw[jsonFldSubject] = 55
 
-		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
+		err := validateCredentialUsingJSONSchema(raw, &CredentialContents{Context: []string{"https://www.w3.org/2018/credentials/v1"}}, &credentialOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "credentialSubject: Invalid type.")
 	})
@@ -377,10 +434,10 @@ func TestValidateVerCredIssuer(t *testing.T) {
 	t.Run("test verifiable credential with no issuer", func(t *testing.T) {
 		var raw JSONObject
 
-		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
+		require.NoError(t, json.Unmarshal([]byte(v1ValidCredential), &raw))
 		delete(raw, jsonFldIssuer)
 
-		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
+		err := validateCredentialUsingJSONSchema(raw, &CredentialContents{Context: []string{"https://www.w3.org/2018/credentials/v1"}}, &credentialOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "issuer is required")
 	})
@@ -388,11 +445,11 @@ func TestValidateVerCredIssuer(t *testing.T) {
 	t.Run("test verifiable credential with plain id issuer", func(t *testing.T) {
 		var raw JSONObject
 
-		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
+		require.NoError(t, json.Unmarshal([]byte(v1ValidCredential), &raw))
 
 		raw[jsonFldIssuer] = "https://example.edu/issuers/14"
 
-		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
+		err := validateCredentialUsingJSONSchema(raw, &CredentialContents{Context: []string{"https://www.w3.org/2018/credentials/v1"}}, &credentialOpts{})
 		require.NoError(t, err)
 	})
 
@@ -400,22 +457,22 @@ func TestValidateVerCredIssuer(t *testing.T) {
 		var raw JSONObject
 		var issuer interface{}
 
-		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
+		require.NoError(t, json.Unmarshal([]byte(v1ValidCredential), &raw))
 		require.NoError(t, json.Unmarshal([]byte(issuerAsObject), &issuer))
 		raw[jsonFldIssuer] = issuer
 
-		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
+		err := validateCredentialUsingJSONSchema(raw, &CredentialContents{Context: []string{"https://www.w3.org/2018/credentials/v1"}}, &credentialOpts{})
 		require.NoError(t, err)
 	})
 
 	t.Run("test verifiable credential with invalid type of issuer", func(t *testing.T) {
 		var raw JSONObject
 
-		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
+		require.NoError(t, json.Unmarshal([]byte(v1ValidCredential), &raw))
 
 		raw[jsonFldIssuer] = 55
 
-		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
+		err := validateCredentialUsingJSONSchema(raw, &CredentialContents{Context: []string{"https://www.w3.org/2018/credentials/v1"}}, &credentialOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "issuer: Invalid type")
 	})
@@ -423,14 +480,14 @@ func TestValidateVerCredIssuer(t *testing.T) {
 	t.Run("test verifiable credential with string issuer", func(t *testing.T) {
 		var raw JSONObject
 
-		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
+		require.NoError(t, json.Unmarshal([]byte(v1ValidCredential), &raw))
 
 		issuerRaw, err := json.Marshal("not-a-uri-issuer")
 		require.NoError(t, err)
 
 		raw[jsonFldIssuer] = issuerRaw
 
-		err = validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
+		err = validateCredentialUsingJSONSchema(raw, &CredentialContents{Context: []string{"https://www.w3.org/2018/credentials/v1"}}, &credentialOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "issuer: Does not match format 'uri'")
 	})
@@ -438,7 +495,7 @@ func TestValidateVerCredIssuer(t *testing.T) {
 	t.Run("test verifiable credential with object issuer", func(t *testing.T) {
 		var raw JSONObject
 
-		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
+		require.NoError(t, json.Unmarshal([]byte(v1ValidCredential), &raw))
 
 		issuerRaw := map[string]interface{}{
 			"id":   "not-a-uri-issuer-id",
@@ -447,7 +504,7 @@ func TestValidateVerCredIssuer(t *testing.T) {
 
 		raw[jsonFldIssuer] = issuerRaw
 
-		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
+		err := validateCredentialUsingJSONSchema(raw, &CredentialContents{Context: []string{"https://www.w3.org/2018/credentials/v1"}}, &credentialOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "issuer.id: Does not match format 'uri'")
 	})
@@ -457,10 +514,10 @@ func TestValidateVerCredIssuanceDate(t *testing.T) {
 	t.Run("test verifiable credential with empty issuance date", func(t *testing.T) {
 		var raw JSONObject
 
-		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
+		require.NoError(t, json.Unmarshal([]byte(v1ValidCredential), &raw))
 		delete(raw, jsonFldIssued)
 
-		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
+		err := validateCredentialUsingJSONSchema(raw, &CredentialContents{Context: []string{"https://www.w3.org/2018/credentials/v1"}}, &credentialOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "issuanceDate is required")
 	})
@@ -468,10 +525,10 @@ func TestValidateVerCredIssuanceDate(t *testing.T) {
 	t.Run("test verifiable credential with wrong format of issuance date", func(t *testing.T) {
 		var vcMap map[string]interface{}
 
-		require.NoError(t, json.Unmarshal([]byte(validCredential), &vcMap))
+		require.NoError(t, json.Unmarshal([]byte(v1ValidCredential), &vcMap))
 		vcMap["issuanceDate"] = "not a valid date time"
 
-		err := validateCredentialUsingJSONSchema(vcMap, nil, &credentialOpts{})
+		err := validateCredentialUsingJSONSchema(vcMap, &CredentialContents{Context: []string{"https://www.w3.org/2018/credentials/v1"}}, &credentialOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "issuanceDate: Does not match format 'date-time'")
 	})
@@ -479,10 +536,10 @@ func TestValidateVerCredIssuanceDate(t *testing.T) {
 	for _, timeStr := range []string{"2010-01-01T19:23:24Z", "2010-01-01T19:23:24.385Z"} {
 		var vcMap map[string]interface{}
 
-		require.NoError(t, json.Unmarshal([]byte(validCredential), &vcMap))
+		require.NoError(t, json.Unmarshal([]byte(v1ValidCredential), &vcMap))
 		vcMap["issuanceDate"] = timeStr
 
-		err := validateCredentialUsingJSONSchema(vcMap, nil, &credentialOpts{})
+		err := validateCredentialUsingJSONSchema(vcMap, &CredentialContents{Context: []string{"https://www.w3.org/2018/credentials/v1"}}, &credentialOpts{})
 		require.NoError(t, err)
 	}
 }
@@ -491,7 +548,7 @@ func TestValidateVerCredProof(t *testing.T) {
 	t.Run("test verifiable credential with embedded proof", func(t *testing.T) {
 		var raw JSONObject
 
-		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
+		require.NoError(t, json.Unmarshal([]byte(v1ValidCredential), &raw))
 
 		proof := []Proof{{
 			"type":               "Ed25519Signature2018",
@@ -503,16 +560,16 @@ func TestValidateVerCredProof(t *testing.T) {
 
 		raw[jsonFldLDProof] = proof
 
-		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
+		err := validateCredentialUsingJSONSchema(raw, &CredentialContents{Context: []string{"https://www.w3.org/2018/credentials/v1"}}, &credentialOpts{})
 		require.NoError(t, err)
 	})
 	t.Run("test verifiable credential with empty proof", func(t *testing.T) {
 		var raw JSONObject
 
-		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
+		require.NoError(t, json.Unmarshal([]byte(v1ValidCredential), &raw))
 		raw[jsonFldLDProof] = nil
 
-		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
+		err := validateCredentialUsingJSONSchema(raw, &CredentialContents{Context: []string{"https://www.w3.org/2018/credentials/v1"}}, &credentialOpts{})
 		require.NoError(t, err)
 	})
 }
@@ -521,20 +578,20 @@ func TestValidateVerCredExpirationDate(t *testing.T) {
 	t.Run("test verifiable credential with empty expiration date", func(t *testing.T) {
 		var raw JSONObject
 
-		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
+		require.NoError(t, json.Unmarshal([]byte(v1ValidCredential), &raw))
 		raw[jsonFldExpired] = nil
 
-		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
+		err := validateCredentialUsingJSONSchema(raw, &CredentialContents{Context: []string{"https://www.w3.org/2018/credentials/v1"}}, &credentialOpts{})
 		require.NoError(t, err)
 	})
 
 	t.Run("test verifiable credential with wrong format of expiration date", func(t *testing.T) {
 		var vcMap map[string]interface{}
 
-		require.NoError(t, json.Unmarshal([]byte(validCredential), &vcMap))
+		require.NoError(t, json.Unmarshal([]byte(v1ValidCredential), &vcMap))
 		vcMap["expirationDate"] = "not a valid date time"
 
-		err := validateCredentialUsingJSONSchema(vcMap, nil, &credentialOpts{})
+		err := validateCredentialUsingJSONSchema(vcMap, &CredentialContents{Context: []string{"https://www.w3.org/2018/credentials/v1"}}, &credentialOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "expirationDate: Does not match format 'date-time'")
 	})
@@ -542,10 +599,10 @@ func TestValidateVerCredExpirationDate(t *testing.T) {
 	for _, timeStr := range []string{"2010-01-01T19:23:24Z", "2010-01-01T19:23:24.385Z"} {
 		var vcMap map[string]interface{}
 
-		require.NoError(t, json.Unmarshal([]byte(validCredential), &vcMap))
+		require.NoError(t, json.Unmarshal([]byte(v1ValidCredential), &vcMap))
 		vcMap["expirationDate"] = timeStr
 
-		err := validateCredentialUsingJSONSchema(vcMap, nil, &credentialOpts{})
+		err := validateCredentialUsingJSONSchema(vcMap, &CredentialContents{Context: []string{"https://www.w3.org/2018/credentials/v1"}}, &credentialOpts{})
 		require.NoError(t, err)
 	}
 }
@@ -554,20 +611,20 @@ func TestValidateVerCredStatus(t *testing.T) {
 	t.Run("test verifiable credential with empty credential status", func(t *testing.T) {
 		var raw JSONObject
 
-		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
+		require.NoError(t, json.Unmarshal([]byte(v1ValidCredential), &raw))
 		raw[jsonFldStatus] = nil
 
-		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
+		err := validateCredentialUsingJSONSchema(raw, &CredentialContents{Context: []string{"https://www.w3.org/2018/credentials/v1"}}, &credentialOpts{})
 		require.NoError(t, err)
 	})
 
 	t.Run("test verifiable credential with undefined id of credential status", func(t *testing.T) {
 		var raw JSONObject
 
-		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
+		require.NoError(t, json.Unmarshal([]byte(v1ValidCredential), &raw))
 		raw[jsonFldStatus] = &TypedID{Type: "CredentialStatusList2017"}
 
-		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
+		err := validateCredentialUsingJSONSchema(raw, &CredentialContents{Context: []string{"https://www.w3.org/2018/credentials/v1"}}, &credentialOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "credentialStatus: id is required")
 	})
@@ -575,10 +632,10 @@ func TestValidateVerCredStatus(t *testing.T) {
 	t.Run("test verifiable credential with undefined type of credential status", func(t *testing.T) {
 		var raw JSONObject
 
-		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
+		require.NoError(t, json.Unmarshal([]byte(v1ValidCredential), &raw))
 		raw[jsonFldStatus] = &TypedID{ID: "https://example.edu/status/24"}
 
-		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
+		err := validateCredentialUsingJSONSchema(raw, &CredentialContents{Context: []string{"https://www.w3.org/2018/credentials/v1"}}, &credentialOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "credentialStatus: type is required")
 	})
@@ -586,10 +643,10 @@ func TestValidateVerCredStatus(t *testing.T) {
 	t.Run("test verifiable credential with invalid URL of id of credential status", func(t *testing.T) {
 		var raw JSONObject
 
-		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
+		require.NoError(t, json.Unmarshal([]byte(v1ValidCredential), &raw))
 		raw[jsonFldStatus] = map[string]interface{}{"id": "invalid URL", "type": "CredentialStatusList2017"}
 
-		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
+		err := validateCredentialUsingJSONSchema(raw, &CredentialContents{Context: []string{"https://www.w3.org/2018/credentials/v1"}}, &credentialOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "credentialStatus.id: Does not match format 'uri'")
 	})
@@ -599,19 +656,19 @@ func TestValidateVerCredSchema(t *testing.T) {
 	t.Run("test verifiable credential with empty credential schema", func(t *testing.T) {
 		var raw JSONObject
 
-		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
+		require.NoError(t, json.Unmarshal([]byte(v1ValidCredential), &raw))
 
-		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
+		err := validateCredentialUsingJSONSchema(raw, &CredentialContents{Context: []string{"https://www.w3.org/2018/credentials/v1"}}, &credentialOpts{})
 		require.NoError(t, err)
 	})
 
 	t.Run("test verifiable credential with undefined id of credential schema", func(t *testing.T) {
 		var raw JSONObject
 
-		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
+		require.NoError(t, json.Unmarshal([]byte(v1ValidCredential), &raw))
 		raw[jsonFldSchema] = &TypedID{Type: "JsonSchemaValidator2018"}
 
-		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
+		err := validateCredentialUsingJSONSchema(raw, &CredentialContents{Context: []string{"https://www.w3.org/2018/credentials/v1"}}, &credentialOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "credentialSchema: id is required")
 	})
@@ -619,10 +676,10 @@ func TestValidateVerCredSchema(t *testing.T) {
 	t.Run("test verifiable credential with undefined type of credential schema", func(t *testing.T) {
 		var raw JSONObject
 
-		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
+		require.NoError(t, json.Unmarshal([]byte(v1ValidCredential), &raw))
 		raw[jsonFldSchema] = &TypedID{ID: "https://example.org/examples/degree.json"}
 
-		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
+		err := validateCredentialUsingJSONSchema(raw, &CredentialContents{Context: []string{"https://www.w3.org/2018/credentials/v1"}}, &credentialOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "credentialSchema: type is required")
 	})
@@ -630,10 +687,10 @@ func TestValidateVerCredSchema(t *testing.T) {
 	t.Run("test verifiable credential with invalid URL of id of credential schema", func(t *testing.T) {
 		var raw JSONObject
 
-		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
+		require.NoError(t, json.Unmarshal([]byte(v1ValidCredential), &raw))
 		raw[jsonFldSchema] = map[string]interface{}{"id": "invalid URL", "type": "JsonSchemaValidator2018"}
 
-		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
+		err := validateCredentialUsingJSONSchema(raw, &CredentialContents{Context: []string{"https://www.w3.org/2018/credentials/v1"}}, &credentialOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "credentialSchema.id: Does not match format 'uri'")
 	})
@@ -643,48 +700,48 @@ func TestValidateVerCredRefreshService(t *testing.T) {
 	t.Run("test verifiable credential with empty refresh service", func(t *testing.T) {
 		var raw JSONObject
 
-		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
+		require.NoError(t, json.Unmarshal([]byte(v1ValidCredential), &raw))
 		raw[jsonFldRefreshService] = nil
 
-		err := validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
+		err := validateCredentialUsingJSONSchema(raw, &CredentialContents{Context: []string{"https://www.w3.org/2018/credentials/v1"}}, &credentialOpts{})
 		require.NoError(t, err)
 	})
 
 	t.Run("test verifiable credential with undefined id of refresh service", func(t *testing.T) {
-		vc, err := parseTestCredential(t, []byte(validCredential), WithDisabledProofCheck())
+		vc, err := parseTestCredential(t, []byte(v1ValidCredential), WithDisabledProofCheck())
 		require.NoError(t, err)
 
 		raw := vc.ToRawJSON()
 
 		raw[jsonFldRefreshService] = map[string]interface{}{"type": "ManualRefreshService2018"}
 
-		err = validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
+		err = validateCredentialUsingJSONSchema(raw, &CredentialContents{Context: []string{"https://www.w3.org/2018/credentials/v1"}}, &credentialOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "refreshService: id is required")
 	})
 
 	t.Run("test verifiable credential with undefined type of refresh service", func(t *testing.T) {
-		vc, err := parseTestCredential(t, []byte(validCredential), WithDisabledProofCheck())
+		vc, err := parseTestCredential(t, []byte(v1ValidCredential), WithDisabledProofCheck())
 		require.NoError(t, err)
 
 		raw := vc.ToRawJSON()
 
 		raw[jsonFldRefreshService] = map[string]interface{}{"id": "https://example.edu/refresh/3732"}
 
-		err = validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
+		err = validateCredentialUsingJSONSchema(raw, &CredentialContents{Context: []string{"https://www.w3.org/2018/credentials/v1"}}, &credentialOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "refreshService: type is required")
 	})
 
 	t.Run("test verifiable credential with invalid URL of id of credential schema", func(t *testing.T) {
-		vc, err := parseTestCredential(t, []byte(validCredential), WithDisabledProofCheck())
+		vc, err := parseTestCredential(t, []byte(v1ValidCredential), WithDisabledProofCheck())
 		require.NoError(t, err)
 
 		raw := vc.ToRawJSON()
 
 		raw[jsonFldRefreshService] = map[string]interface{}{"id": "invalid URL", "type": "ManualRefreshService2018"}
 
-		err = validateCredentialUsingJSONSchema(raw, nil, &credentialOpts{})
+		err = validateCredentialUsingJSONSchema(raw, &CredentialContents{Context: []string{"https://www.w3.org/2018/credentials/v1"}}, &credentialOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "refreshService.id: Does not match format 'uri'")
 	})
@@ -693,7 +750,7 @@ func TestValidateVerCredRefreshService(t *testing.T) {
 func TestCredential_MarshalJSON(t *testing.T) {
 	t.Run("round trip conversion of credential with plain issuer", func(t *testing.T) {
 		// setup -> create verifiable credential from json byte data
-		vc, err := parseTestCredential(t, []byte(validCredential), WithDisabledProofCheck())
+		vc, err := parseTestCredential(t, []byte(v1ValidCredential), WithDisabledProofCheck())
 		require.NoError(t, err)
 		require.NotEmpty(t, vc)
 
@@ -764,7 +821,7 @@ func TestCredential_MarshalJSON(t *testing.T) {
 
 	t.Run("round trip conversion of credential with composite issuer", func(t *testing.T) {
 		// setup -> create verifiable credential from json byte data
-		vc, err := parseTestCredential(t, []byte(validCredential), WithDisabledProofCheck())
+		vc, err := parseTestCredential(t, []byte(v1ValidCredential), WithDisabledProofCheck())
 		require.NoError(t, err)
 		require.NotEmpty(t, vc)
 
@@ -789,7 +846,7 @@ func TestCredential_MarshalJSON(t *testing.T) {
 	})
 
 	t.Run("Failure in cf marshalling", func(t *testing.T) {
-		vc, err := CreateCredential(CredentialContents{}, map[string]interface{}{
+		vc, err := CreateCredential(CredentialContents{Context: []string{V1ContextURI}}, map[string]interface{}{
 			"invalid field": make(chan int),
 		})
 		require.NoError(t, err)
@@ -801,6 +858,7 @@ func TestCredential_MarshalJSON(t *testing.T) {
 
 	t.Run("Failure in TermsOfUse marshalling", func(t *testing.T) {
 		vc, err := CreateCredential(CredentialContents{
+			Context: []string{V1ContextURI},
 			TermsOfUse: []TypedID{{CustomFields: map[string]interface{}{
 				"invalidField": make(chan int),
 			}}},
@@ -1074,7 +1132,7 @@ func TestWithCredDisableValidation(t *testing.T) {
 
 func TestWithCredentialSchemaLoader(t *testing.T) {
 	httpClient := &http.Client{}
-	jsonSchemaLoader := gojsonschema.NewStringLoader(JSONSchemaLoader())
+	jsonSchemaLoader := gojsonschema.NewStringLoader(JSONSchemaLoaderV1())
 	cache := NewExpirableSchemaCache(100, 10*time.Minute)
 
 	credentialOpt := WithCredentialSchemaLoader(
@@ -1113,23 +1171,24 @@ func TestWithJSONLDValidation(t *testing.T) {
 	opts := &credentialOpts{}
 	credentialOpt(opts)
 	require.Equal(t, jsonldValidation, opts.modelValidationMode)
-	require.Empty(t, opts.allowedCustomContexts)
+	require.Empty(t, opts.allowedContexts)
 	require.Empty(t, opts.allowedCustomTypes)
 }
 
 func TestWithBaseContextValidation(t *testing.T) {
-	credentialOpt := WithBaseContextValidation()
+	credentialOpt := WithBaseContextValidation(V1ContextURI)
 	require.NotNil(t, credentialOpt)
 
 	opts := &credentialOpts{}
 	credentialOpt(opts)
 	require.Equal(t, baseContextValidation, opts.modelValidationMode)
-	require.Empty(t, opts.allowedCustomContexts)
+	require.True(t, opts.allowedContexts[V1ContextURI])
 	require.Empty(t, opts.allowedCustomTypes)
 }
 
 func TestWithBaseContextExtendedValidation(t *testing.T) {
 	credentialOpt := WithBaseContextExtendedValidation(
+		V1ContextURI,
 		[]string{"https://www.w3.org/2018/credentials/examples/v1"},
 		[]string{"UniversityDegreeCredential", "AlumniCredential"})
 	require.NotNil(t, credentialOpt)
@@ -1142,7 +1201,7 @@ func TestWithBaseContextExtendedValidation(t *testing.T) {
 		"https://www.w3.org/2018/credentials/v1":          true,
 		"https://www.w3.org/2018/credentials/examples/v1": true,
 	},
-		opts.allowedCustomContexts)
+		opts.allowedContexts)
 
 	require.Equal(t, map[string]bool{
 		"VerifiableCredential":       true,
@@ -1174,7 +1233,7 @@ func TestWithStrictValidation(t *testing.T) {
 func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
 	testServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		rawMap := make(map[string]interface{})
-		require.NoError(t, json.Unmarshal([]byte(JSONSchemaLoader()), &rawMap))
+		require.NoError(t, json.Unmarshal([]byte(JSONSchemaLoaderV1()), &rawMap))
 
 		// extend default schema to require new referenceNumber field to be mandatory
 		required, success := rawMap["required"].([]interface{})
@@ -1193,7 +1252,7 @@ func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
 	defer func() { testServer.Close() }()
 
 	var raw JSONObject
-	err := json.Unmarshal([]byte(validCredential), &raw)
+	err := json.Unmarshal([]byte(v1ValidCredential), &raw)
 	require.NoError(t, err)
 
 	// define credential schema
@@ -1221,16 +1280,19 @@ func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
 		require.NoError(t, err)
 
 		vc, err := parseTestCredential(t, customValidSchema, WithDisabledProofCheck(),
-			WithBaseContextExtendedValidation([]string{
-				"https://www.w3.org/2018/credentials/v1",
-				"https://www.w3.org/2018/credentials/examples/v1",
-				"https://w3id.org/security/jws/v1",
-				"https://trustbloc.github.io/context/vc/examples-v1.jsonld",
-				"https://w3id.org/security/suites/ed25519-2020/v1",
-			}, []string{
-				"VerifiableCredential",
-				"UniversityDegreeCredential",
-			}))
+			WithBaseContextExtendedValidation(
+				V1ContextURI,
+				[]string{
+					"https://www.w3.org/2018/credentials/v1",
+					"https://www.w3.org/2018/credentials/examples/v1",
+					"https://w3id.org/security/jws/v1",
+					"https://trustbloc.github.io/context/vc/examples-v1.jsonld",
+					"https://w3id.org/security/suites/ed25519-2020/v1",
+				}, []string{
+					"VerifiableCredential",
+					"UniversityDegreeCredential",
+				},
+			))
 		require.NoError(t, err)
 
 		vcc := vc.Contents()
@@ -1244,7 +1306,7 @@ func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
 	t.Run("Error when failed to download custom credentialSchema", func(t *testing.T) {
 		var raw JSONObject
 
-		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
+		require.NoError(t, json.Unmarshal([]byte(v1ValidCredential), &raw))
 
 		// define credential schema with invalid port
 		raw[jsonFldSchema] = map[string]interface{}{"id": "http://localhost:0001", "type": "JsonSchemaValidator2018"}
@@ -1262,7 +1324,7 @@ func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
 	t.Run("Uses default schema if custom credentialSchema is not of 'JsonSchemaValidator2018' type", func(t *testing.T) { //nolint:lll
 		var raw JSONObject
 
-		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
+		require.NoError(t, json.Unmarshal([]byte(v1ValidCredential), &raw))
 
 		// define credential schema with not supported type
 		raw[jsonFldSchema] = map[string]interface{}{"id": testServer.URL, "type": "ZkpExampleSchema2018"}
@@ -1297,7 +1359,7 @@ func TestDownloadCustomSchema(t *testing.T) {
 	noCacheOpts := &credentialOpts{schemaLoader: newDefaultSchemaLoader()}
 	withCacheOpts := &credentialOpts{schemaLoader: &CredentialSchemaLoader{
 		schemaDownloadClient: httpClient,
-		jsonLoader:           gojsonschema.NewStringLoader(JSONSchemaLoader()),
+		jsonLoader:           gojsonschema.NewStringLoader(JSONSchemaLoaderV1()),
 		cache:                NewExpirableSchemaCache(32*1024*1024, time.Hour),
 	}}
 
@@ -1339,7 +1401,7 @@ func TestDownloadCustomSchema(t *testing.T) {
 		// Check for cache expiration.
 		withCacheOpts = &credentialOpts{schemaLoader: &CredentialSchemaLoader{
 			schemaDownloadClient: httpClient,
-			jsonLoader:           gojsonschema.NewStringLoader(JSONSchemaLoader()),
+			jsonLoader:           gojsonschema.NewStringLoader(JSONSchemaLoaderV1()),
 			cache:                NewExpirableSchemaCache(32*1024*1024, time.Second),
 		}}
 		loadsCount = 0
@@ -1462,7 +1524,7 @@ func Test_SubjectID(t *testing.T) {
 }
 
 func TestRawCredentialSerialization(t *testing.T) {
-	cBytes := []byte(validCredential)
+	cBytes := []byte(v1ValidCredential)
 
 	rc := new(JSONObject)
 	err := json.Unmarshal(cBytes, rc)
@@ -1741,7 +1803,7 @@ func Test_JWTVCToJSON(t *testing.T) {
 	issuerKeyID := "did:example:76e12ec712ebc6f1c221ebfeb1f"
 	proofCreator, _ := testsupport.NewKMSSigVerPair(t, kms.ED25519Type, issuerKeyID)
 
-	vcSource, err := parseTestCredential(t, []byte(validCredential), WithDisabledProofCheck())
+	vcSource, err := parseTestCredential(t, []byte(v1ValidCredential), WithDisabledProofCheck())
 	require.NoError(t, err)
 
 	jwtClaims, err := vcSource.JWTClaims(true)
@@ -1831,7 +1893,7 @@ func TestParseCredentialFromRaw(t *testing.T) {
 }
 
 func TestParseCredentialFromRaw_PreserveDates(t *testing.T) {
-	vcMap, err := jsonutil.ToMap(validCredential)
+	vcMap, err := jsonutil.ToMap(v1ValidCredential)
 	require.NoError(t, err)
 
 	vcMap["issuanceDate"] = "2020-01-01T00:00:00.000Z"
@@ -1863,7 +1925,7 @@ func TestCredential_validateCredential(t *testing.T) {
 	r := require.New(t)
 
 	t.Run("test jsonldValidation constraint", func(t *testing.T) {
-		vc, err := parseTestCredential(t, []byte(validCredential), WithDisabledProofCheck())
+		vc, err := parseTestCredential(t, []byte(v1ValidCredential), WithDisabledProofCheck())
 		r.NoError(err)
 
 		vcOpts := []CredentialOpt{
@@ -1897,7 +1959,7 @@ func TestCredential_validateCredential(t *testing.T) {
 	})
 
 	t.Run("test baseContextValidation constraint", func(t *testing.T) {
-		vc, err := parseTestCredential(t, []byte(validCredential), WithDisabledProofCheck())
+		vc, err := parseTestCredential(t, []byte(v1ValidCredential), WithDisabledProofCheck())
 		require.NoError(t, err)
 
 		raw := vc.ToRawJSON()
@@ -1905,36 +1967,36 @@ func TestCredential_validateCredential(t *testing.T) {
 		raw[jsonFldType] = []string{"VerifiableCredential"}
 		raw[jsonFldContext] = []string{"https://www.w3.org/2018/credentials/v1"}
 
-		_, err = ParseCredentialJSON(raw, WithBaseContextValidation())
+		_, err = ParseCredentialJSON(raw, WithBaseContextValidation(V1ContextURI))
 		r.NoError(err)
 
 		raw[jsonFldType] = []string{"VerifiableCredential", "UniversityDegreeCredential"}
 		raw[jsonFldContext] = []string{"https://www.w3.org/2018/credentials/v1"}
-		_, err = ParseCredentialJSON(raw, WithBaseContextValidation())
+		_, err = ParseCredentialJSON(raw, WithBaseContextValidation(V1ContextURI))
 		r.Error(err)
 		r.EqualError(err, "violated type constraint: not base only type defined")
 
 		raw[jsonFldType] = []string{"UniversityDegreeCredential"}
 		raw[jsonFldContext] = []string{"https://www.w3.org/2018/credentials/v1"}
-		_, err = ParseCredentialJSON(raw, WithBaseContextValidation())
+		_, err = ParseCredentialJSON(raw, WithBaseContextValidation(V1ContextURI))
 		r.Error(err)
 		r.EqualError(err, "violated type constraint: not base only type defined")
 
 		raw[jsonFldType] = []string{"VerifiableCredential"}
 		raw[jsonFldContext] = []string{"https://www.w3.org/2018/credentials/v1", "https://www.exaple.org/udc/v1"}
-		_, err = ParseCredentialJSON(raw, WithBaseContextValidation())
+		_, err = ParseCredentialJSON(raw, WithBaseContextValidation(V1ContextURI))
 		r.Error(err)
 		r.EqualError(err, "violated @context constraint: not base only @context defined")
 
 		raw[jsonFldType] = []string{"VerifiableCredential"}
 		raw[jsonFldContext] = []string{"https://www.exaple.org/udc/v1"}
-		_, err = ParseCredentialJSON(raw, WithBaseContextValidation())
+		_, err = ParseCredentialJSON(raw, WithBaseContextValidation(V1ContextURI))
 		r.Error(err)
 		r.EqualError(err, "violated @context constraint: not base only @context defined")
 	})
 
 	t.Run("test baseContextExtendedValidation constraint", func(t *testing.T) {
-		vc, err := parseTestCredential(t, []byte(validCredential), WithDisabledProofCheck())
+		vc, err := parseTestCredential(t, []byte(v1ValidCredential), WithDisabledProofCheck())
 		require.NoError(t, err)
 
 		raw := vc.ToRawJSON()
@@ -1945,6 +2007,7 @@ func TestCredential_validateCredential(t *testing.T) {
 		_, err = ParseCredentialJSON(
 			raw,
 			WithBaseContextExtendedValidation(
+				V1ContextURI,
 				[]string{"https://www.w3.org/2018/credentials/v1", "https://www.exaple.org/alumni/v1"},
 				[]string{"VerifiableCredential", "AlumniCredential"},
 			))
@@ -1956,6 +2019,7 @@ func TestCredential_validateCredential(t *testing.T) {
 		_, err = ParseCredentialJSON(
 			raw,
 			WithBaseContextExtendedValidation(
+				V1ContextURI,
 				[]string{"https://www.w3.org/2018/credentials/v1", "https://www.exaple.org/alumni/v1"},
 				[]string{"VerifiableCredential", "AlumniCredential"},
 			))
@@ -1967,6 +2031,7 @@ func TestCredential_validateCredential(t *testing.T) {
 		_, err = ParseCredentialJSON(
 			raw,
 			WithBaseContextExtendedValidation(
+				V1ContextURI,
 				[]string{"https://www.w3.org/2018/credentials/v1", "https://www.exaple.org/alumni/v1"},
 				[]string{"VerifiableCredential", "AlumniCredential"},
 			))
@@ -2021,7 +2086,7 @@ func TestParseCredentialWithDisabledProofCheck(t *testing.T) {
 
 	t.Run("ParseUnverifiedCredential() for JWS", func(t *testing.T) {
 		// Prepare JWS.
-		vc, err := parseTestCredential(t, []byte(validCredential), WithDisabledProofCheck())
+		vc, err := parseTestCredential(t, []byte(v1ValidCredential), WithDisabledProofCheck())
 		require.NoError(t, err)
 
 		credClaims, err := vc.JWTClaims(true)
@@ -2043,7 +2108,7 @@ func TestParseCredentialWithDisabledProofCheck(t *testing.T) {
 	})
 
 	t.Run("ParseUnverifiedCredential() for JWT error cases", func(t *testing.T) {
-		validCred, err := parseTestCredential(t, []byte(validCredential), WithDisabledProofCheck())
+		validCred, err := parseTestCredential(t, []byte(v1ValidCredential), WithDisabledProofCheck())
 		require.NoError(t, err)
 
 		vcc := validCred.Contents()
@@ -2066,13 +2131,13 @@ func TestParseCredentialWithDisabledProofCheck(t *testing.T) {
 			WithDisabledProofCheck(),
 			WithJSONLDValidation()) // Apply only JSON-LD validation
 		require.Error(t, err)
-		require.ErrorContains(t, err, "invalid context URI on position")
+		require.ErrorContains(t, err, "unsupported @context: https://w3id.org/security/bbs/v1")
 		require.Nil(t, vcUnverified)
 	})
 
 	t.Run("ParseUnverifiedCredential() for Linked Data proof", func(t *testing.T) {
 		// Prepare JWS.
-		vc, err := parseTestCredential(t, []byte(validCredential), WithDisabledProofCheck())
+		vc, err := parseTestCredential(t, []byte(v1ValidCredential), WithDisabledProofCheck())
 		require.NoError(t, err)
 
 		created := time.Now()
@@ -2117,7 +2182,7 @@ func TestParseCredentialWithDisabledProofCheck(t *testing.T) {
 
 		var rawVCMap map[string]interface{}
 
-		require.NoError(t, json.Unmarshal([]byte(validCredential), &rawVCMap))
+		require.NoError(t, json.Unmarshal([]byte(v1ValidCredential), &rawVCMap))
 		rawVCMap["@context"] = 55 // should be string or slice of strings
 
 		rawVCMapBytes, err := json.Marshal(rawVCMap)
@@ -2128,7 +2193,7 @@ func TestParseCredentialWithDisabledProofCheck(t *testing.T) {
 		require.Contains(t, err.Error(), "context of unknown type")
 		require.Nil(t, vc)
 
-		require.NoError(t, json.Unmarshal([]byte(validCredential), &rawVCMap))
+		require.NoError(t, json.Unmarshal([]byte(v1ValidCredential), &rawVCMap))
 		delete(rawVCMap, "issuer")
 
 		rawVCMapBytes, err = json.Marshal(rawVCMap)
@@ -2144,14 +2209,14 @@ func TestParseCredentialWithDisabledProofCheck(t *testing.T) {
 
 func TestCredential_ValidateCredential(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		vc, err := ParseCredential([]byte(validCredential), WithCredDisableValidation(), WithDisabledProofCheck())
+		vc, err := ParseCredential([]byte(v1ValidCredential), WithCredDisableValidation(), WithDisabledProofCheck())
 		require.NoError(t, err)
 		require.NotNil(t, vc)
 		require.NoError(t, vc.ValidateCredential(WithJSONLDDocumentLoader(createTestDocumentLoader(t))))
 	})
 
 	t.Run("Invalid cred", func(t *testing.T) {
-		vc, err := ParseCredential([]byte(credentialWithoutIssuanceDate),
+		vc, err := ParseCredential([]byte(v1CredentialWithoutIssuanceDate),
 			WithCredDisableValidation(), WithDisabledProofCheck())
 		require.NoError(t, err)
 		require.NotNil(t, vc)
@@ -2161,7 +2226,7 @@ func TestCredential_ValidateCredential(t *testing.T) {
 
 func TestMarshalCredential(t *testing.T) {
 	t.Run("test marshalling VC to JSON bytes", func(t *testing.T) {
-		vc, err := parseTestCredential(t, []byte(validCredential), WithDisabledProofCheck())
+		vc, err := parseTestCredential(t, []byte(v1ValidCredential), WithDisabledProofCheck())
 		require.NoError(t, err)
 		require.NotNil(t, vc)
 

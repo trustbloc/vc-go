@@ -22,10 +22,30 @@ import (
 	"github.com/trustbloc/kms-go/spi/kms"
 )
 
-func TestJWTCredClaimsMarshalJWS(t *testing.T) {
+func TestV1JWTCredClaimsMarshalJWS(t *testing.T) {
 	proofCreator, proofChecker := testsupport.NewKMSSigVerPair(t, kms.RSARS256Type, "did:example:76e12ec712ebc6f1c221ebfeb1f#key1")
 
-	vc, err := parseTestCredential(t, []byte(validCredential), WithDisabledProofCheck())
+	vc, err := parseTestCredential(t, []byte(v1ValidCredential), WithDisabledProofCheck())
+	require.NoError(t, err)
+
+	jwtClaims, err := vc.JWTClaims(true)
+	require.NoError(t, err)
+
+	t.Run("Marshal signed JWT", func(t *testing.T) {
+		jws, err := jwtClaims.MarshalJWSString(RS256, proofCreator, "did:example:76e12ec712ebc6f1c221ebfeb1f#key1")
+		require.NoError(t, err)
+
+		jwtVC, err := ParseCredential([]byte(jws), WithProofChecker(proofChecker))
+
+		require.NoError(t, err)
+		require.Equal(t, vc.stringJSON(t), jsonObjectToString(t, jwtVC.ToRawJSON()))
+	})
+}
+
+func TestV2JWTCredClaimsMarshalJWS(t *testing.T) {
+	proofCreator, proofChecker := testsupport.NewKMSSigVerPair(t, kms.RSARS256Type, "did:example:76e12ec712ebc6f1c221ebfeb1f#key1")
+
+	vc, err := parseTestCredential(t, []byte(v2ValidCredential), WithDisabledProofCheck())
 	require.NoError(t, err)
 
 	jwtClaims, err := vc.JWTClaims(true)
@@ -48,7 +68,7 @@ type invalidCredClaims struct {
 	Credential int `json:"vc,omitempty"`
 }
 
-func TestCredJWSDecoderUnmarshal(t *testing.T) {
+func TestV1CredJWSDecoderUnmarshal(t *testing.T) {
 	verificationKeyID := "did:example:76e12ec712ebc6f1c221ebfeb1f#key1"
 	otherVerificationKeyID := "did:example:76e12ec712ebc6f1c221ebfeb1f#key2"
 
