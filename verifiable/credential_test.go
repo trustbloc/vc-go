@@ -179,13 +179,18 @@ func TestParseCredentialWithoutIssuanceDate(t *testing.T) {
 	})
 }
 
-func TestParseV2CredentialWithoutValidFrom(t *testing.T) {
+func TestParseV2CredentialWithoutIssuer(t *testing.T) {
 	t.Run("test creation of new Verifiable Credential with disabled issuer check", func(t *testing.T) {
-		schema := JSONSchemaLoaderV2(WithDisableRequiredField("issuer"))
-
 		vc, err := parseTestCredential(t, []byte(v2CredentialWithoutIssuer), WithDisabledProofCheck(),
 			WithStrictValidation(),
-			WithSchema(schema))
+			WithDefaultSchemaLoader(func(vcc *CredentialContents) string {
+				if IsBaseContext(vcc.Context, V2ContextURI) {
+					return JSONSchemaLoaderV2(WithDisableRequiredField("issuer"))
+				}
+
+				return JSONSchemaLoaderV1()
+			}),
+		)
 		require.NoError(t, err)
 		require.NotNil(t, vc)
 	})

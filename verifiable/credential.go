@@ -1028,6 +1028,7 @@ type credentialOpts struct {
 	disabledProofCheck   bool
 	strictValidation     bool
 	defaultSchema        string
+	defaultSchemaLoader  func(vcc *CredentialContents) string
 	disableValidation    bool
 	verifyDataIntegrity  *verifyDataIntegrityOpts
 
@@ -1055,6 +1056,13 @@ func WithCredDisableValidation() CredentialOpt {
 func WithSchema(schema string) CredentialOpt {
 	return func(opts *credentialOpts) {
 		opts.defaultSchema = schema
+	}
+}
+
+// WithDefaultSchemaLoader sets the schema loader function.
+func WithDefaultSchemaLoader(loader func(vcc *CredentialContents) string) CredentialOpt {
+	return func(opts *credentialOpts) {
+		opts.defaultSchemaLoader = loader
 	}
 }
 
@@ -1973,6 +1981,10 @@ func getSchemaLoader(vcc *CredentialContents, opts *credentialOpts) (gojsonschem
 
 	if opts.defaultSchema != "" {
 		return gojsonschema.NewStringLoader(opts.defaultSchema), nil
+	}
+
+	if opts.defaultSchemaLoader != nil {
+		return gojsonschema.NewStringLoader(opts.defaultSchemaLoader(vcc)), nil
 	}
 
 	for _, schema := range vcc.Schemas {
