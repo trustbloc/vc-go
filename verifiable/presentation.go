@@ -20,7 +20,7 @@ import (
 	docjsonld "github.com/trustbloc/did-go/doc/ld/validator"
 )
 
-const basePresentationSchema = `
+const v1BasePresentationSchema = `
 {
   "required": [
     "@context",
@@ -155,8 +155,161 @@ const basePresentationSchema = `
 }
 `
 
+const v2BasePresentationSchema = `{
+  "$id": "https://www.w3.org/2022/credentials/v2/verifiable-presentation-schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "JSON Schema for a Verifiable Presentation according to the Verifiable Credentials Data Model v2",
+  "type": "object",
+  "$defs": {
+    "proof": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "minItems": 1
+            }
+          ]
+        },
+        "proofPurpose": {
+          "type": "string"
+        },
+        "verificationMethod": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string"
+                  },
+                  "controller": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "type",
+                  "controller"
+                ],
+                "additionalProperties": true
+              }
+            }
+          ]
+        },
+        "created": {
+          "type": "string",
+          "pattern": "-?([1-9][0-9]{3,}|0[0-9]{3})-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T(([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](\\.[0-9]+)?|(24:00:00(\\.0+)?))(Z|(\\+|-)((0[0-9]|1[0-3]):[0-5][0-9]|14:00))"
+        },
+        "domain": {
+          "type": "string"
+        },
+        "challenge": {
+          "type": "string"
+        },
+        "proofValue": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "proofPurpose",
+        "verificationMethod",
+        "created"
+      ],
+      "additionalProperties": true
+    },
+    "proofChain": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/proof"
+      },
+      "minItems": 1
+    }
+  },
+  "properties": {
+    "@context": {
+      "type": "array",
+      "contains": {
+        "const": "https://www.w3.org/ns/credentials/v2"
+      },
+      "minItems": 1
+    },
+    "id": {
+      "type": "string"
+    },
+    "type": {
+      "oneOf": [
+        {
+          "type": "array",
+          "contains": {
+            "const": "VerifiablePresentation"
+          }
+        },
+        {
+          "type": "string",
+          "enum": ["VerifiablePresentation"]
+        }
+      ]
+    },
+    "verifiableCredential": {
+      "anyOf": [
+        {
+          "type": "array"
+        },
+        {
+          "type": "object"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "proof": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/proof"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/proof"
+          },
+          "minItems": 1
+        }
+      ]
+    },
+    "proofChain": {
+      "$ref": "#/$defs/proofChain"
+    }
+  },
+  "required": [
+    "@context",
+    "type"
+  ],
+  "additionalProperties": true
+}`
+
 //nolint:gochecknoglobals
-var basePresentationSchemaLoader = gojsonschema.NewStringLoader(basePresentationSchema)
+var (
+	v1BasePresentationSchemaLoader = gojsonschema.NewStringLoader(v1BasePresentationSchema)
+	v2BasePresentationSchemaLoader = gojsonschema.NewStringLoader(v2BasePresentationSchema)
+)
 
 // MarshalledCredential defines marshalled Verifiable Credential enclosed into Presentation.
 // MarshalledCredential can be passed to verifiable.ParseCredential().
@@ -183,7 +336,7 @@ type Presentation struct {
 // NewPresentation creates a new Presentation with default context and type with the provided credentials.
 func NewPresentation(opts ...CreatePresentationOpt) (*Presentation, error) {
 	p := Presentation{
-		Context:     []string{baseContext},
+		Context:     []string{V1ContextURI},
 		Type:        []string{vpType},
 		credentials: []*Credential{},
 	}
@@ -636,19 +789,35 @@ func validateVPJSONLD(vpBytes rawPresentation, opts *presentationOpts) error {
 }
 
 func validateVPJSONSchema(data rawPresentation) error {
-	loader := gojsonschema.NewGoLoader(data)
+	validate := func(schemaLoader gojsonschema.JSONLoader, data rawPresentation) error {
+		loader := gojsonschema.NewGoLoader(data)
 
-	result, err := gojsonschema.Validate(basePresentationSchemaLoader, loader)
+		result, err := gojsonschema.Validate(schemaLoader, loader)
+		if err != nil {
+			return fmt.Errorf("validation of verifiable credential: %w", err)
+		}
+
+		if !result.Valid() {
+			errMsg := describeSchemaValidationError(result, "verifiable presentation")
+			return errors.New(errMsg)
+		}
+
+		return nil
+	}
+
+	baseContext, err := GetBaseContextFromRawDocument(data)
 	if err != nil {
-		return fmt.Errorf("validation of verifiable credential: %w", err)
+		return err
 	}
 
-	if !result.Valid() {
-		errMsg := describeSchemaValidationError(result, "verifiable presentation")
-		return errors.New(errMsg)
+	switch baseContext {
+	case V1ContextURI:
+		return validate(v1BasePresentationSchemaLoader, data)
+	case V2ContextURI:
+		return validate(v2BasePresentationSchemaLoader, data)
+	default:
+		return fmt.Errorf("unsupported verifiable presentation context: %s", baseContext)
 	}
-
-	return nil
 }
 
 func decodeVPFromJSON(vpData []byte) (rawPresentation, error) {

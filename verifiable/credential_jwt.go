@@ -26,6 +26,8 @@ const (
 	vcExpirationDateField = "expirationDate"
 	vcIssuerField         = "issuer"
 	vcIssuerIDField       = "id"
+	vcValidFrom           = "validFrom"
+	vcValidUntil          = "validUntil"
 )
 
 // JWTCredClaims is JWT Claims extension by Verifiable Credential (with custom "vc" claim).
@@ -126,6 +128,8 @@ func newJWTCredClaims(vc *Credential, minimizeVC bool) (*JWTCredClaims, error) {
 	if minimizeVC {
 		delete(credentialJSONCopy, jsonFldExpired)
 		delete(credentialJSONCopy, jsonFldIssued)
+		delete(credentialJSONCopy, jsonFldValidUntil)
+		delete(credentialJSONCopy, jsonFldValidFrom)
 		delete(credentialJSONCopy, jsonFldID)
 
 		issuer, err := parseIssuer(credentialJSONCopy[jsonFldIssuer])
@@ -188,7 +192,11 @@ func (jcc *JWTCredClaims) refineFromJWTClaims() error {
 
 	if nbf := claims.NotBefore; nbf != nil {
 		nbfTime := nbf.Time().UTC()
-		vcMap[vcIssuanceDateField] = nbfTime.Format(time.RFC3339)
+		if HasBaseContext(vcMap, V2ContextURI) {
+			vcMap[vcValidFrom] = nbfTime.Format(time.RFC3339)
+		} else {
+			vcMap[vcIssuanceDateField] = nbfTime.Format(time.RFC3339)
+		}
 	}
 
 	if jti := claims.ID; jti != "" {
@@ -197,12 +205,20 @@ func (jcc *JWTCredClaims) refineFromJWTClaims() error {
 
 	if iat := claims.IssuedAt; iat != nil {
 		iatTime := iat.Time().UTC()
-		vcMap[vcIssuanceDateField] = iatTime.Format(time.RFC3339)
+		if HasBaseContext(vcMap, V2ContextURI) {
+			vcMap[vcValidFrom] = iatTime.Format(time.RFC3339)
+		} else {
+			vcMap[vcIssuanceDateField] = iatTime.Format(time.RFC3339)
+		}
 	}
 
 	if exp := claims.Expiry; exp != nil {
 		expTime := exp.Time().UTC()
-		vcMap[vcExpirationDateField] = expTime.Format(time.RFC3339)
+		if HasBaseContext(vcMap, V2ContextURI) {
+			vcMap[vcValidUntil] = expTime.Format(time.RFC3339)
+		} else {
+			vcMap[vcExpirationDateField] = expTime.Format(time.RFC3339)
+		}
 	}
 
 	return nil

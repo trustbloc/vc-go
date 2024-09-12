@@ -201,6 +201,7 @@ func TestClient_VerifyStatus(t *testing.T) {
 				},
 				Resolver: &mockResolver{
 					Cred: createTestCredential(t, verifiable.CredentialContents{
+						Context: []string{verifiable.V1ContextURI},
 						Issuer: &verifiable.Issuer{
 							ID: issuerID,
 						},
@@ -284,7 +285,7 @@ func mockStatusVC(t *testing.T, issuerID string, vcStatus isRevoked) *verifiable
 	require.NoError(t, err)
 
 	return createTestCredential(t, verifiable.CredentialContents{
-		Context: []string{verifiable.ContextURI},
+		Context: []string{verifiable.V1ContextURI},
 		Types:   []string{verifiable.VCType},
 		Issuer: &verifiable.Issuer{
 			ID: issuerID,
