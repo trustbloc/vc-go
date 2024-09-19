@@ -27,6 +27,7 @@ const (
 	p384KeySize      = 48
 	p521KeySize      = 66
 	secp256k1KeySize = 32
+	ed25519KeySize   = 32
 )
 
 type ellipticCurve struct {
