@@ -46,20 +46,39 @@ func TestParseCredentialFromLinkedDataProof_Ed25519Signature2018(t *testing.T) {
 		VerificationMethod:      "did:example:76e12ec712ebc6f1c221ebfeb1f#key1",
 	}
 
-	vc, err := parseTestCredential(t, []byte(validCredential), WithDisabledProofCheck())
+	t.Run("V1", func(t *testing.T) {
+		vc, err := parseTestCredential(t, []byte(v1ValidCredential), WithDisabledProofCheck())
 
-	r.NoError(err)
+		r.NoError(err)
 
-	err = vc.AddLinkedDataProof(ldpContext, jsonldsig.WithDocumentLoader(createTestDocumentLoader(t)))
-	r.NoError(err)
+		err = vc.AddLinkedDataProof(ldpContext, jsonldsig.WithDocumentLoader(createTestDocumentLoader(t)))
+		r.NoError(err)
 
-	vcBytes, err := json.Marshal(vc)
-	r.NoError(err)
+		vcBytes, err := json.Marshal(vc)
+		r.NoError(err)
 
-	vcWithLdp, err := parseTestCredential(t, vcBytes,
-		WithProofChecker(proofChecker))
-	r.NoError(err)
-	r.Equal(vc.ToRawJSON(), vcWithLdp.ToRawJSON())
+		vcWithLdp, err := parseTestCredential(t, vcBytes,
+			WithProofChecker(proofChecker))
+		r.NoError(err)
+		r.Equal(vc.ToRawJSON(), vcWithLdp.ToRawJSON())
+	})
+
+	t.Run("V2", func(t *testing.T) {
+		vc, err := parseTestCredential(t, []byte(v2ValidCredential), WithDisabledProofCheck())
+
+		r.NoError(err)
+
+		err = vc.AddLinkedDataProof(ldpContext, jsonldsig.WithDocumentLoader(createTestDocumentLoader(t)))
+		r.NoError(err)
+
+		vcBytes, err := json.Marshal(vc)
+		r.NoError(err)
+
+		vcWithLdp, err := parseTestCredential(t, vcBytes,
+			WithProofChecker(proofChecker))
+		r.NoError(err)
+		r.Equal(vc.ToRawJSON(), vcWithLdp.ToRawJSON())
+	})
 }
 
 func TestParseCredentialFromLinkedDataProof_Ed25519Signature2020(t *testing.T) {
@@ -75,23 +94,41 @@ func TestParseCredentialFromLinkedDataProof_Ed25519Signature2020(t *testing.T) {
 		VerificationMethod:      "did:example:76e12ec712ebc6f1c221ebfeb1f#key1",
 	}
 
-	vc, err := parseTestCredential(t, []byte(validCredential), WithDisabledProofCheck())
-	r.NoError(err)
+	t.Run("V1", func(t *testing.T) {
+		vc, err := parseTestCredential(t, []byte(v1ValidCredential), WithDisabledProofCheck())
+		r.NoError(err)
 
-	err = vc.AddLinkedDataProof(ldpContext, jsonldsig.WithDocumentLoader(createTestDocumentLoader(t)))
-	r.NoError(err)
+		err = vc.AddLinkedDataProof(ldpContext, jsonldsig.WithDocumentLoader(createTestDocumentLoader(t)))
+		r.NoError(err)
 
-	vcBytes, err := json.Marshal(vc)
-	r.NoError(err)
+		vcBytes, err := json.Marshal(vc)
+		r.NoError(err)
 
-	vcWithLdp, err := parseTestCredential(t, vcBytes,
-		WithProofChecker(proofChecker))
-	r.NoError(err)
-	r.Equal(vc.ToRawJSON(), vcWithLdp.ToRawJSON())
+		vcWithLdp, err := parseTestCredential(t, vcBytes,
+			WithProofChecker(proofChecker))
+		r.NoError(err)
+		r.Equal(vc.ToRawJSON(), vcWithLdp.ToRawJSON())
+	})
+
+	t.Run("V2", func(t *testing.T) {
+		vc, err := parseTestCredential(t, []byte(v2ValidCredential), WithDisabledProofCheck())
+		r.NoError(err)
+
+		err = vc.AddLinkedDataProof(ldpContext, jsonldsig.WithDocumentLoader(createTestDocumentLoader(t)))
+		r.NoError(err)
+
+		vcBytes, err := json.Marshal(vc)
+		r.NoError(err)
+
+		vcWithLdp, err := parseTestCredential(t, vcBytes,
+			WithProofChecker(proofChecker))
+		r.NoError(err)
+		r.Equal(vc.ToRawJSON(), vcWithLdp.ToRawJSON())
+	})
 }
 
 //nolint:lll
-func TestParseCredentialFromLinkedDataProof_JSONLD_Validation(t *testing.T) {
+func TestParseV1CredentialFromLinkedDataProof_JSONLD_Validation(t *testing.T) {
 	r := require.New(t)
 
 	pubKeyBytes := base58.Decode("DqS5F3GVe3rCxucgi4JBNagjv4dKoHc8TDLDw9kR58Pz")
@@ -394,7 +431,7 @@ func TestExtraContextWithLDP(t *testing.T) {
 	vcMap, err := jsonutil.ToMap(vcBytes)
 	r.NoError(err)
 
-	vcMap["@context"] = baseContext
+	vcMap["@context"] = V1ContextURI
 	vcBytes, err = json.Marshal(vcMap)
 	r.NoError(err)
 
@@ -600,7 +637,7 @@ func TestParseCredentialFromLinkedDataProof_JsonWebSignature2020_Ed25519(t *test
 		VerificationMethod:      "did:example:76e12ec712ebc6f1c221ebfeb1f#key1",
 	}
 
-	vc, err := parseTestCredential(t, []byte(validCredential), WithDisabledProofCheck())
+	vc, err := parseTestCredential(t, []byte(v1ValidCredential), WithDisabledProofCheck())
 	r.NoError(err)
 
 	err = vc.AddLinkedDataProof(ldpContext, jsonldsig.WithDocumentLoader(createTestDocumentLoader(t)))
@@ -627,7 +664,7 @@ func TestParseCredentialFromLinkedDataProof_JsonWebSignature2020_ecdsaP256(t *te
 		VerificationMethod:      "did:example:76e12ec712ebc6f1c221ebfeb1f#key1",
 	}
 
-	vc, err := parseTestCredential(t, []byte(validCredential), WithDisabledProofCheck())
+	vc, err := parseTestCredential(t, []byte(v1ValidCredential), WithDisabledProofCheck())
 	r.NoError(err)
 
 	err = vc.AddLinkedDataProof(ldpContext, jsonldsig.WithDocumentLoader(createTestDocumentLoader(t)))
@@ -655,7 +692,7 @@ func TestParseCredentialFromLinkedDataProof_EcdsaSecp256k1Signature2019(t *testi
 		VerificationMethod:      "did:example:76e12ec712ebc6f1c221ebfeb1f#key1",
 	}
 
-	vc, err := parseTestCredential(t, []byte(validCredential), WithDisabledProofCheck())
+	vc, err := parseTestCredential(t, []byte(v1ValidCredential), WithDisabledProofCheck())
 	r.NoError(err)
 
 	err = vc.AddLinkedDataProof(ldpContext, jsonldsig.WithDocumentLoader(createTestDocumentLoader(t)))
@@ -983,7 +1020,7 @@ func TestParseCredentialWithSeveralLinkedDataProofs(t *testing.T) {
 		{Type: kms.ECDSAP256TypeIEEEP1363, PublicKeyID: "did:example:76e12ec712ebc6f1c221ebfeb1f#key2"},
 	})
 
-	vc, err := parseTestCredential(t, []byte(validCredential), WithDisabledProofCheck())
+	vc, err := parseTestCredential(t, []byte(v1ValidCredential), WithDisabledProofCheck())
 	r.NoError(err)
 
 	err = vc.AddLinkedDataProof(&LinkedDataProofContext{
@@ -1020,7 +1057,7 @@ func TestCredential_AddLinkedDataProof(t *testing.T) {
 		"did:example:76e12ec712ebc6f1c221ebfeb1f#key-1")
 
 	t.Run("Add a valid JWS Linked Data proof to VC", func(t *testing.T) {
-		vc, err := parseTestCredential(t, []byte(validCredential), WithDisabledProofCheck())
+		vc, err := parseTestCredential(t, []byte(v1ValidCredential), WithDisabledProofCheck())
 		r.NoError(err)
 
 		originalVCMap, err := jsonutil.ToMap(vc)
@@ -1060,7 +1097,7 @@ func TestCredential_AddLinkedDataProof(t *testing.T) {
 	})
 
 	t.Run("Add invalid Linked Data proof to VC", func(t *testing.T) {
-		vc, err := parseTestCredential(t, []byte(validCredential), WithDisabledProofCheck())
+		vc, err := parseTestCredential(t, []byte(v1ValidCredential), WithDisabledProofCheck())
 		require.NoError(t, err)
 
 		ldpContextWithMissingSignatureType := &LinkedDataProofContext{
@@ -1074,7 +1111,7 @@ func TestCredential_AddLinkedDataProof(t *testing.T) {
 
 	t.Run("sign and verify proof with capabilityChain", func(t *testing.T) {
 		rootCapability := "https://edv.com/foo/zcap/123"
-		vc, err := parseTestCredential(t, []byte(validCredential), WithDisabledProofCheck())
+		vc, err := parseTestCredential(t, []byte(v1ValidCredential), WithDisabledProofCheck())
 		r.NoError(err)
 
 		err = vc.AddLinkedDataProof(&LinkedDataProofContext{

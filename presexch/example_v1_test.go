@@ -33,7 +33,7 @@ func ExamplePresentationDefinition_CreateVP_v1() {
 			ID:      "age_descriptor",
 			Purpose: "Your age should be greater or equal to 18.",
 			Schema: []*Schema{{
-				URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+				URI: fmt.Sprintf("%s#%s", verifiable.V1ContextID, verifiable.VCType),
 			}},
 			Constraints: &Constraints{
 				LimitDisclosure: &required,
@@ -57,7 +57,7 @@ func ExamplePresentationDefinition_CreateVP_v1() {
 	vp, err := pd.CreateVP(createExampleCredentials([]credentialProto{
 		{
 			ID:      "http://example.edu/credentials/777",
-			Context: []string{verifiable.ContextURI},
+			Context: []string{verifiable.V1ContextURI},
 			Types:   []string{verifiable.VCType},
 			Issuer: &verifiable.Issuer{
 				ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
@@ -139,7 +139,7 @@ func ExamplePresentationDefinition_CreateVP_v1_With_LDP_FormatAndProof() {
 			ID:      "age_descriptor",
 			Purpose: "Your age should be greater or equal to 18.",
 			Schema: []*Schema{{
-				URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+				URI: fmt.Sprintf("%s#%s", verifiable.V1ContextID, verifiable.VCType),
 			}},
 			Constraints: &Constraints{
 				LimitDisclosure: &required,
@@ -166,7 +166,7 @@ func ExamplePresentationDefinition_CreateVP_v1_With_LDP_FormatAndProof() {
 	vp, err := pd.CreateVP(createExampleCredentials([]credentialProto{
 		{
 			ID:      "http://example.edu/credentials/777",
-			Context: []string{verifiable.ContextURI},
+			Context: []string{verifiable.V1ContextURI},
 			Types:   []string{verifiable.VCType},
 			Issuer: &verifiable.Issuer{
 				ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
@@ -249,7 +249,7 @@ func ExamplePresentationDefinition_CreateVP_v1_With_LDPVC_FormatAndProof() {
 			ID:      "age_descriptor",
 			Purpose: "Your age should be greater or equal to 18.",
 			Schema: []*Schema{{
-				URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+				URI: fmt.Sprintf("%s#%s", verifiable.V1ContextID, verifiable.VCType),
 			}},
 			Constraints: &Constraints{
 				LimitDisclosure: &required,
@@ -276,7 +276,7 @@ func ExamplePresentationDefinition_CreateVP_v1_With_LDPVC_FormatAndProof() {
 	vp, err := pd.CreateVP(createExampleCredentials([]credentialProto{
 		{
 			ID:      "http://example.edu/credentials/777",
-			Context: []string{verifiable.ContextURI},
+			Context: []string{verifiable.V1ContextURI},
 			Types:   []string{verifiable.VCType},
 			Issuer: &verifiable.Issuer{
 				ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
@@ -357,7 +357,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatches() {
 			ID:      "age_descriptor",
 			Purpose: "Your age should be greater or equal to 18.",
 			Schema: []*Schema{{
-				URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+				URI: fmt.Sprintf("%s#%s", verifiable.V1ContextID, verifiable.VCType),
 			}},
 			Constraints: &Constraints{
 				Fields: []*Field{{
@@ -372,7 +372,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatches() {
 			ID:      "first_name_descriptor",
 			Purpose: "First name must be either Andrew or Jesse",
 			Schema: []*Schema{{
-				URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+				URI: fmt.Sprintf("%s#%s", verifiable.V1ContextID, verifiable.VCType),
 			}},
 			Constraints: &Constraints{
 				Fields: []*Field{{
@@ -394,7 +394,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatches() {
 	vp, err := pd.CreateVP(createExampleCredentials([]credentialProto{
 		{
 			ID:      "http://example.edu/credentials/777",
-			Context: []string{verifiable.ContextURI},
+			Context: []string{verifiable.V1ContextURI},
 			Types:   []string{verifiable.VCType},
 			Issuer: &verifiable.Issuer{
 				ID: "did:example:777",
@@ -411,7 +411,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatches() {
 		},
 		{
 			ID:      "http://example.edu/credentials/888",
-			Context: []string{verifiable.ContextURI},
+			Context: []string{verifiable.V1ContextURI},
 			Types:   []string{verifiable.VCType},
 			Issuer: &verifiable.Issuer{
 				ID: "did:example:888",
@@ -542,7 +542,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
 			ID:      "age_descriptor",
 			Purpose: "Your age should be greater or equal to 18.",
 			Schema: []*Schema{{
-				URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+				URI: fmt.Sprintf("%s#%s", verifiable.V1ContextID, verifiable.VCType),
 			}},
 			Constraints: &Constraints{
 				Fields: []*Field{{
@@ -557,7 +557,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
 			ID:      "first_name_descriptor",
 			Purpose: "First name must be either Andrew or Jesse",
 			Schema: []*Schema{{
-				URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+				URI: fmt.Sprintf("%s#%s", verifiable.V1ContextID, verifiable.VCType),
 			}},
 			Constraints: &Constraints{
 				LimitDisclosure: &required,
@@ -580,7 +580,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
 	vp, err := pd.CreateVP(createExampleCredentials([]credentialProto{
 		{
 			ID:      "http://example.edu/credentials/777",
-			Context: []string{verifiable.ContextURI},
+			Context: []string{verifiable.V1ContextURI},
 			Types:   []string{verifiable.VCType},
 			Issuer: &verifiable.Issuer{
 				ID: "did:example:777",
@@ -597,7 +597,7 @@ func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
 		},
 		{
 			ID:      "http://example.edu/credentials/888",
-			Context: []string{verifiable.ContextURI},
+			Context: []string{verifiable.V1ContextURI},
 			Types:   []string{verifiable.VCType},
 			Issuer: &verifiable.Issuer{
 				ID: "did:example:888",
@@ -772,7 +772,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 			Group:   []string{"A"},
 			Purpose: "Your age should be greater or equal to 18.",
 			Schema: []*Schema{{
-				URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+				URI: fmt.Sprintf("%s#%s", verifiable.V1ContextID, verifiable.VCType),
 			}},
 			Constraints: &Constraints{
 				Fields: []*Field{{
@@ -788,7 +788,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 			Group:   []string{"drivers_license_image"},
 			Purpose: "We need your photo to identify you",
 			Schema: []*Schema{{
-				URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+				URI: fmt.Sprintf("%s#%s", verifiable.V1ContextID, verifiable.VCType),
 			}},
 			Constraints: &Constraints{
 				LimitDisclosure: &required,
@@ -805,7 +805,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 			Group:   []string{"passport_image"},
 			Purpose: "We need your image to identify you",
 			Schema: []*Schema{{
-				URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+				URI: fmt.Sprintf("%s#%s", verifiable.V1ContextID, verifiable.VCType),
 			}},
 			Constraints: &Constraints{
 				LimitDisclosure: &required,
@@ -828,7 +828,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 	vp, err := pd.CreateVP(createExampleCredentials([]credentialProto{
 		{
 			ID:      "http://example.edu/credentials/777",
-			Context: []string{verifiable.ContextURI},
+			Context: []string{verifiable.V1ContextURI},
 			Types:   []string{verifiable.VCType},
 			Issuer: &verifiable.Issuer{
 				ID: "did:example:777",
@@ -846,7 +846,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 		},
 		{
 			ID:      "http://example.edu/credentials/888",
-			Context: []string{verifiable.ContextURI},
+			Context: []string{verifiable.V1ContextURI},
 			Types:   []string{verifiable.VCType},
 			Issuer: &verifiable.Issuer{
 				ID: "did:example:888",
@@ -1007,7 +1007,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 			Group:   []string{"A"},
 			Purpose: "Your age should be greater or equal to 18.",
 			Schema: []*Schema{{
-				URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+				URI: fmt.Sprintf("%s#%s", verifiable.V1ContextID, verifiable.VCType),
 			}},
 			Constraints: &Constraints{
 				Fields: []*Field{{
@@ -1023,7 +1023,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 			Group:   []string{"drivers_license_image"},
 			Purpose: "We need your photo to identify you",
 			Schema: []*Schema{{
-				URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+				URI: fmt.Sprintf("%s#%s", verifiable.V1ContextID, verifiable.VCType),
 			}},
 			Constraints: &Constraints{
 				Fields: []*Field{{
@@ -1039,7 +1039,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 			Group:   []string{"passport_image"},
 			Purpose: "We need your image to identify you",
 			Schema: []*Schema{{
-				URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+				URI: fmt.Sprintf("%s#%s", verifiable.V1ContextID, verifiable.VCType),
 			}},
 			Constraints: &Constraints{
 				Fields: []*Field{{
@@ -1061,7 +1061,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 	vp, err := pd.CreateVP(createExampleCredentials([]credentialProto{
 		{
 			ID:      "http://example.edu/credentials/777",
-			Context: []string{verifiable.ContextURI},
+			Context: []string{verifiable.V1ContextURI},
 			Types:   []string{verifiable.VCType},
 			Issuer: &verifiable.Issuer{
 				ID: "did:example:777",
@@ -1239,7 +1239,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements2() {
 				Group:   []string{"drivers_license_image"},
 				Purpose: "We need your photo to identify you",
 				Schema: []*Schema{{
-					URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+					URI: fmt.Sprintf("%s#%s", verifiable.V1ContextID, verifiable.VCType),
 				}},
 				Constraints: &Constraints{
 					Fields: []*Field{{
@@ -1256,7 +1256,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements2() {
 				Group:   []string{"passport_image"},
 				Purpose: "We need your photo to identify you",
 				Schema: []*Schema{{
-					URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+					URI: fmt.Sprintf("%s#%s", verifiable.V1ContextID, verifiable.VCType),
 				}},
 				Constraints: &Constraints{
 					Fields: []*Field{{
@@ -1272,7 +1272,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements2() {
 				ID:    "flight_training_1",
 				Group: []string{"flight_training"},
 				Schema: []*Schema{{
-					URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+					URI: fmt.Sprintf("%s#%s", verifiable.V1ContextID, verifiable.VCType),
 				}},
 				Constraints: &Constraints{
 					Fields: []*Field{{
@@ -1292,7 +1292,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements2() {
 				ID:    "employment_private_1",
 				Group: []string{"pilot_employment"},
 				Schema: []*Schema{{
-					URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+					URI: fmt.Sprintf("%s#%s", verifiable.V1ContextID, verifiable.VCType),
 				}},
 				Constraints: &Constraints{
 					Fields: []*Field{{
@@ -1312,7 +1312,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements2() {
 				ID:    "employment_gov",
 				Group: []string{"pilot_employment"},
 				Schema: []*Schema{{
-					URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+					URI: fmt.Sprintf("%s#%s", verifiable.V1ContextID, verifiable.VCType),
 				}},
 				Constraints: &Constraints{
 					Fields: []*Field{{
@@ -1340,7 +1340,7 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements2() {
 	vp, err := pd.CreateVP(createExampleCredentials([]credentialProto{
 		{
 			ID:      "http://example.dmv/credentials/777",
-			Context: []string{verifiable.ContextURI},
+			Context: []string{verifiable.V1ContextURI},
 			Types:   []string{verifiable.VCType},
 			Issuer: &verifiable.Issuer{
 				ID: "did:example:777",
@@ -1835,7 +1835,7 @@ const exampleJSONLDContext = `{
 
 func fetchVC(ctx, types []string) *verifiable.Credential {
 	vc, err := createCredential(credentialProto{
-		Context: append([]string{verifiable.ContextURI}, ctx...),
+		Context: append([]string{verifiable.V1ContextURI}, ctx...),
 		Types:   append([]string{verifiable.VCType}, types...),
 		ID:      "http://test.credential.com/123",
 		Issuer:  &verifiable.Issuer{ID: "http://test.issuer.com"},

@@ -13,7 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -50,8 +50,8 @@ const (
 	jsonLDStructureErrStr = "JSON-LD doc has different structure after compaction"
 )
 
-// DefaultSchemaTemplate describes default schema.
-const DefaultSchemaTemplate = `{
+// SchemaTemplateV1 describes credentials v1 schema.
+const SchemaTemplateV1 = `{
   "required": [
     "@context"
     %s    
@@ -242,13 +242,349 @@ const DefaultSchemaTemplate = `{
 }
 `
 
-// https://www.w3.org/TR/vc-data-model/#data-schemas
-const jsonSchema2018Type = "JsonSchemaValidator2018"
+// SchemaTemplateV2 describes credential V2 schema.
+const SchemaTemplateV2 = `{
+  "$id": "https://www.w3.org/2022/credentials/v2/verifiable-credential-schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "JSON Schema for a Verifiable Credential according to the Verifiable Credentials Data Model v2",
+  "type": "object",
+  "$defs": {
+    "type": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "array",
+          "minItems": 1
+        }
+      ]
+    },
+    "credentialSubject": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "minProperties": 1
+    },
+    "credentialSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/$defs/type"
+        }
+      },
+      "required": [
+        "id",
+        "type"
+      ],
+      "additionalProperties": true
+    },
+    "credentialStatus": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/$defs/type"
+        }
+      },
+      "required": [
+        "id",
+        "type"
+      ],
+      "additionalProperties": true
+    },
+    "refreshService": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/$defs/type"
+        }
+      },
+      "required": [
+        "id",
+        "type"
+      ],
+      "additionalProperties": true
+    },
+    "termsOfUse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/$defs/type"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "additionalProperties": true
+    },
+    "evidence": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/$defs/type"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "additionalProperties": true
+    },
+    "proof": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "$ref": "#/$defs/type"
+        },
+        "proofPurpose": {
+          "type": "string"
+        },
+        "verificationMethod": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string"
+                  },
+                  "controller": {
+                    "type": "string"
+                  }
+                },
+                "required": ["id", "type", "controller"],
+                "additionalProperties": true
+              }
+            }
+          ]
+        },
+        "created": {
+          "type": "string"
+        },
+        "domain": {
+          "type": "string"
+        },
+        "challenge": {
+          "type": "string"
+        },
+        "proofValue": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "proofPurpose",
+        "verificationMethod",
+        "created"
+      ],
+      "additionalProperties": true
+    },
+    "proofChain": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/proof"
+      },
+      "minItems": 1
+    }
+  },
+  "properties": {
+    "@context": {
+      "type": "array",
+      "contains": {
+        "const": "https://www.w3.org/ns/credentials/v2"
+      },
+      "minItems": 1
+    },
+    "id": {
+      "type": "string"
+    },
+    "type": {
+      "oneOf": [
+        {
+          "type": "array",
+          "contains": {
+            "const": "VerifiableCredential"
+          }
+        },
+        {
+          "type": "string",
+          "enum": ["VerifiableCredential"]
+        }
+      ]
+    },
+    "issuer": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "additionalProperties": true
+        }
+      ]
+    },
+    "validFrom": {
+      "type": "string",
+      "pattern": "-?([1-9][0-9]{3,}|0[0-9]{3})-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T(([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](\\.[0-9]+)?|(24:00:00(\\.0+)?))(Z|(\\+|-)((0[0-9]|1[0-3]):[0-5][0-9]|14:00))"
+    },
+    "validUntil": {
+      "type": "string",
+      "pattern": "-?([1-9][0-9]{3,}|0[0-9]{3})-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T(([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](\\.[0-9]+)?|(24:00:00(\\.0+)?))(Z|(\\+|-)((0[0-9]|1[0-3]):[0-5][0-9]|14:00))"
+    },
+    "credentialSubject": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/credentialSubject"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/credentialSubject"
+          },
+          "minItems": 1
+        }
+      ]
+    },
+    "credentialStatus": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/credentialStatus"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/credentialStatus"
+          },
+          "minItems": 1
+        }
+      ]
+    },
+    "credentialSchema": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/credentialSchema"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/credentialSchema"
+          },
+          "minItems": 1
+        }
+      ]
+    },
+    "refreshService": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/refreshService"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/refreshService"
+          },
+          "minItems": 1
+        }
+      ]
+    },
+    "termsOfUse": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/termsOfUse"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/termsOfUse"
+          },
+          "minItems": 1
+        }
+      ]
+    },
+    "evidence": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/evidence"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence"
+          },
+          "minItems": 1
+        }
+      ]
+    },
+    "proof": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/proof"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/proof"
+          },
+          "minItems": 1
+        }
+      ]
+    },
+    "proofChain": {
+      "$ref": "#/$defs/proofChain"
+    }
+  },
+  "required": [
+    "@context"
+    %s    
+  ],
+  "additionalProperties": true
+}
+`
 
 const (
-	// https://www.w3.org/TR/vc-data-model/#base-context
-	baseContext = "https://www.w3.org/2018/credentials/v1"
+	// https://www.w3.org/TR/vc-data-model/#data-schemas
+	jsonSchema2018Type = "JsonSchemaValidator2018"
 
+	// https://www.w3.org/TR/vc-json-schema/#jsonschema
+	jsonSchemaType = "JsonSchema"
+	// https://www.w3.org/TR/vc-json-schema/#jsonschemacredential
+	jsonSchemaCredentialType = "JsonSchemaCredential"
+)
+
+const (
 	// https://www.w3.org/TR/vc-data-model/#types
 	vcType = "VerifiableCredential"
 
@@ -360,7 +696,7 @@ func (b *CredentialSchemaLoaderBuilder) Build() *CredentialSchemaLoader {
 	}
 
 	if l.jsonLoader == nil {
-		l.jsonLoader = defaultSchemaLoader()
+		l.jsonLoader = schemaLoaderV1()
 	}
 
 	return l
@@ -653,6 +989,8 @@ const (
 	jsonFldTermsOfUse     = "termsOfUse"
 	jsonFldRefreshService = "refreshService"
 	jsonFldSDJWTHashAlg   = "_sd_alg"
+	jsonFldValidFrom      = "validFrom"
+	jsonFldValidUntil     = "validUntil"
 )
 
 // CombinedProofChecker universal proof checker for both LD and JWT proofs.
@@ -679,19 +1017,20 @@ type CredentialTemplate func() *Credential
 
 // credentialOpts holds options for the Verifiable Credential decoding.
 type credentialOpts struct {
-	ldProofChecker        lddocument.ProofChecker
-	jwtProofChecker       jwt.ProofChecker
-	cwtProofChecker       cwt.ProofChecker
-	disabledCustomSchema  bool
-	schemaLoader          *CredentialSchemaLoader
-	modelValidationMode   vcModelValidationMode
-	allowedCustomContexts map[string]bool
-	allowedCustomTypes    map[string]bool
-	disabledProofCheck    bool
-	strictValidation      bool
-	defaultSchema         string
-	disableValidation     bool
-	verifyDataIntegrity   *verifyDataIntegrityOpts
+	ldProofChecker       lddocument.ProofChecker
+	jwtProofChecker      jwt.ProofChecker
+	cwtProofChecker      cwt.ProofChecker
+	disabledCustomSchema bool
+	schemaLoader         *CredentialSchemaLoader
+	modelValidationMode  vcModelValidationMode
+	allowedContexts      map[string]bool
+	allowedCustomTypes   map[string]bool
+	disabledProofCheck   bool
+	strictValidation     bool
+	defaultSchema        string
+	defaultSchemaLoader  func(vcc *CredentialContents) string
+	disableValidation    bool
+	verifyDataIntegrity  *verifyDataIntegrityOpts
 
 	jsonldCredentialOpts
 }
@@ -717,6 +1056,13 @@ func WithCredDisableValidation() CredentialOpt {
 func WithSchema(schema string) CredentialOpt {
 	return func(opts *credentialOpts) {
 		opts.defaultSchema = schema
+	}
+}
+
+// WithDefaultSchemaLoader sets the schema loader function.
+func WithDefaultSchemaLoader(loader func(vcc *CredentialContents) string) CredentialOpt {
+	return func(opts *credentialOpts) {
+		opts.defaultSchemaLoader = loader
 	}
 }
 
@@ -776,9 +1122,10 @@ func WithJSONLDValidation() CredentialOpt {
 
 // WithBaseContextValidation validates that only the fields and values (when applicable) are present
 // in the document. No extra fields are allowed (outside of credentialSubject).
-func WithBaseContextValidation() CredentialOpt {
+func WithBaseContextValidation(baseContext string) CredentialOpt {
 	return func(opts *credentialOpts) {
 		opts.modelValidationMode = baseContextValidation
+		opts.allowedContexts = map[string]bool{baseContext: true}
 	}
 }
 
@@ -804,16 +1151,16 @@ func WithExpectedDataIntegrityFields(purpose, domain, challenge string) Credenti
 
 // WithBaseContextExtendedValidation validates that fields that are specified in base context are as specified.
 // Additional fields are allowed.
-func WithBaseContextExtendedValidation(customContexts, customTypes []string) CredentialOpt {
+func WithBaseContextExtendedValidation(baseContext string, customContexts, customTypes []string) CredentialOpt {
 	return func(opts *credentialOpts) {
 		opts.modelValidationMode = baseContextExtendedValidation
 
-		opts.allowedCustomContexts = make(map[string]bool)
+		opts.allowedContexts = make(map[string]bool)
 		for _, context := range customContexts {
-			opts.allowedCustomContexts[context] = true
+			opts.allowedContexts[context] = true
 		}
 
-		opts.allowedCustomContexts[baseContext] = true
+		opts.allowedContexts[baseContext] = true
 
 		opts.allowedCustomTypes = make(map[string]bool)
 		for _, context := range customTypes {
@@ -1108,15 +1455,15 @@ func validateCredential(vcc *CredentialContents, vcJSON JSONObject, vcOpts *cred
 		// Validate VC using JSON schema. Even in case of VC data model extension (i.e. more than one @context
 		// is defined and thus JSON-LD validation is made), it's reasonable to do JSON Schema validation
 		// prior to the JSON-LD one as the former does not check several aspects like mandatory fields or fields format.
-		err := validateJSONSchema(vcJSON, vcc, vcOpts)
+		err := validateCredentialUsingJSONSchema(vcJSON, vcc, vcOpts)
 		if err != nil {
 			return err
 		}
 
-		return validateJSONLD(vcJSON, vcOpts)
+		return validateJSONLD(vcJSON, vcc, vcOpts)
 
 	case jsonldValidation:
-		return validateJSONLD(vcJSON, vcOpts)
+		return validateJSONLD(vcJSON, vcc, vcOpts)
 
 	case baseContextValidation:
 		return validateBaseContext(vcJSON, vcc, vcOpts)
@@ -1134,17 +1481,17 @@ func validateBaseContext(vcJSON JSONObject, vcc *CredentialContents, vcOpts *cre
 		return errors.New("violated type constraint: not base only type defined")
 	}
 
-	if len(vcc.Context) > 1 || vcc.Context[0] != baseContext {
+	if len(vcc.Context) > 1 || !vcOpts.allowedContexts[vcc.Context[0]] {
 		return errors.New("violated @context constraint: not base only @context defined")
 	}
 
-	return validateJSONSchema(vcJSON, vcc, vcOpts)
+	return validateCredentialUsingJSONSchema(vcJSON, vcc, vcOpts)
 }
 
 func validateBaseContextWithExtendedValidation(vcJSON JSONObject, vcc *CredentialContents,
 	vcOpts *credentialOpts) error {
 	for _, vcContext := range vcc.Context {
-		if _, ok := vcOpts.allowedCustomContexts[vcContext]; !ok {
+		if _, ok := vcOpts.allowedContexts[vcContext]; !ok {
 			return fmt.Errorf("not allowed @context: %s", vcContext)
 		}
 	}
@@ -1155,10 +1502,15 @@ func validateBaseContextWithExtendedValidation(vcJSON JSONObject, vcc *Credentia
 		}
 	}
 
-	return validateJSONSchema(vcJSON, vcc, vcOpts)
+	return validateCredentialUsingJSONSchema(vcJSON, vcc, vcOpts)
 }
 
-func validateJSONLD(vcJSON JSONObject, vcOpts *credentialOpts) error {
+func validateJSONLD(vcJSON JSONObject, vcc *CredentialContents, vcOpts *credentialOpts) error {
+	baseContext, err := GetBaseContext(vcc.Context)
+	if err != nil {
+		return err
+	}
+
 	// TODO: docjsonld.ValidateJSONLDMap has bug that it modify contexts of input vcJSON. Fix in did-go
 	validateOpts := []docjsonld.ValidateOpts{
 		docjsonld.WithDocumentLoader(vcOpts.jsonldCredentialOpts.jsonldDocumentLoader),
@@ -1239,9 +1591,23 @@ func parseCredentialContents(raw JSONObject, isSDJWT bool) (*CredentialContents,
 		return nil, fmt.Errorf("fill credential issued from raw: %w", err)
 	}
 
+	if issued == nil {
+		issued, err = parseTimeFld(raw, jsonFldValidFrom)
+		if err != nil {
+			return nil, fmt.Errorf("fill credential issued from raw: %w", err)
+		}
+	}
+
 	expired, err := parseTimeFld(raw, jsonFldExpired)
 	if err != nil {
 		return nil, fmt.Errorf("fill credential expired from raw: %w", err)
+	}
+
+	if expired == nil {
+		expired, err = parseTimeFld(raw, jsonFldValidUntil)
+		if err != nil {
+			return nil, fmt.Errorf("fill credential expired from raw: %w", err)
+		}
 	}
 
 	status, err := newNilableTypedID(raw[jsonFldStatus])
@@ -1559,7 +1925,7 @@ func getCredentialOpts(opts []CredentialOpt) *credentialOpts {
 func newDefaultSchemaLoader() *CredentialSchemaLoader {
 	return &CredentialSchemaLoader{
 		schemaDownloadClient: &http.Client{},
-		jsonLoader:           defaultSchemaLoader(),
+		jsonLoader:           schemaLoaderV1(),
 	}
 }
 
@@ -1577,16 +1943,12 @@ func SerializeSubject(subject []Subject) interface{} {
 	return mapSlice(subject, SubjectToJSON)
 }
 
-func validateJSONSchema(vcJSON JSONObject, vcc *CredentialContents, opts *credentialOpts) error {
-	return validateCredentialUsingJSONSchema(vcJSON, vcc.Schemas, opts)
-}
-
-func validateCredentialUsingJSONSchema(vcJSON JSONObject, schemas []TypedID, opts *credentialOpts) error {
-	// Validate that the Verifiable Credential conforms to the serialization of the Verifiable Credential data model
-	// (https://w3c.github.io/vc-data-model/#example-1-a-simple-example-of-a-verifiable-credential)
-	schemaLoader, err := getSchemaLoader(schemas, opts)
+// validateCredentialUsingJSONSchema validates that the Verifiable Credential conforms to the serialization of the Verifiable Credential data model
+// (https://w3c.github.io/vc-data-model/#example-1-a-simple-example-of-a-verifiable-credential)
+func validateCredentialUsingJSONSchema(vcJSON JSONObject, vcc *CredentialContents, opts *credentialOpts) error {
+	schemaLoader, err := getSchemaLoader(vcc, opts)
 	if err != nil {
-		return err
+		return fmt.Errorf("get schema loader: %w", err)
 	}
 
 	loader := gojsonschema.NewGoLoader(vcJSON)
@@ -1604,28 +1966,47 @@ func validateCredentialUsingJSONSchema(vcJSON JSONObject, schemas []TypedID, opt
 	return nil
 }
 
-func getSchemaLoader(schemas []TypedID, opts *credentialOpts) (gojsonschema.JSONLoader, error) {
-	if opts.disabledCustomSchema {
-		return defaultSchemaLoaderWithOpts(opts), nil
+func getSchemaLoader(vcc *CredentialContents, opts *credentialOpts) (gojsonschema.JSONLoader, error) {
+	var schemaLoader gojsonschema.JSONLoader
+
+	if IsBaseContext(vcc.Context, V2ContextURI) {
+		schemaLoader = schemaLoaderV2()
+	} else {
+		schemaLoader = schemaLoaderV1()
 	}
 
-	for _, schema := range schemas {
+	if opts.disabledCustomSchema {
+		return schemaLoader, nil
+	}
+
+	if opts.defaultSchema != "" {
+		return gojsonschema.NewStringLoader(opts.defaultSchema), nil
+	}
+
+	if opts.defaultSchemaLoader != nil {
+		return gojsonschema.NewStringLoader(opts.defaultSchemaLoader(vcc)), nil
+	}
+
+	for _, schema := range vcc.Schemas {
 		switch schema.Type {
-		case jsonSchema2018Type:
+		case jsonSchema2018Type, jsonSchemaType:
 			customSchemaData, err := getJSONSchema(schema.ID, opts)
 			if err != nil {
 				return nil, fmt.Errorf("load of custom credential schema from %s: %w", schema.ID, err)
 			}
 
 			return gojsonschema.NewBytesLoader(customSchemaData), nil
+		//TODO: add support for JSON Schema Credential
+		case jsonSchemaCredentialType:
+			// TODO: should unsupported schema type be ignored or should this cause an error?
+			errLogger.Printf("unsupported credential schema: %s. Using default schema for validation", schema.Type)
 		default:
 			// TODO: should unsupported schema be ignored or should this cause an error?
 			errLogger.Printf("unsupported credential schema: %s. Using default schema for validation", schema.Type)
 		}
 	}
 
-	// If no custom schema is chosen, use default one
-	return defaultSchemaLoaderWithOpts(opts), nil
+	return schemaLoader, nil
 }
 
 type schemaOpts struct {
@@ -1642,15 +2023,26 @@ func WithDisableRequiredField(fieldName string) SchemaOpt {
 	}
 }
 
-// JSONSchemaLoader creates default schema with the option to disable the check of specific properties.
-func JSONSchemaLoader(opts ...SchemaOpt) string {
-	defaultRequired := []string{
+// JSONSchemaLoaderV1 creates default schema with the option to disable the check of specific properties.
+func JSONSchemaLoaderV1(opts ...SchemaOpt) string {
+	return jsonSchemaLoader(SchemaTemplateV1, []string{
 		schemaPropertyType,
 		schemaPropertyCredentialSubject,
 		schemaPropertyIssuer,
 		schemaPropertyIssuanceDate,
-	}
+	}, opts...)
+}
 
+// JSONSchemaLoaderV2 creates default schema with the option to disable the check of specific properties.
+func JSONSchemaLoaderV2(opts ...SchemaOpt) string {
+	return jsonSchemaLoader(SchemaTemplateV2, []string{
+		schemaPropertyType,
+		schemaPropertyCredentialSubject,
+		schemaPropertyIssuer,
+	}, opts...)
+}
+
+func jsonSchemaLoader(schemaTemplate string, defaultRequired []string, opts ...SchemaOpt) string {
 	dsOpts := &schemaOpts{}
 	for _, opt := range opts {
 		opt(dsOpts)
@@ -1673,19 +2065,15 @@ func JSONSchemaLoader(opts ...SchemaOpt) string {
 		}
 	}
 
-	return fmt.Sprintf(DefaultSchemaTemplate, required)
+	return fmt.Sprintf(schemaTemplate, required)
 }
 
-func defaultSchemaLoaderWithOpts(opts *credentialOpts) gojsonschema.JSONLoader {
-	if opts.defaultSchema != "" {
-		return gojsonschema.NewStringLoader(opts.defaultSchema)
-	}
-
-	return defaultSchemaLoader()
+func schemaLoaderV1() gojsonschema.JSONLoader {
+	return gojsonschema.NewStringLoader(JSONSchemaLoaderV1())
 }
 
-func defaultSchemaLoader() gojsonschema.JSONLoader {
-	return gojsonschema.NewStringLoader(JSONSchemaLoader())
+func schemaLoaderV2() gojsonschema.JSONLoader {
+	return gojsonschema.NewStringLoader(JSONSchemaLoaderV2())
 }
 
 func getJSONSchema(url string, opts *credentialOpts) ([]byte, error) {
@@ -1731,7 +2119,7 @@ func loadJSONSchema(url string, client *http.Client) ([]byte, error) {
 
 	var gotBody []byte
 
-	gotBody, err = ioutil.ReadAll(resp.Body)
+	gotBody, err = io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("credential schema: read response body: %w", err)
 	}
@@ -1891,12 +2279,20 @@ func serializeCredentialContents(vcc *CredentialContents, proofs []Proof) (JSONO
 		vcJSON[jsonFldTermsOfUse] = typedIDsToRaw(vcc.TermsOfUse)
 	}
 
-	if vcc.Issued != nil {
-		vcJSON[jsonFldIssued] = serializeTime(vcc.Issued)
+	fillTimes := func(issuedField, expiredField string) {
+		if vcc.Issued != nil {
+			vcJSON[issuedField] = serializeTime(vcc.Issued)
+		}
+
+		if vcc.Expired != nil {
+			vcJSON[expiredField] = serializeTime(vcc.Expired)
+		}
 	}
 
-	if vcc.Expired != nil {
-		vcJSON[jsonFldExpired] = serializeTime(vcc.Expired)
+	if IsBaseContext(vcc.Context, V2ContextURI) {
+		fillTimes(jsonFldValidFrom, jsonFldValidUntil)
+	} else {
+		fillTimes(jsonFldIssued, jsonFldExpired)
 	}
 
 	if vcc.SDJWTHashAlg != nil {
@@ -2056,6 +2452,34 @@ func (vc *Credential) WithModifiedExpired(wrapper *util.TimeWrapper) *Credential
 
 	newContents.Expired = wrapper
 	newCredJSON[jsonFldExpired] = serializeTime(wrapper)
+
+	return &Credential{
+		credentialJSON:     newCredJSON,
+		credentialContents: newContents,
+	}
+}
+
+// WithModifiedValidFrom creates new credential with modified issued time and without proofs as they become invalid.
+func (vc *Credential) WithModifiedValidFrom(wrapper *util.TimeWrapper) *Credential {
+	newCredJSON := copyCredentialJSONWithoutProofs(vc.credentialJSON)
+	newContents := vc.Contents()
+
+	newContents.Issued = wrapper
+	newCredJSON[jsonFldValidFrom] = serializeTime(wrapper)
+
+	return &Credential{
+		credentialJSON:     newCredJSON,
+		credentialContents: newContents,
+	}
+}
+
+// WithModifiedValidUntil creates new credential with modified expired time and without proofs as they become invalid.
+func (vc *Credential) WithModifiedValidUntil(wrapper *util.TimeWrapper) *Credential {
+	newCredJSON := copyCredentialJSONWithoutProofs(vc.credentialJSON)
+	newContents := vc.Contents()
+
+	newContents.Expired = wrapper
+	newCredJSON[jsonFldValidUntil] = serializeTime(wrapper)
 
 	return &Credential{
 		credentialJSON:     newCredJSON,

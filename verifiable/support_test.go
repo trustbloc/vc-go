@@ -22,11 +22,21 @@ import (
 	"github.com/trustbloc/vc-go/proof/testsupport"
 )
 
-//go:embed testdata/valid_credential.jsonld
-var validCredential string //nolint:gochecknoglobals
+var (
+	//go:embed testdata/v1_valid_credential.jsonld
+	v1ValidCredential string //nolint:gochecknoglobals
 
-//go:embed testdata/credential_without_issuancedate.jsonld
-var credentialWithoutIssuanceDate string //nolint:gochecknoglobals
+	//go:embed testdata/v1_credential_without_issuancedate.jsonld
+	v1CredentialWithoutIssuanceDate string //nolint:gochecknoglobals
+)
+
+var (
+	//go:embed testdata/v2_valid_credential.jsonld
+	v2ValidCredential string //nolint:gochecknoglobals
+
+	//go:embed testdata/v2_credential_without_issuer.jsonld
+	v2CredentialWithoutIssuer string //nolint:gochecknoglobals
+)
 
 func (vc *Credential) stringJSON(t *testing.T) string {
 	bytes, err := json.Marshal(vc)
@@ -59,7 +69,7 @@ func (vp *Presentation) stringJSON(t *testing.T) string {
 func createVCWithLinkedDataProof(t *testing.T) (*Credential, *checker.ProofChecker) {
 	t.Helper()
 
-	vc, err := ParseCredential([]byte(validCredential),
+	vc, err := ParseCredential([]byte(v1ValidCredential),
 		WithJSONLDDocumentLoader(createTestDocumentLoader(t)),
 		WithDisabledProofCheck())
 
@@ -87,7 +97,7 @@ func createVCWithLinkedDataProof(t *testing.T) (*Credential, *checker.ProofCheck
 func createVCWithTwoLinkedDataProofs(t *testing.T) (*Credential, *checker.ProofChecker) {
 	t.Helper()
 
-	vc, err := ParseCredential([]byte(validCredential),
+	vc, err := ParseCredential([]byte(v1ValidCredential),
 		WithJSONLDDocumentLoader(createTestDocumentLoader(t)),
 		WithDisabledProofCheck())
 

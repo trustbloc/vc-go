@@ -75,7 +75,7 @@ func ExamplePresentationDefinition_CreateVP_v2() {
 	vp, err := pd.CreateVP(createExampleCredentials([]credentialProto{
 		{
 			ID:      "http://example.edu/credentials/777",
-			Context: []string{verifiable.ContextURI},
+			Context: []string{verifiable.V1ContextURI},
 			Types:   []string{verifiable.VCType},
 			Issuer: &verifiable.Issuer{
 				ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
@@ -199,7 +199,7 @@ func ExamplePresentationDefinition_CreateVP_with_LdpVC_Format() {
 	vp, err := pd.CreateVP(createExampleCredentials([]credentialProto{
 		{
 			ID:      "http://example.edu/credentials/777",
-			Context: []string{verifiable.ContextURI},
+			Context: []string{verifiable.V1ContextURI},
 			Types:   []string{verifiable.VCType},
 			Issuer: &verifiable.Issuer{
 				ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
@@ -326,7 +326,7 @@ func ExamplePresentationDefinition_CreateVP_with_Ldp_Format() {
 	vp, err := pd.CreateVP(createExampleCredentials([]credentialProto{
 		{
 			ID:      "http://example.edu/credentials/777",
-			Context: []string{verifiable.ContextURI},
+			Context: []string{verifiable.V1ContextURI},
 			Types:   []string{verifiable.VCType},
 			Issuer: &verifiable.Issuer{
 				ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
@@ -453,7 +453,7 @@ func ExamplePresentationDefinition_CreateVP_withFormatInInputDescriptor() {
 	vp, err := pd.CreateVP(createExampleCredentials([]credentialProto{
 		{
 			ID:      "http://example.edu/credentials/777",
-			Context: []string{verifiable.ContextURI},
+			Context: []string{verifiable.V1ContextURI},
 			Types:   []string{verifiable.VCType},
 			Issuer: &verifiable.Issuer{
 				ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
@@ -580,7 +580,7 @@ func TestExamplePresentationDefinition_CreateVPWithFormat_NoMatch(t *testing.T) 
 	_, err = pd.CreateVP(createExampleCredentials([]credentialProto{
 		{
 			ID:      "http://example.edu/credentials/777",
-			Context: []string{verifiable.ContextURI},
+			Context: []string{verifiable.V1ContextURI},
 			Types:   []string{verifiable.VCType},
 			Issuer: &verifiable.Issuer{
 				ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
@@ -844,7 +844,7 @@ func ExamplePresentationDefinition_CreateVP_limitedDisclosureSkipsNonSDVCs() {
 	makeVC := func(id string) *verifiable.Credential {
 		vc, makeErr := verifiable.CreateCredential(verifiable.CredentialContents{
 			ID:      id,
-			Context: []string{verifiable.ContextURI},
+			Context: []string{verifiable.V1ContextURI},
 			Types:   []string{verifiable.VCType},
 			Issuer: &verifiable.Issuer{
 				ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",

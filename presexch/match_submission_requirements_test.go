@@ -166,7 +166,7 @@ func TestInstance_GetSubmissionRequirements(t *testing.T) {
 			ID: uuid.New().String(),
 			InputDescriptors: []*presexch.InputDescriptor{{
 				Schema: []*presexch.Schema{{
-					URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+					URI: fmt.Sprintf("%s#%s", verifiable.V1ContextID, verifiable.VCType),
 				}},
 				ID: uuid.New().String(),
 				Constraints: &presexch.Constraints{
@@ -182,7 +182,7 @@ func TestInstance_GetSubmissionRequirements(t *testing.T) {
 		vc := createTestCredential(t, credentialProto{
 			ID: "https://issuer.oidp.uscis.gov/credentials/83627465",
 			Context: []string{
-				verifiable.ContextURI,
+				verifiable.V1ContextURI,
 				"https://www.w3.org/2018/credentials/examples/v1",
 				"https://w3id.org/security/bbs/v1",
 			},
@@ -307,7 +307,7 @@ func TestInstance_GetSubmissionRequirements(t *testing.T) {
 				ID:    uuid.New().String(),
 				Group: []string{"A"},
 				Schema: []*presexch.Schema{{
-					URI: verifiable.ContextURI,
+					URI: verifiable.V1ContextURI,
 				}},
 				Constraints: &presexch.Constraints{
 					SubjectIsIssuer: &subIsIssuerRequired,
@@ -320,13 +320,14 @@ func TestInstance_GetSubmissionRequirements(t *testing.T) {
 
 		result, err := pd.MatchSubmissionRequirement([]*verifiable.Credential{
 			createTestCredential(t, credentialProto{
-				Context: []string{verifiable.ContextURI},
+				Context: []string{verifiable.V1ContextURI},
 				Types:   []string{verifiable.VCType},
 				ID:      uuid.New().String(),
 				CustomFields: map[string]interface{}{
 					"first_name": "Jesse",
 				},
 			}), createTestCredential(t, credentialProto{
+				Context: []string{verifiable.V1ContextURI},
 				ID:      uuid.New().String(),
 				Subject: []verifiable.Subject{{ID: issuerID}},
 				Issuer:  &verifiable.Issuer{ID: issuerID},
