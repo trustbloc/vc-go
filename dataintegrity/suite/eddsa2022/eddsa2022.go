@@ -4,11 +4,10 @@ Copyright Gen Digital Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package ecdsa2019
+package eddsa2022
 
 import (
 	"crypto/sha256"
-	"crypto/sha512"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -22,19 +21,16 @@ import (
 	wrapperapi "github.com/trustbloc/kms-go/wrapper/api"
 
 	"github.com/trustbloc/vc-go/crypto-ext/pubkey"
-	"github.com/trustbloc/vc-go/crypto-ext/verifiers/ecdsa"
+	"github.com/trustbloc/vc-go/crypto-ext/verifiers/ed25519"
 	"github.com/trustbloc/vc-go/dataintegrity/models"
 	"github.com/trustbloc/vc-go/dataintegrity/suite"
 )
 
 const (
-	// SuiteType "ecdsa-2019" is the data integrity Type identifier for the suite
-	// implementing ecdsa signatures with RDF canonicalization as per this
-	// spec:https://www.w3.org/TR/vc-di-ecdsa/#ecdsa-2019
-	SuiteType = "ecdsa-2019"
-
-	// SuiteTypeNew "ecdsa-rdfc-2019" is the data integrity Type identifier for the suite
-	SuiteTypeNew = "ecdsa-rdfc-2019"
+	// SuiteType "eddsa-rdfc-2022" is the data integrity Type identifier for the suite
+	// implementing eddsa signatures with RDF canonicalization as per this
+	// spec:https://w3c.github.io/vc-di-eddsa/#verify-proof-eddsa-rdfc-2022
+	SuiteType = "eddsa-rdfc-2022"
 )
 
 // SignerGetter returns a Signer, which must sign with the private key matching
@@ -87,19 +83,17 @@ type Verifier interface {
 	Verify(signature, msg []byte, pubKey *pubkey.PublicKey) error
 }
 
-// Suite implements the ecdsa-2019 data integrity cryptographic suite.
+// Suite implements the eddsa-2022 data integrity cryptographic suite.
 type Suite struct {
-	ldLoader     ld.DocumentLoader
-	p256Verifier Verifier
-	p384Verifier Verifier
-	signerGetter SignerGetter
+	ldLoader        ld.DocumentLoader
+	signerGetter    SignerGetter
+	eD25519Verifier Verifier
 }
 
 // Options provides initialization options for Suite.
 type Options struct {
 	LDDocumentLoader ld.DocumentLoader
-	P256Verifier     Verifier
-	P384Verifier     Verifier
+	ED25519Verifier  Verifier
 	SignerGetter     SignerGetter
 }
 
@@ -110,10 +104,9 @@ type SuiteInitializer func() (suite.Suite, error)
 func New(options *Options) SuiteInitializer {
 	return func() (suite.Suite, error) {
 		return &Suite{
-			ldLoader:     options.LDDocumentLoader,
-			p256Verifier: options.P256Verifier,
-			p384Verifier: options.P384Verifier,
-			signerGetter: options.SignerGetter,
+			ldLoader:        options.LDDocumentLoader,
+			eD25519Verifier: options.ED25519Verifier,
+			signerGetter:    options.SignerGetter,
 		}, nil
 	}
 }
@@ -142,7 +135,7 @@ type SignerInitializerOptions struct {
 	SignerGetter     SignerGetter
 }
 
-// NewSignerInitializer returns a suite.SignerInitializer that initializes an ecdsa-2019
+// NewSignerInitializer returns a suite.SignerInitializer that initializes an eddsa-2022
 // signing Suite with the given SignerInitializerOptions.
 func NewSignerInitializer(options *SignerInitializerOptions) suite.SignerInitializer {
 	return initializer(New(&Options{
@@ -154,27 +147,21 @@ func NewSignerInitializer(options *SignerInitializerOptions) suite.SignerInitial
 // VerifierInitializerOptions provides options for a VerifierInitializer.
 type VerifierInitializerOptions struct {
 	LDDocumentLoader ld.DocumentLoader // required
-	P256Verifier     Verifier          // optional
-	P384Verifier     Verifier          // optional
+	Ed25519Verifier  Verifier          // optional
 }
 
 // NewVerifierInitializer returns a suite.VerifierInitializer that initializes an
-// ecdsa-2019 verification Suite with the given VerifierInitializerOptions.
+// eddsa-2022 verification Suite with the given VerifierInitializerOptions.
 func NewVerifierInitializer(options *VerifierInitializerOptions) suite.VerifierInitializer {
-	p256Verifier, p384Verifier := options.P256Verifier, options.P384Verifier
+	ed25519Verifier := options.Ed25519Verifier
 
-	if p256Verifier == nil {
-		p256Verifier = ecdsa.NewES256()
-	}
-
-	if p384Verifier == nil {
-		p384Verifier = ecdsa.NewES384()
+	if ed25519Verifier == nil {
+		ed25519Verifier = ed25519.New()
 	}
 
 	return initializer(New(&Options{
 		LDDocumentLoader: options.LDDocumentLoader,
-		P256Verifier:     p256Verifier,
-		P384Verifier:     p384Verifier,
+		ED25519Verifier:  ed25519Verifier,
 	}))
 }
 
@@ -182,13 +169,8 @@ const (
 	ldCtxKey = "@context"
 )
 
-// CreateProof implements the ecdsa-2019 cryptographic suite for Add Proof:
-// https://www.w3.org/TR/vc-di-ecdsa/#add-proof-ecdsa-2019
+// CreateProof implements the eddsa-2022 cryptographic suite for Add Proof.
 func (s *Suite) CreateProof(doc []byte, opts *models.ProofOptions) (*models.Proof, error) {
-	if opts.SuiteType == "" {
-		opts.SuiteType = SuiteType
-	}
-
 	docHash, vmKey, _, err := s.transformAndHash(doc, opts)
 	if err != nil {
 		return nil, err
@@ -206,7 +188,7 @@ func (s *Suite) CreateProof(doc []byte, opts *models.ProofOptions) (*models.Proo
 
 	p := &models.Proof{
 		Type:               models.DataIntegrityProof,
-		CryptoSuite:        opts.SuiteType,
+		CryptoSuite:        SuiteType,
 		ProofPurpose:       opts.Purpose,
 		Domain:             opts.Domain,
 		Challenge:          opts.Challenge,
@@ -219,15 +201,11 @@ func (s *Suite) CreateProof(doc []byte, opts *models.ProofOptions) (*models.Proo
 }
 
 func (s *Suite) transformAndHash(doc []byte, opts *models.ProofOptions) ([]byte, *pubkey.PublicKey, Verifier, error) {
-	if opts.SuiteType == "" {
-		opts.SuiteType = SuiteType
-	}
-
 	docData := make(map[string]interface{})
 
 	err := json.Unmarshal(doc, &docData)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("ecdsa-2019 suite expects JSON-LD payload: %w", err)
+		return nil, nil, nil, fmt.Errorf("eddsa-2022 suite expects JSON-LD payload: %w", err)
 	}
 
 	vmKey := opts.VerificationMethod.JSONWebKey()
@@ -241,22 +219,13 @@ func (s *Suite) transformAndHash(doc []byte, opts *models.ProofOptions) ([]byte,
 		verifier Verifier
 	)
 
-	switch vmKey.Crv {
-	case "P-256":
-		h = sha256.New()
-		verifier = s.p256Verifier
-		keyType = kms.ECDSAP256TypeIEEEP1363
-	case "P-384":
-		h = sha512.New384()
-		verifier = s.p384Verifier
-		keyType = kms.ECDSAP384TypeIEEEP1363
-	default:
-		return nil, nil, nil, errors.New("unsupported ECDSA curve")
-	}
+	verifier = s.eD25519Verifier
+	keyType = kms.ED25519Type
+	h = sha256.New()
 
 	confData := proofConfig(docData[ldCtxKey], opts)
 
-	if opts.ProofType != "DataIntegrityProof" || (opts.SuiteType != SuiteType && opts.SuiteType != SuiteTypeNew) {
+	if opts.ProofType != "DataIntegrityProof" || opts.SuiteType != SuiteType {
 		return nil, nil, nil, suite.ErrProofTransformation
 	}
 
@@ -275,8 +244,7 @@ func (s *Suite) transformAndHash(doc []byte, opts *models.ProofOptions) ([]byte,
 	return docHash, &pubkey.PublicKey{Type: keyType, JWK: vmKey}, verifier, nil
 }
 
-// VerifyProof implements the ecdsa-2019 cryptographic suite for CheckJWTProof Proof:
-// https://www.w3.org/TR/vc-di-ecdsa/#verify-proof-ecdsa-2019
+// VerifyProof implements the eddsa-2022 cryptographic suite for CheckJWTProof Proof.
 func (s *Suite) VerifyProof(doc []byte, proof *models.Proof, opts *models.ProofOptions) error {
 	message, vmKey, verifier, err := s.transformAndHash(doc, opts)
 	if err != nil {
@@ -290,13 +258,13 @@ func (s *Suite) VerifyProof(doc []byte, proof *models.Proof, opts *models.ProofO
 
 	err = verifier.Verify(signature, message, vmKey)
 	if err != nil {
-		return fmt.Errorf("failed to verify ecdsa-2019 DI proof: %w", err)
+		return fmt.Errorf("failed to verify eddsa-2022 DI proof: %w", err)
 	}
 
 	return nil
 }
 
-// RequiresCreated returns false, as the ecdsa-2019 cryptographic suite does not
+// RequiresCreated returns false, as the eddsa-2022 cryptographic suite does not
 // require the use of the models.Proof.Created field.
 func (s *Suite) RequiresCreated() bool {
 	return false
@@ -326,7 +294,7 @@ func proofConfig(docCtx interface{}, opts *models.ProofOptions) map[string]inter
 	return map[string]interface{}{
 		ldCtxKey:             docCtx,
 		"type":               models.DataIntegrityProof,
-		"cryptosuite":        opts.SuiteType,
+		"cryptosuite":        SuiteType,
 		"verificationMethod": opts.VerificationMethodID,
 		"created":            opts.Created.Format(models.DateTimeFormat),
 		"proofPurpose":       opts.Purpose,

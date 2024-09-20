@@ -1,23 +1,26 @@
-/*
-Copyright Gen Digital Inc. All Rights Reserved.
-
-SPDX-License-Identifier: Apache-2.0
-*/
-
-package ecdsa2019
+package eddsa2022
 
 import (
+	_ "embed"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/did-go/doc/did"
 	"github.com/trustbloc/did-go/doc/ld/documentloader"
+	mockldstore "github.com/trustbloc/did-go/doc/ld/mock"
+	"github.com/trustbloc/did-go/doc/ld/store"
 	kmsapi "github.com/trustbloc/kms-go/spi/kms"
 
-	"github.com/trustbloc/vc-go/internal/testutil/kmscryptoutil"
-
 	"github.com/trustbloc/vc-go/dataintegrity/models"
+	"github.com/trustbloc/vc-go/internal/testutil/kmscryptoutil"
+)
+
+var (
+	//go:embed testdata/valid_credential.jsonld
+	validCredential []byte
+	//go:embed testdata/invalid_jsonld.jsonld
+	invalidJSONLD []byte
 )
 
 func TestIntegration(t *testing.T) {
@@ -41,61 +44,23 @@ func TestIntegration(t *testing.T) {
 	verifier, err := verifierInit.Verifier()
 	require.NoError(t, err)
 
-	p256JWK, err := kmsCrypto.Create(kmsapi.ECDSAP256IEEEP1363)
+	ed25519JWK, err := kmsCrypto.Create(kmsapi.ED25519)
 	require.NoError(t, err)
 
-	p384JWK, err := kmsCrypto.Create(kmsapi.ECDSAP384IEEEP1363)
+	ed25519VM, err := did.NewVerificationMethodFromJWK("#key-1", "JsonWebKey2020", "did:foo:bar", ed25519JWK)
 	require.NoError(t, err)
 
-	p256VM, err := did.NewVerificationMethodFromJWK("#key-1", "JsonWebKey2020", "did:foo:bar", p256JWK)
+	ed25519JWK2, err := kmsCrypto.Create(kmsapi.ED25519)
 	require.NoError(t, err)
 
-	p384VM, err := did.NewVerificationMethodFromJWK("#key-2", "JsonWebKey2020", "did:foo:bar", p384JWK)
+	ed25519VM2, err := did.NewVerificationMethodFromJWK("#key-1", "JsonWebKey2020", "did:foo:bar", ed25519JWK2)
 	require.NoError(t, err)
 
 	t.Run("success", func(t *testing.T) {
-		t.Run("P-256 key", func(t *testing.T) {
+		t.Run("ED25519 key", func(t *testing.T) {
 			proofOpts := &models.ProofOptions{
-				VerificationMethod:   p256VM,
-				VerificationMethodID: p256VM.ID,
-				SuiteType:            SuiteType,
-				Purpose:              "assertionMethod",
-				ProofType:            models.DataIntegrityProof,
-				Created:              time.Now(),
-				MaxAge:               100,
-			}
-
-			proof, err := signer.CreateProof(validCredential, proofOpts)
-			require.NoError(t, err)
-
-			err = verifier.VerifyProof(validCredential, proof, proofOpts)
-			require.NoError(t, err)
-		})
-
-		t.Run("P-256 key with new Suite", func(t *testing.T) {
-			proofOpts := &models.ProofOptions{
-				VerificationMethod:   p256VM,
-				VerificationMethodID: p256VM.ID,
-				SuiteType:            SuiteTypeNew,
-				Purpose:              "assertionMethod",
-				ProofType:            models.DataIntegrityProof,
-				Created:              time.Now(),
-				MaxAge:               100,
-			}
-
-			proof, err := signer.CreateProof(validCredential, proofOpts)
-			require.NoError(t, err)
-
-			err = verifier.VerifyProof(validCredential, proof, proofOpts)
-			require.NoError(t, err)
-
-			require.EqualValues(t, SuiteTypeNew, proof.CryptoSuite)
-		})
-
-		t.Run("P-384 key", func(t *testing.T) {
-			proofOpts := &models.ProofOptions{
-				VerificationMethod:   p384VM,
-				VerificationMethodID: p384VM.ID,
+				VerificationMethod:   ed25519VM,
+				VerificationMethodID: ed25519VM.ID,
 				SuiteType:            SuiteType,
 				Purpose:              "assertionMethod",
 				ProofType:            models.DataIntegrityProof,
@@ -114,8 +79,8 @@ func TestIntegration(t *testing.T) {
 	t.Run("failure", func(t *testing.T) {
 		t.Run("wrong key", func(t *testing.T) {
 			signOpts := &models.ProofOptions{
-				VerificationMethod:   p256VM,
-				VerificationMethodID: p256VM.ID,
+				VerificationMethod:   ed25519VM,
+				VerificationMethodID: ed25519VM.ID,
 				SuiteType:            SuiteType,
 				Purpose:              "assertionMethod",
 				ProofType:            models.DataIntegrityProof,
@@ -123,8 +88,8 @@ func TestIntegration(t *testing.T) {
 			}
 
 			verifyOpts := &models.ProofOptions{
-				VerificationMethod:   p384VM,
-				VerificationMethodID: p384VM.ID,
+				VerificationMethod:   ed25519VM2,
+				VerificationMethodID: ed25519VM2.ID,
 				SuiteType:            SuiteType,
 				Purpose:              "assertionMethod",
 				ProofType:            models.DataIntegrityProof,
@@ -136,7 +101,27 @@ func TestIntegration(t *testing.T) {
 
 			err = verifier.VerifyProof(validCredential, proof, verifyOpts)
 			require.Error(t, err)
-			require.Contains(t, err.Error(), "failed to verify ecdsa-2019 DI proof")
+			require.Contains(t, err.Error(), "failed to verify eddsa-2022 DI proof")
 		})
 	})
+}
+
+type provider struct {
+	ContextStore        store.ContextStore
+	RemoteProviderStore store.RemoteProviderStore
+}
+
+func (p *provider) JSONLDContextStore() store.ContextStore {
+	return p.ContextStore
+}
+
+func (p *provider) JSONLDRemoteProviderStore() store.RemoteProviderStore {
+	return p.RemoteProviderStore
+}
+
+func createMockProvider() *provider {
+	return &provider{
+		ContextStore:        mockldstore.NewMockContextStore(),
+		RemoteProviderStore: mockldstore.NewMockRemoteProviderStore(),
+	}
 }
