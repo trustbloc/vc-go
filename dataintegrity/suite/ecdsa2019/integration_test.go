@@ -72,6 +72,26 @@ func TestIntegration(t *testing.T) {
 			require.NoError(t, err)
 		})
 
+		t.Run("P-256 key with new Suite", func(t *testing.T) {
+			proofOpts := &models.ProofOptions{
+				VerificationMethod:   p256VM,
+				VerificationMethodID: p256VM.ID,
+				SuiteType:            SuiteTypeNew,
+				Purpose:              "assertionMethod",
+				ProofType:            models.DataIntegrityProof,
+				Created:              time.Now(),
+				MaxAge:               100,
+			}
+
+			proof, err := signer.CreateProof(validCredential, proofOpts)
+			require.NoError(t, err)
+
+			err = verifier.VerifyProof(validCredential, proof, proofOpts)
+			require.NoError(t, err)
+
+			require.EqualValues(t, SuiteTypeNew, proof.CryptoSuite)
+		})
+
 		t.Run("P-384 key", func(t *testing.T) {
 			proofOpts := &models.ProofOptions{
 				VerificationMethod:   p384VM,

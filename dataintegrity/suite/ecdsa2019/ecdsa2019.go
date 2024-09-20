@@ -32,6 +32,9 @@ const (
 	// implementing ecdsa signatures with RDF canonicalization as per this
 	// spec:https://www.w3.org/TR/vc-di-ecdsa/#ecdsa-2019
 	SuiteType = "ecdsa-2019"
+
+	// SuiteTypeNew "ecdsa-rdfc-2019" is the data integrity Type identifier for the suite
+	SuiteTypeNew = "ecdsa-rdfc-2019"
 )
 
 // SignerGetter returns a Signer, which must sign with the private key matching
@@ -182,6 +185,10 @@ const (
 // CreateProof implements the ecdsa-2019 cryptographic suite for Add Proof:
 // https://www.w3.org/TR/vc-di-ecdsa/#add-proof-ecdsa-2019
 func (s *Suite) CreateProof(doc []byte, opts *models.ProofOptions) (*models.Proof, error) {
+	if opts.SuiteType == "" {
+		opts.SuiteType = SuiteType
+	}
+
 	docHash, vmKey, _, err := s.transformAndHash(doc, opts)
 	if err != nil {
 		return nil, err
@@ -199,7 +206,7 @@ func (s *Suite) CreateProof(doc []byte, opts *models.ProofOptions) (*models.Proo
 
 	p := &models.Proof{
 		Type:               models.DataIntegrityProof,
-		CryptoSuite:        SuiteType,
+		CryptoSuite:        opts.SuiteType,
 		ProofPurpose:       opts.Purpose,
 		Domain:             opts.Domain,
 		Challenge:          opts.Challenge,
@@ -212,6 +219,10 @@ func (s *Suite) CreateProof(doc []byte, opts *models.ProofOptions) (*models.Proo
 }
 
 func (s *Suite) transformAndHash(doc []byte, opts *models.ProofOptions) ([]byte, *pubkey.PublicKey, Verifier, error) {
+	if opts.SuiteType == "" {
+		opts.SuiteType = SuiteType
+	}
+
 	docData := make(map[string]interface{})
 
 	err := json.Unmarshal(doc, &docData)
@@ -245,7 +256,7 @@ func (s *Suite) transformAndHash(doc []byte, opts *models.ProofOptions) ([]byte,
 
 	confData := proofConfig(docData[ldCtxKey], opts)
 
-	if opts.ProofType != "DataIntegrityProof" || opts.SuiteType != SuiteType {
+	if opts.ProofType != "DataIntegrityProof" || (opts.SuiteType != SuiteType && opts.SuiteType != SuiteTypeNew) {
 		return nil, nil, nil, suite.ErrProofTransformation
 	}
 
@@ -315,7 +326,7 @@ func proofConfig(docCtx interface{}, opts *models.ProofOptions) map[string]inter
 	return map[string]interface{}{
 		ldCtxKey:             docCtx,
 		"type":               models.DataIntegrityProof,
-		"cryptosuite":        SuiteType,
+		"cryptosuite":        opts.SuiteType,
 		"verificationMethod": opts.VerificationMethodID,
 		"created":            opts.Created.Format(models.DateTimeFormat),
 		"proofPurpose":       opts.Purpose,
