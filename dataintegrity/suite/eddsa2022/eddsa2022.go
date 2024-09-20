@@ -169,7 +169,7 @@ const (
 	ldCtxKey = "@context"
 )
 
-// CreateProof implements the eddsa-2022 cryptographic suite for Add Proof:
+// CreateProof implements the eddsa-2022 cryptographic suite for Add Proof.
 func (s *Suite) CreateProof(doc []byte, opts *models.ProofOptions) (*models.Proof, error) {
 	docHash, vmKey, _, err := s.transformAndHash(doc, opts)
 	if err != nil {
@@ -244,7 +244,7 @@ func (s *Suite) transformAndHash(doc []byte, opts *models.ProofOptions) ([]byte,
 	return docHash, &pubkey.PublicKey{Type: keyType, JWK: vmKey}, verifier, nil
 }
 
-// VerifyProof implements the eddsa-2022 cryptographic suite for CheckJWTProof Proof:
+// VerifyProof implements the eddsa-2022 cryptographic suite for CheckJWTProof Proof.
 func (s *Suite) VerifyProof(doc []byte, proof *models.Proof, opts *models.ProofOptions) error {
 	message, vmKey, verifier, err := s.transformAndHash(doc, opts)
 	if err != nil {

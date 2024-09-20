@@ -101,7 +101,7 @@ func TestIntegration(t *testing.T) {
 
 			err = verifier.VerifyProof(validCredential, proof, verifyOpts)
 			require.Error(t, err)
-			require.Contains(t, err.Error(), "failed to verify ecdsa-2022 DI proof")
+			require.Contains(t, err.Error(), "failed to verify eddsa-2022 DI proof")
 		})
 	})
 }
