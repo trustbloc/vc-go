@@ -245,17 +245,14 @@ func getMatchedCreds( //nolint:gocyclo,funlen
 					inputDescriptor.ID, inputDescriptor.Schema, vcc.Context, vcc.Types, mapping.Path)
 			}
 
-			filtered, debugCreds, filterErr := filterConstraints(inputDescriptor.Constraints, []*verifiable.Credential{vc})
+			filtered, _, filterErr := filterConstraints(inputDescriptor.Constraints, []*verifiable.Credential{vc})
 			if filterErr != nil {
 				return nil, filterErr
 			}
 
-			deb, _ := json.Marshal(debugCreds)
-			debC, _ := json.Marshal(inputDescriptor.Constraints)
-
 			if len(filtered) != 1 {
-				return nil, fmt.Errorf("input descriptor id [%s] requires exactly 1 credential, but found %d. raw %s. const: %s",
-					inputDescriptor.ID, len(filtered), string(deb), string(debC))
+				return nil, fmt.Errorf("input descriptor id [%s] requires exactly 1 credential, but found %d",
+					inputDescriptor.ID, len(filtered))
 			}
 
 			result = append(result, &MatchValue{
