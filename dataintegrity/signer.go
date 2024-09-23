@@ -56,18 +56,18 @@ func NewSigner(opts *Options, suites ...suite.SignerInitializer) (*Signer, error
 	}
 
 	for _, initializer := range suites {
-		suiteType := initializer.Type()
+		for _, suiteType := range initializer.Type() {
+			if _, ok := signer.suites[suiteType]; ok {
+				continue
+			}
 
-		if _, ok := signer.suites[suiteType]; ok {
-			continue
+			signingSuite, err := initializer.Signer()
+			if err != nil {
+				return nil, err
+			}
+
+			signer.suites[suiteType] = signingSuite
 		}
-
-		signingSuite, err := initializer.Signer()
-		if err != nil {
-			return nil, err
-		}
-
-		signer.suites[suiteType] = signingSuite
 	}
 
 	return signer, nil

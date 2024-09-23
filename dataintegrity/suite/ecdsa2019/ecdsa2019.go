@@ -132,8 +132,8 @@ func (i initializer) Verifier() (suite.Verifier, error) {
 
 // Type private, implements suite.SignerInitializer and
 // suite.VerifierInitializer.
-func (i initializer) Type() string {
-	return SuiteType
+func (i initializer) Type() []string {
+	return []string{SuiteType, SuiteTypeNew}
 }
 
 // SignerInitializerOptions provides options for a SignerInitializer.

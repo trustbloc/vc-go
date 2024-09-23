@@ -50,6 +50,8 @@ func TestNew(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, signer)
 		require.False(t, signer.RequiresCreated())
+
+		require.EqualValues(t, []string{"eddsa-rdfc-2022"}, sigInit.Type())
 	})
 
 	t.Run("verifier success", func(t *testing.T) {
