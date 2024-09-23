@@ -245,7 +245,7 @@ func getMatchedCreds( //nolint:gocyclo,funlen
 					inputDescriptor.ID, inputDescriptor.Schema, vcc.Context, vcc.Types, mapping.Path)
 			}
 
-			filtered, debugCreds, filterErr := filterConstraints(inputDescriptor.Constraints, passed)
+			filtered, debugCreds, filterErr := filterConstraints(inputDescriptor.Constraints, []*verifiable.Credential{vc})
 			if filterErr != nil {
 				return nil, filterErr
 			}
