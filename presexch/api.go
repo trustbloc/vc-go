@@ -252,8 +252,8 @@ func getMatchedCreds( //nolint:gocyclo,funlen
 			}
 
 			if len(filtered) != 1 {
-				return nil, fmt.Errorf("input descriptor id [%s] requires exactly 1 credential, but found %d. raw %s",
-					inputDescriptor.ID, len(filtered), spew.Sdump(vc))
+				return nil, fmt.Errorf("input descriptor id [%s] requires exactly 1 credential, but found %d. raw %s. const: %s",
+					inputDescriptor.ID, len(filtered), spew.Sdump(vc), spew.Sdump(inputDescriptor.Constraints))
 			}
 
 			result = append(result, &MatchValue{
