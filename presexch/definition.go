@@ -814,7 +814,7 @@ func (pd *PresentationDefinition) filterCredentialsThatMatchDescriptor(creds []*
 		}
 	}
 
-	filteredByConstraints, err := filterConstraints(descriptor.Constraints, filtered)
+	filteredByConstraints, _, err := filterConstraints(descriptor.Constraints, filtered)
 	if err != nil {
 		return "", nil, err
 	}
@@ -885,9 +885,15 @@ func subjectIsIssuer(contents *verifiable.CredentialContents) bool {
 	return false
 }
 
-// nolint: gocyclo,funlen,gocognit
-func filterConstraints(constraints *Constraints, creds []*verifiable.Credential) ([]constraintsFilterResult, error) {
+// nolint: gocyclo,funlen,gocognit,unparam
+func filterConstraints(constraints *Constraints, creds []*verifiable.Credential) (
+	[]constraintsFilterResult,
+	[]map[string]interface{},
+	error,
+) {
 	var result []constraintsFilterResult
+
+	var debugCred []map[string]interface{}
 
 	if constraints == nil {
 		for _, credential := range creds {
@@ -896,7 +902,7 @@ func filterConstraints(constraints *Constraints, creds []*verifiable.Credential)
 			})
 		}
 
-		return result, nil
+		return result, debugCred, nil
 	}
 
 	for _, credential := range creds {
@@ -928,8 +934,10 @@ func filterConstraints(constraints *Constraints, creds []*verifiable.Credential)
 
 		err = json.Unmarshal(credentialSrc, &credentialMap)
 		if err != nil {
-			return nil, err
+			return nil, debugCred, err
 		}
+
+		debugCred = append(debugCred, credentialMap)
 
 		for i, field := range constraints.Fields {
 			err = filterField(field, credentialMap)
@@ -940,7 +948,7 @@ func filterConstraints(constraints *Constraints, creds []*verifiable.Credential)
 			}
 
 			if err != nil {
-				return nil, fmt.Errorf("filter field.%d: %w", i, err)
+				return nil, debugCred, fmt.Errorf("filter field.%d: %w", i, err)
 			}
 
 			applicable = true
@@ -959,7 +967,7 @@ func filterConstraints(constraints *Constraints, creds []*verifiable.Credential)
 		result = append(result, filterRes)
 	}
 
-	return result, nil
+	return result, debugCred, nil
 }
 
 // nolint: gocyclo, funlen
