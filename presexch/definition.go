@@ -905,7 +905,7 @@ func subjectIsIssuer(contents *verifiable.CredentialContents) bool {
 	return false
 }
 
-// nolint: gocyclo,funlen,gocognit
+// nolint: gocyclo,funlen,gocognit,unparam
 func filterConstraints(constraints *Constraints, creds []*verifiable.Credential) (
 	[]constraintsFilterResult,
 	[]map[string]interface{},
