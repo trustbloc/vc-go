@@ -42,18 +42,18 @@ func NewVerifier(opts *Options, suites ...suite.VerifierInitializer) (*Verifier,
 	}
 
 	for _, initializer := range suites {
-		suiteType := initializer.Type()
+		for _, suiteType := range initializer.Type() {
+			if _, ok := verifier.suites[suiteType]; ok {
+				continue
+			}
 
-		if _, ok := verifier.suites[suiteType]; ok {
-			continue
+			verifierSuite, err := initializer.Verifier()
+			if err != nil {
+				return nil, err
+			}
+
+			verifier.suites[suiteType] = verifierSuite
 		}
-
-		verifierSuite, err := initializer.Verifier()
-		if err != nil {
-			return nil, err
-		}
-
-		verifier.suites[suiteType] = verifierSuite
 	}
 
 	return verifier, nil

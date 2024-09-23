@@ -51,7 +51,7 @@ type Suite interface {
 // corresponding suite. Each suite has a type constant that's defined in its
 // associated specification.
 type Type interface {
-	Type() string
+	Type() []string
 }
 
 // SignerInitializer initializes a Signer, using initialization options that
