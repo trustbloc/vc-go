@@ -245,14 +245,19 @@ func getMatchedCreds( //nolint:gocyclo,funlen
 					inputDescriptor.ID, inputDescriptor.Schema, vcc.Context, vcc.Types, mapping.Path)
 			}
 
-			xx, yy := filterConstraints(inputDescriptor.Constraints, passed)
-			fmt.Println(xx, yy)
+			filtered, filterErr := filterConstraints(inputDescriptor.Constraints, passed)
+			if filterErr != nil {
+				return nil, filterErr
+			}
 
-			// TODO add support for constraints: https://github.com/hyperledger/aries-framework-go/issues/2108
+			if len(filtered) != 1 {
+				return nil, fmt.Errorf("input descriptor id [%s] requires exactly 1 credential, but found %d",
+					inputDescriptor.ID, len(filtered))
+			}
 
 			result = append(result, &MatchValue{
 				PresentationID: vp.ID,
-				Credential:     vc,
+				Credential:     filtered[0].credential,
 				DescriptorID:   mapping.ID,
 			})
 		}
