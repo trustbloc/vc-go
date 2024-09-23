@@ -134,8 +134,8 @@ func (m *mockSuiteInitializer) Verifier() (suite.Verifier, error) {
 	return m.mockSuite, m.initErr
 }
 
-func (m *mockSuiteInitializer) Type() string {
-	return m.typeStr
+func (m *mockSuiteInitializer) Type() []string {
+	return []string{m.typeStr}
 }
 
 type resolveFunc func(id string) (*did.DocResolution, error)
