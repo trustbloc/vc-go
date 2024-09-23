@@ -15,7 +15,6 @@ import (
 
 	"github.com/PaesslerAG/gval"
 	"github.com/PaesslerAG/jsonpath"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/piprate/json-gold/ld"
 
 	"github.com/trustbloc/vc-go/jwt"
@@ -246,14 +245,17 @@ func getMatchedCreds( //nolint:gocyclo,funlen
 					inputDescriptor.ID, inputDescriptor.Schema, vcc.Context, vcc.Types, mapping.Path)
 			}
 
-			filtered, filterErr := filterConstraints(inputDescriptor.Constraints, passed)
+			filtered, debugCreds, filterErr := filterConstraints(inputDescriptor.Constraints, passed)
 			if filterErr != nil {
 				return nil, filterErr
 			}
 
+			deb, _ := json.Marshal(debugCreds)
+			debC, _ := json.Marshal(inputDescriptor.Constraints)
+
 			if len(filtered) != 1 {
 				return nil, fmt.Errorf("input descriptor id [%s] requires exactly 1 credential, but found %d. raw %s. const: %s",
-					inputDescriptor.ID, len(filtered), spew.Sdump(vc), spew.Sdump(inputDescriptor.Constraints))
+					inputDescriptor.ID, len(filtered), string(deb), string(debC))
 			}
 
 			result = append(result, &MatchValue{
