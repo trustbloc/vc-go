@@ -15,6 +15,7 @@ import (
 
 	"github.com/PaesslerAG/gval"
 	"github.com/PaesslerAG/jsonpath"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/piprate/json-gold/ld"
 
 	"github.com/trustbloc/vc-go/jwt"
@@ -251,8 +252,8 @@ func getMatchedCreds( //nolint:gocyclo,funlen
 			}
 
 			if len(filtered) != 1 {
-				return nil, fmt.Errorf("input descriptor id [%s] requires exactly 1 credential, but found %d",
-					inputDescriptor.ID, len(filtered))
+				return nil, fmt.Errorf("input descriptor id [%s] requires exactly 1 credential, but found %d. raw %s",
+					inputDescriptor.ID, len(filtered), spew.Sdump(vc))
 			}
 
 			result = append(result, &MatchValue{
