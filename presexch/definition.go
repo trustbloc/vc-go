@@ -18,6 +18,7 @@ import (
 	"github.com/google/uuid"
 	jsonpathkeys "github.com/kawamuray/jsonpath"
 	"github.com/piprate/json-gold/ld"
+	"github.com/samber/lo"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 	"github.com/xeipuuv/gojsonschema"
@@ -559,13 +560,27 @@ func presentationData(
 }
 
 func presentation(credentials ...*verifiable.Credential) (*verifiable.Presentation, error) {
-	vp, e := verifiable.NewPresentation(verifiable.WithCredentials(credentials...))
+	baseContext, err := getBaseContext(credentials)
+	if err != nil {
+		return nil, fmt.Errorf("get base context: %w", err)
+	}
+
+	vp, e := verifiable.NewPresentation(
+		verifiable.WithCredentials(credentials...),
+		verifiable.WithBaseContext(baseContext),
+	)
 	if e != nil {
 		return nil, e
 	}
 
-	vp.Context = append(vp.Context, PresentationSubmissionJSONLDContextIRI)
-	vp.Type = append(vp.Type, PresentationSubmissionJSONLDType)
+	if !lo.Contains(vp.Context, PresentationSubmissionJSONLDContextIRI) {
+		vp.Context = append(vp.Context, PresentationSubmissionJSONLDContextIRI)
+	}
+
+	if !lo.Contains(vp.Type, PresentationSubmissionJSONLDType) {
+		vp.Type = append(vp.Type, PresentationSubmissionJSONLDType)
+	}
+
 	vp.ID = uuid.NewString()
 
 	return vp, nil
@@ -1791,4 +1806,27 @@ func getContext(contextURI string, documentLoader ld.DocumentLoader) (*ld.Contex
 	}
 
 	return activeCtx, nil
+}
+
+func getBaseContext(credentials []*verifiable.Credential) (string, error) {
+	var baseContext string
+
+	for _, cred := range credentials {
+		baseCtx, err := verifiable.GetBaseContext(cred.Contents().Context)
+		if err != nil {
+			return "", err
+		}
+
+		if baseContext == "" {
+			baseContext = baseCtx
+		} else if baseContext != baseCtx {
+			return "", errors.New("credentials have different base contexts")
+		}
+	}
+
+	if baseContext == "" {
+		return "", errors.New("base context is required")
+	}
+
+	return baseContext, nil
 }

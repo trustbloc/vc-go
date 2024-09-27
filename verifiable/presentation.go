@@ -362,6 +362,15 @@ func WithCredentials(cs ...*Credential) CreatePresentationOpt {
 	}
 }
 
+// WithBaseContext sets the base context of the presentation.
+func WithBaseContext(ctx string) CreatePresentationOpt {
+	return func(p *Presentation) error {
+		p.Context = []string{ctx}
+
+		return nil
+	}
+}
+
 // MarshalJSON converts Verifiable Presentation to JSON bytes.
 func (vp *Presentation) MarshalJSON() ([]byte, error) {
 	if vp.JWT != "" {

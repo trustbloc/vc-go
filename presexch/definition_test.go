@@ -2256,6 +2256,77 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 
 		checkVP(t, vp)
 	})
+
+	t.Run("request two VCs that have different base contexts -> error", func(t *testing.T) {
+		requirements := []*SubmissionRequirement{
+			{
+				Rule: All,
+				From: "A",
+			},
+			{
+				Rule: All,
+				From: "B",
+			},
+		}
+
+		makeInputDescriptor := func(claim string, groups ...string) *InputDescriptor {
+			return &InputDescriptor{
+				ID:    "get_" + claim,
+				Group: groups,
+				Schema: []*Schema{{
+					URI: fmt.Sprintf("%s#%s", verifiable.V1ContextID, verifiable.VCType),
+				}},
+				Constraints: &Constraints{
+					Fields: []*Field{{
+						Path: []string{"$." + claim},
+					}},
+				},
+			}
+		}
+
+		makeCredential := func(baseContext string, claims ...string) *verifiable.Credential {
+			selfIssuedID := uuid.NewString()
+
+			customFields := map[string]interface{}{}
+
+			for _, claim := range claims {
+				customFields[claim] = "foo"
+			}
+
+			vc := createTestCredential(t, credentialProto{
+				Context: []string{baseContext},
+				Types:   []string{verifiable.VCType},
+				ID:      "https://example.com/credential/" + uuid.NewString(),
+				Subject: []verifiable.Subject{{ID: selfIssuedID}},
+				Issued: &utiltime.TimeWrapper{
+					Time: time.Now(),
+				},
+				Issuer: &verifiable.Issuer{
+					ID: selfIssuedID,
+				},
+				CustomFields: customFields,
+			})
+
+			return vc
+		}
+
+		pd := &PresentationDefinition{
+			ID:                     uuid.NewString(),
+			SubmissionRequirements: requirements,
+			InputDescriptors: []*InputDescriptor{
+				makeInputDescriptor("A", "A"),
+				makeInputDescriptor("B", "B"),
+			},
+		}
+
+		credentials := []*verifiable.Credential{
+			makeCredential(verifiable.V1ContextURI, "A"),
+			makeCredential(verifiable.V2ContextURI, "B"),
+		}
+
+		_, err := pd.CreateVP(credentials, lddl)
+		require.ErrorContains(t, err, "credentials have different base contexts")
+	})
 }
 
 func TestPresentationDefinition_CreateVPArray(t *testing.T) {
