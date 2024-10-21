@@ -113,7 +113,7 @@ func TestV1CredJWSDecoderUnmarshal(t *testing.T) {
 	t.Run("Invalid serialized JWS", func(t *testing.T) {
 		_, err := ParseCredential([]byte(`"invalid JWS"`), WithProofChecker(proofChecker))
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "unmarshal new credential")
+		require.Contains(t, err.Error(), "unsupported credential format")
 	})
 
 	t.Run("Invalid format of \"vc\" claim", func(t *testing.T) {

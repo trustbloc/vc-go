@@ -7,6 +7,8 @@ package verifiable
 
 import (
 	"crypto"
+	"crypto/ed25519"
+	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -22,6 +24,7 @@ import (
 	jsonld "github.com/trustbloc/did-go/doc/ld/processor"
 	afgotime "github.com/trustbloc/did-go/doc/util/time"
 	"github.com/trustbloc/kms-go/spi/kms"
+	afgjwt "github.com/trustbloc/vc-go/jwt"
 	"github.com/veraison/go-cose"
 	"github.com/xeipuuv/gojsonschema"
 	"golang.org/x/exp/slices"
@@ -83,6 +86,35 @@ var vccProto = CredentialContents{
 	Issuer: &Issuer{
 		ID:           "did:example:76e12ec712ebc6f1c221ebfeb1f",
 		CustomFields: CustomFields{"name": "Example University"},
+	},
+	Issued:  afgotime.NewTime(time.Now()),
+	Expired: afgotime.NewTime(time.Now().Add(time.Hour)),
+	Schemas: []TypedID{},
+}
+
+var subjectProtoV2 = Subject{
+	ID: "did:example:123",
+	CustomFields: map[string]interface{}{
+		"degree": map[string]interface{}{
+			"type": "BachelorDegree",
+			"name": "Bachelor of Science and Arts",
+		},
+	},
+}
+
+var vccProtoV2 = CredentialContents{
+	Context: []string{
+		"https://www.w3.org/ns/credentials/v2",
+		"https://www.w3.org/ns/credentials/examples/v2",
+	},
+	ID: "http://university.example/credentials/1872",
+	Types: []string{
+		"VerifiableCredential",
+		"ExampleAlumniCredential",
+	},
+	Subject: []Subject{subjectProtoV2},
+	Issuer: &Issuer{
+		ID: "https://university.example/issuers/565049",
 	},
 	Issued:  afgotime.NewTime(time.Now()),
 	Expired: afgotime.NewTime(time.Now().Add(time.Hour)),
@@ -156,7 +188,7 @@ func TestParseCredential(t *testing.T) {
 	t.Run("test a try to create a new Verifiable Credential from non-JSON doc", func(t *testing.T) {
 		vc, err := parseTestCredential(t, []byte("non json"))
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "new credential")
+		require.ErrorContains(t, err, "unsupported credential format")
 		require.Nil(t, vc)
 	})
 }
@@ -1037,6 +1069,154 @@ func TestCreateCredential(t *testing.T) {
 		_, err = CreateCredential(vcc, nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "not supported")
+	})
+}
+
+func TestCredential_MarshalAndParseJSON(t *testing.T) {
+	const pubKeyID = "did:123#issuer-key"
+
+	t.Run("v1.1 jwt -> success", func(t *testing.T) {
+		vcc := vccProto
+		vcc.Issuer.ID = "did:123"
+
+		vc, err := CreateCredential(vcc, nil)
+		require.NoError(t, err)
+
+		issuerSigner, proofChecker := testsupport.NewKMSSigVerPair(t, kms.RSARS256Type, pubKeyID)
+
+		jwtVC, err := vc.CreateSignedJWTVC(true, RS256, issuerSigner, pubKeyID)
+		require.NoError(t, err)
+
+		vcBytes, err := jwtVC.MarshalJSON()
+		require.NoError(t, err)
+		require.NotEmpty(t, vcBytes)
+
+		jwtHeader, vcDataDecoded, err := decodeJWTVC(string(unQuote(vcBytes)))
+		require.NoError(t, err)
+		require.NotEmpty(t, jwtHeader)
+		require.NotEmpty(t, vcDataDecoded)
+
+		vc2, err := ParseCredential(vcBytes,
+			WithJWTProofChecker(proofChecker),
+			WithJSONLDDocumentLoader(createTestDocumentLoader(t)),
+			WithStrictValidation(),
+		)
+		require.NoError(t, err)
+		require.NotNil(t, vc2)
+
+		vc2Bytes, err := vc2.MarshalJSON()
+		require.NoError(t, err)
+		require.Equal(t, vcBytes, vc2Bytes)
+	})
+
+	t.Run("v2.0 enveloped jwt -> success", func(t *testing.T) {
+		vcc := vccProtoV2
+		vcc.Issuer.ID = "did:123"
+
+		vc, err := CreateCredential(vcc, nil)
+		require.NoError(t, err)
+
+		issuerSigner, proofChecker := testsupport.NewKMSSigVerPair(t, kms.RSARS256Type, pubKeyID)
+
+		jwtVC, err := vc.CreateSignedJWTVC(true, RS256, issuerSigner, pubKeyID)
+		require.NoError(t, err)
+
+		vcBytes, err := jwtVC.MarshalJSON()
+		require.NoError(t, err)
+		require.NotEmpty(t, vcBytes)
+
+		validateEnvelopedVC(t, vcBytes, VCMediaTypeJWT)
+
+		vc2, err := ParseCredential(vcBytes,
+			WithJWTProofChecker(proofChecker),
+			WithJSONLDDocumentLoader(createTestDocumentLoader(t)),
+			WithStrictValidation(),
+		)
+		require.NoError(t, err)
+		require.NotNil(t, vc2)
+
+		vc2Bytes, err := vc2.MarshalJSON()
+		require.NoError(t, err)
+		require.Equal(t, vcBytes, vc2Bytes)
+	})
+
+	t.Run("v2.0 enveloped jwt -> success", func(t *testing.T) {
+		vcc := vccProtoV2
+		vcc.Issuer.ID = "did:123"
+
+		vc, err := CreateCredential(vcc, nil)
+		require.NoError(t, err)
+
+		pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+
+		proofCreator, proofChecker := testsupport.NewEd25519Pair(pubKey, privKey, pubKeyID)
+
+		joseSigner, err := afgjwt.NewJOSESigner(afgjwt.SignParameters{
+			KeyID:  pubKeyID,
+			JWTAlg: "EdDSA",
+		}, proofCreator)
+		require.NoError(t, err)
+
+		sdjwt, err := vc.MakeSDJWT(joseSigner, pubKeyID)
+		require.NoError(t, err)
+
+		sdJWTVC, err := ParseCredential([]byte(sdjwt),
+			WithJWTProofChecker(proofChecker),
+			WithJSONLDDocumentLoader(createTestDocumentLoader(t)),
+			WithStrictValidation(),
+		)
+		require.NoError(t, err)
+
+		vcBytes, err := sdJWTVC.MarshalJSON()
+		require.NoError(t, err)
+		require.NotEmpty(t, vcBytes)
+
+		validateEnvelopedVC(t, vcBytes, VCMediaTypeSDJWT)
+
+		vc2, err := ParseCredential(vcBytes,
+			WithJWTProofChecker(proofChecker),
+			WithJSONLDDocumentLoader(createTestDocumentLoader(t)),
+			WithStrictValidation(),
+		)
+		require.NoError(t, err)
+		require.NotNil(t, vc2)
+		require.NotEmpty(t, vc2.SDJWTDisclosures())
+
+		vc2Bytes, err := vc2.MarshalJSON()
+		require.NoError(t, err)
+		require.Equal(t, vcBytes, vc2Bytes)
+	})
+
+	t.Run("v2.0 enveloped cwt -> success", func(t *testing.T) {
+		vcc := vccProtoV2
+		vcc.Issuer.ID = "did:123"
+
+		vc, err := CreateCredential(vcc, nil)
+		require.NoError(t, err)
+
+		issuerSigner, proofChecker := testsupport.NewKMSSigVerPair(t, kms.RSARS256Type, pubKeyID)
+
+		cwtVC, err := vc.CreateSignedCOSEVC(cose.AlgorithmRS256, issuerSigner, pubKeyID)
+		require.NoError(t, err)
+
+		vcBytes, err := cwtVC.MarshalJSON()
+		require.NoError(t, err)
+		require.NotEmpty(t, vcBytes)
+
+		validateEnvelopedVC(t, vcBytes, VCMediaTypeCOSE)
+
+		vc2, err := ParseCredential(vcBytes,
+			WithCWTProofChecker(proofChecker),
+			WithJSONLDDocumentLoader(createTestDocumentLoader(t)),
+			WithStrictValidation(),
+		)
+		require.NoError(t, err)
+		require.NotNil(t, vc2)
+
+		vc2Bytes, err := vc2.MarshalJSON()
+		require.NoError(t, err)
+		require.Equal(t, vcBytes, vc2Bytes)
 	})
 }
 
@@ -2182,7 +2362,7 @@ func TestParseCredentialWithDisabledProofCheck(t *testing.T) {
 
 		vc, err = ParseCredential([]byte("invalid VC JSON"), WithDisabledProofCheck())
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "unmarshal new credential")
+		require.ErrorContains(t, err, "unsupported credential format")
 		require.Nil(t, vc)
 
 		var rawVCMap map[string]interface{}
@@ -2406,4 +2586,22 @@ func TestCredential_WithModified(t *testing.T) {
 	require.NotContains(t, raw, jsonFldContext)
 	require.NotContains(t, raw, jsonFldStatus)
 	require.NotContains(t, raw, jsonFldRefreshService)
+}
+
+func validateEnvelopedVC(t *testing.T, vcBytes []byte, expectedMediaType MediaType) {
+	var doc JSONObject
+	require.NoError(t, json.Unmarshal(vcBytes, &doc))
+	require.True(t, HasBaseContext(doc, V2ContextURI))
+
+	types, err := decodeType(doc[jsonFldType])
+	require.NoError(t, err)
+	require.Contains(t, types, VCEnvelopedType)
+
+	id, err := parseStringFld(doc, jsonFldID)
+	require.NoError(t, err)
+
+	mediaType, _, data, err := ParseDataURL(id)
+	require.NoError(t, err)
+	require.Equal(t, expectedMediaType, mediaType)
+	require.NotEmpty(t, data)
 }

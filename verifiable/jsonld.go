@@ -18,11 +18,6 @@ const (
 
 	V2ContextURI = "https://www.w3.org/ns/credentials/v2"
 	V2ContextID  = "https://www.w3.org/ns/credentials"
-
-	// VCType is the required Type for Verifiable Credentials.
-	VCType = "VerifiableCredential"
-	// VPType is the required Type for Verifiable Credentials.
-	VPType = "VerifiablePresentation"
 )
 
 // GetBaseContext gets the base context from the contexts.

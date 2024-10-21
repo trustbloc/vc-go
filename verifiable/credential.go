@@ -21,6 +21,7 @@ import (
 	"time"
 
 	jsonld "github.com/piprate/json-gold/ld"
+	"github.com/samber/lo"
 	"github.com/trustbloc/did-go/doc/ld/processor"
 	"github.com/trustbloc/did-go/doc/ld/proof"
 	docjsonld "github.com/trustbloc/did-go/doc/ld/validator"
@@ -585,11 +586,32 @@ const (
 )
 
 const (
-	// https://www.w3.org/TR/vc-data-model/#types
-	vcType = "VerifiableCredential"
+	// VCType is the required Type for Verifiable Credentials.
+	// See https://www.w3.org/TR/vc-data-model/#types
+	VCType = "VerifiableCredential"
 
-	// https://www.w3.org/TR/vc-data-model/#presentations-0
-	vpType = "VerifiablePresentation"
+	// VPType is the required Type for Verifiable Credentials.
+	// See https://www.w3.org/TR/vc-data-model/#presentations-0
+	VPType = "VerifiablePresentation"
+
+	// VCEnvelopedType indicates that the verifiable credential is specified in the verifiable presentation
+	// in an enveloped format.
+	// See https://www.w3.org/TR/vc-data-model-2.0/#enveloped-verifiable-credentials
+	VCEnvelopedType = "EnvelopedVerifiableCredential"
+)
+
+const (
+	// VCMediaTypeJWT is the media type for JWT-based verifiable credentials.
+	// See https://www.w3.org/TR/vc-jose-cose/#vcc-ld-json-jwt.
+	VCMediaTypeJWT MediaType = "application/vc-ld+jwt"
+
+	// VCMediaTypeSDJWT is the media type for selective disclosure JWT-based verifiable credentials.
+	// See https://www.w3.org/TR/vc-jose-cose/#vc-ld-json-sd-jwt.
+	VCMediaTypeSDJWT MediaType = "application/vc-ld+sd-jwt"
+
+	// VCMediaTypeCOSE is the media type for COSE-based verifiable credentials.
+	// See https://www.w3.org/TR/vc-jose-cose/#vc-ld-json-cose.
+	VCMediaTypeCOSE MediaType = "application/vc-ld+cose"
 )
 
 // vcModelValidationMode defines constraint put on context and type of VC.
@@ -868,6 +890,30 @@ type CWTEnvelope struct {
 	Sign1MessageParsed *cose.Sign1Message
 }
 
+// Envelope contains an object in the ID field which is encoded as a data URL in the
+// format "data:<media type>,<data>".
+type Envelope struct {
+	ID      string   `json:"id"`
+	Type    []string `json:"type"`
+	Context []string `json:"@context"`
+}
+
+// ToRawJSON returns the JSON object.
+func (ec *Envelope) ToRawJSON() (JSONObject, error) {
+	ecBytes, err := json.Marshal(ec)
+	if err != nil {
+		return nil, fmt.Errorf("marshal enveloped credential: %w", err)
+	}
+
+	var obj JSONObject
+	err = json.Unmarshal(ecBytes, &obj)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshal enveloped credential: %w", err)
+	}
+
+	return obj, nil
+}
+
 // Contents returns credential contents as typed structure.
 func (vc *Credential) Contents() CredentialContents {
 	// TODO: consider deep copy
@@ -909,20 +955,53 @@ func (vc *Credential) ToJWTString() (string, error) {
 
 // ToUniversalForm returns vc in its natural form. For jwt-vc it is a jwt string. For json-ld vc it is a json object.
 func (vc *Credential) ToUniversalForm() (interface{}, error) {
-	if vc.IsCWT() {
-		return vc.MarshalAsCWTLDHex()
-	}
+	switch {
+	case vc.IsCWT():
+		return vc.toEnvelopedForm(
+			VCMediaTypeCOSE,
+			func(vc *Credential) (string, error) {
+				return hex.EncodeToString(vc.CWTEnvelope.Sign1MessageRaw), nil
+			},
+		)
+	case vc.IsJWT():
+		var mediaType MediaType
 
-	if vc.IsJWT() {
-		jwtStr, err := vc.ToJWTString()
-		if err != nil {
-			return nil, fmt.Errorf("converting to universal form: %w", err)
+		if len(vc.SDJWTDisclosures()) > 0 {
+			mediaType = VCMediaTypeSDJWT
+		} else {
+			mediaType = VCMediaTypeJWT
 		}
 
-		return jwtStr, nil
+		return vc.toEnvelopedForm(
+			mediaType,
+			func(vc *Credential) (string, error) {
+				jwtStr, err := vc.ToJWTString()
+				return jwtStr, err
+			},
+		)
+	default:
+		return vc.ToRawJSON(), nil
+	}
+}
+
+func (vc *Credential) toEnvelopedForm(mediaType MediaType, marshal func(vc *Credential) (string, error)) (interface{}, error) {
+	result, err := marshal(vc)
+	if err != nil {
+		return nil, err
 	}
 
-	return vc.ToRawJSON(), nil
+	// For VC DM 1.1 the JWT/CWT is returned directly, otherwise it must be enveloped.
+	if IsBaseContext(vc.credentialContents.Context, V1ContextURI) {
+		return result, nil
+	}
+
+	ec := &Envelope{
+		Context: []string{V2ContextURI},
+		Type:    []string{VCEnvelopedType},
+		ID:      NewDataURL(mediaType, "", result),
+	}
+
+	return ec.ToRawJSON()
 }
 
 // Proofs returns json-ld and data integrity proofs.
@@ -1167,7 +1246,7 @@ func WithBaseContextExtendedValidation(baseContext string, customContexts, custo
 			opts.allowedCustomTypes[context] = true
 		}
 
-		opts.allowedCustomTypes[vcType] = true
+		opts.allowedCustomTypes[VCType] = true
 	}
 }
 
@@ -1329,7 +1408,26 @@ func CreateCredentialWithProofs(vcc CredentialContents, customFields CustomField
 
 // ParseCredentialJSON parses Verifiable Credential from json-ld object.
 func ParseCredentialJSON(vcJSON JSONObject, opts ...CredentialOpt) (*Credential, error) {
+	types, err := decodeType(vcJSON[jsonFldType])
+	if err != nil {
+		return nil, fmt.Errorf("decode type: %w", err)
+	}
+
 	vcOpts := getCredentialOpts(opts)
+
+	if lo.Contains(types, VCEnvelopedType) {
+		id, ok := vcJSON[jsonFldID].(string)
+		if !ok {
+			return nil, errors.New("id is required for enveloped credential")
+		}
+
+		vc, err := parseCredentialDataURL(id, vcOpts)
+		if err != nil {
+			return nil, fmt.Errorf("parse credential data URL: %w", err)
+		}
+
+		return vc, nil
+	}
 
 	ldProofs, err := parseLDProof(vcJSON[jsonFldLDProof])
 	if err != nil {
@@ -1359,40 +1457,69 @@ func ParseCredentialJSON(vcJSON JSONObject, opts ...CredentialOpt) (*Credential,
 // It also applies miscellaneous options like settings of schema validation.
 // It returns decoded Credential.
 func ParseCredential(vcData []byte, opts ...CredentialOpt) (*Credential, error) { // nolint:funlen,gocyclo
-	// Apply options.
-	vcOpts := getCredentialOpts(opts)
-
 	parsers := []CredentialParser{
+		&EnvelopedCredentialParser{},
 		&CredentialJSONParser{},
 		&CredentialCBORParser{},
 	}
 
+	vcOpts := getCredentialOpts(opts)
+
 	var finalErr error
-	var vc *Credential
-	var err error
 
 	for _, parser := range parsers {
-		vc, err = parser.Parse(vcData, vcOpts)
-
-		if err != nil {
-			if strings.HasPrefix(err.Error(), jsonLDStructureErrStr) {
-				return nil, err
-			}
-
-			finalErr = errors.Join(finalErr, err)
+		vc, err := parseCredential(vcData, parser, vcOpts)
+		if err == nil {
+			return vc, nil
 		}
 
-		if vc != nil {
-			break
+		if !errors.Is(err, errUnsupportedCredentialFormat) {
+			return vc, err
 		}
+
+		finalErr = errors.Join(finalErr, err)
 	}
 
-	if vc == nil {
-		return nil, finalErr
+	return nil, finalErr
+}
+
+// parseCredentialDataURL parses a Verifiable Credential from a data URL.
+// The data URL must be in the format "data:<media type>;base64,<data>".
+// Supported media types are application/vc-ld+jwt, application/vc-ld+sd-jwt, and application/vc-ld+cose.
+func parseCredentialDataURL(dataURL string, opts *credentialOpts) (*Credential, error) {
+	mediaType, _, data, err := ParseDataURL(dataURL)
+	if err != nil {
+		return nil, err
 	}
 
-	if !vcOpts.disabledProofCheck {
-		err = vc.CheckProof(opts...)
+	switch mediaType {
+	case VCMediaTypeJWT, VCMediaTypeSDJWT:
+		vc, e := parseCredential([]byte(data), &CredentialJSONParser{}, opts)
+		if e != nil {
+			return nil, fmt.Errorf("parse credential from data URL of type %q: %w", mediaType, e)
+		}
+
+		return vc, nil
+	case VCMediaTypeCOSE:
+		vc, e := parseCredential([]byte(data), &CredentialCBORParser{}, opts)
+		if e != nil {
+			return nil, fmt.Errorf("parse credential from data URL of type %q: %w", mediaType, e)
+		}
+
+		return vc, nil
+	default:
+		return nil, fmt.Errorf("unsupported data URL media type: %s", mediaType)
+	}
+}
+
+func parseCredential(vcData []byte, parser CredentialParser, opts *credentialOpts) (*Credential, error) {
+	vc, err := parser.Parse(vcData, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	if !opts.disabledProofCheck {
+		err = vc.checkProof(opts)
 		if err != nil {
 			return nil, err
 		}
@@ -1477,7 +1604,7 @@ func validateCredential(vcc *CredentialContents, vcJSON JSONObject, vcOpts *cred
 }
 
 func validateBaseContext(vcJSON JSONObject, vcc *CredentialContents, vcOpts *credentialOpts) error {
-	if len(vcc.Types) > 1 || vcc.Types[0] != vcType {
+	if len(vcc.Types) > 1 || vcc.Types[0] != VCType {
 		return errors.New("violated type constraint: not base only type defined")
 	}
 
@@ -1815,8 +1942,10 @@ func tryParseAsJWSVC(vcStr string) jwsVCParseResult {
 
 // CheckProof checks credential proofs.
 func (vc *Credential) CheckProof(opts ...CredentialOpt) error {
-	vcOpts := getCredentialOpts(opts)
+	return vc.checkProof(getCredentialOpts(opts))
+}
 
+func (vc *Credential) checkProof(vcOpts *credentialOpts) error {
 	if vc.credentialContents.Issuer == nil {
 		return fmt.Errorf("proof check failuer: issuer is missed")
 	}
@@ -2344,27 +2473,8 @@ func typedIDsToRaw(typedIDs []TypedID) interface{} {
 	}
 }
 
-//TODO: Credential shouldn't be directly marshalable, this create a lot of confusions.
-// change this function into two functions, one is returning JSONObject or string
-// Other returns credential bytes
-
 // MarshalJSON converts Verifiable Credential to JSON bytes.
 func (vc *Credential) MarshalJSON() ([]byte, error) {
-	if vc.JWTEnvelope != nil && vc.JWTEnvelope.JWT != "" {
-		if vc.credentialContents.SDJWTHashAlg != nil {
-			sdJWT, err := vc.MarshalWithDisclosure(DiscloseAll())
-			if err != nil {
-				return nil, err
-			}
-
-			return []byte("\"" + sdJWT + "\""), nil
-		}
-
-		// If vc.JWT exists, marshal only the JWT, since all other values should be unchanged
-		// from when the JWT was parsed.
-		return []byte("\"" + vc.JWTEnvelope.JWT + "\""), nil
-	}
-
 	obj, err := vc.ToUniversalForm()
 	if err != nil {
 		return nil, fmt.Errorf("object marshalling of verifiable credential: %w", err)
