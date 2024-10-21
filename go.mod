@@ -21,11 +21,11 @@ require (
 	github.com/multiformats/go-multibase v0.1.1
 	github.com/piprate/json-gold v0.5.1-0.20230111113000-6ddbe6e6f19f
 	github.com/samber/lo v1.47.0
-	github.com/stretchr/testify v1.8.2
+	github.com/stretchr/testify v1.8.3
 	github.com/tidwall/gjson v1.14.3
 	github.com/tidwall/sjson v1.1.4
 	github.com/trustbloc/bbs-signature-go v1.0.2
-	github.com/trustbloc/did-go v1.3.1-0.20240910130808-bf0188fdfe70
+	github.com/trustbloc/did-go v1.3.1-0.20241021165331-5721a3ff7396
 	github.com/trustbloc/kms-go v1.1.2
 	github.com/veraison/go-cose v1.1.1-0.20240126165338-2300d5c96dbd
 	github.com/xeipuuv/gojsonschema v1.2.0
@@ -67,3 +67,5 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	rsc.io/tmplfunc v0.0.3 // indirect
 )
+
+replace github.com/piprate/json-gold v0.5.1-0.20230111113000-6ddbe6e6f19f => github.com/skynet2/json-gold v0.6.0

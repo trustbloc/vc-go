@@ -208,11 +208,6 @@ func (s *Suite) transformAndHash(doc []byte, opts *models.ProofOptions) ([]byte,
 		return nil, nil, nil, fmt.Errorf("eddsa-2022 suite expects JSON-LD payload: %w", err)
 	}
 
-	vmKey := opts.VerificationMethod.JSONWebKey()
-	if vmKey == nil {
-		return nil, nil, nil, errors.New("verification method needs JWK")
-	}
-
 	var (
 		keyType  kms.KeyType
 		h        hash.Hash
@@ -221,6 +216,16 @@ func (s *Suite) transformAndHash(doc []byte, opts *models.ProofOptions) ([]byte,
 
 	verifier = s.eD25519Verifier
 	keyType = kms.ED25519Type
+
+	finalKey := &pubkey.PublicKey{Type: keyType, JWK: opts.VerificationMethod.JSONWebKey()}
+	if finalKey.JWK == nil && len(opts.VerificationMethod.Value) > 0 {
+		finalKey.BytesKey = &pubkey.BytesKey{Bytes: opts.VerificationMethod.Value}
+	}
+
+	if finalKey.JWK == nil && finalKey.BytesKey == nil {
+		return nil, nil, nil, errors.New("verification method needs JWK")
+	}
+
 	h = sha256.New()
 
 	confData := proofConfig(docData[ldCtxKey], opts)
@@ -234,6 +239,9 @@ func (s *Suite) transformAndHash(doc []byte, opts *models.ProofOptions) ([]byte,
 		return nil, nil, nil, err
 	}
 
+	b, _ := json.Marshal(confData)
+	fmt.Println(b)
+
 	canonConf, err := canonicalize(confData, s.ldLoader)
 	if err != nil {
 		return nil, nil, nil, err
@@ -241,7 +249,7 @@ func (s *Suite) transformAndHash(doc []byte, opts *models.ProofOptions) ([]byte,
 
 	docHash := hashData(canonDoc, canonConf, h)
 
-	return docHash, &pubkey.PublicKey{Type: keyType, JWK: vmKey}, verifier, nil
+	return docHash, finalKey, verifier, nil
 }
 
 // VerifyProof implements the eddsa-2022 cryptographic suite for CheckJWTProof Proof.
@@ -279,19 +287,19 @@ func canonicalize(data map[string]interface{}, loader ld.DocumentLoader) ([]byte
 	return out, nil
 }
 
-func hashData(transformedDoc, confData []byte, h hash.Hash) []byte {
-	h.Write(transformedDoc)
+func hashData(docData, proofData []byte, h hash.Hash) []byte {
+	h.Write(docData)
 	docHash := h.Sum(nil)
 
 	h.Reset()
-	h.Write(confData)
-	result := h.Sum(docHash)
+	h.Write(proofData)
+	proofHash := h.Sum(nil)
 
-	return result
+	return append(proofHash, docHash...)
 }
 
 func proofConfig(docCtx interface{}, opts *models.ProofOptions) map[string]interface{} {
-	return map[string]interface{}{
+	proof := map[string]interface{}{
 		ldCtxKey:             docCtx,
 		"type":               models.DataIntegrityProof,
 		"cryptosuite":        SuiteType,
@@ -299,6 +307,15 @@ func proofConfig(docCtx interface{}, opts *models.ProofOptions) map[string]inter
 		"created":            opts.Created.Format(models.DateTimeFormat),
 		"proofPurpose":       opts.Purpose,
 	}
+
+	if opts.Challenge != "" {
+		proof["challenge"] = opts.Challenge
+	}
+	if opts.Domain != "" {
+		proof["domain"] = opts.Domain
+	}
+
+	return proof
 }
 
 func sign(sigBase []byte, key *jwk.JWK, signerGetter SignerGetter) ([]byte, error) {
