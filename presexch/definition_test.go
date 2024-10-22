@@ -314,7 +314,7 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 				require.Equal(t, 1, len(vp.Credentials()))
 
 				checkSubmission(t, vp, pd)
-				checkVP(t, vp)
+				checkVP(t, vp, tc.format)
 			})
 		}
 	})
@@ -452,7 +452,7 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 
 		require.Equal(t, 2, len(vp.Credentials()))
 		checkSubmission(t, vp, pd)
-		checkVP(t, vp)
+		checkVP(t, vp, FormatLDPVP)
 	})
 
 	t.Run("Predicate", func(t *testing.T) {
@@ -506,7 +506,7 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 		require.EqualValues(t, "Info", vc.CustomField("info"))
 
 		checkSubmission(t, vp, pd)
-		checkVP(t, vp)
+		checkVP(t, vp, FormatLDPVP)
 	})
 
 	t.Run("Get By Credential Type", func(t *testing.T) {
@@ -564,7 +564,7 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 		require.Equal(t, 1, len(vp.Credentials()))
 
 		checkSubmission(t, vp, &pd)
-		checkVP(t, vp)
+		checkVP(t, vp, FormatLDPVP)
 	})
 
 	t.Run("Predicate (limit disclosure) LDP", func(t *testing.T) {
@@ -622,7 +622,7 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 		require.Nil(t, vc.CustomField("info"))
 
 		checkSubmission(t, vp, pd)
-		checkVP(t, vp)
+		checkVP(t, vp, FormatLDPVP)
 	})
 
 	t.Run("Predicate (limit disclosure) JWT", func(t *testing.T) {
@@ -702,7 +702,7 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 		require.Nil(t, vc.CustomField("info"))
 
 		checkSubmission(t, vp, pd)
-		checkVP(t, vp)
+		checkVP(t, vp, FormatLDPVP)
 	})
 
 	t.Run("SD-JWT: Limit Disclosure + SD Claim paths", func(t *testing.T) {
@@ -761,7 +761,7 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 		require.Equal(t, "Doe", displayVCC.Subject[0].CustomFields["family_name"])
 
 		checkSubmission(t, vp, pd)
-		checkVP(t, vp)
+		checkVP(t, vp, FormatLDPVP)
 	})
 
 	t.Run("SD-JWT: Limit Disclosure + SD Claim paths + additional filter", func(t *testing.T) {
@@ -830,7 +830,7 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 		require.Equal(t, "Doe", displayVCC.Subject[0].CustomFields["family_name"])
 
 		checkSubmission(t, vp, pd)
-		checkVP(t, vp)
+		checkVP(t, vp, FormatLDPVP)
 	})
 
 	t.Run("SD-JWT: Limit Disclosure + non-SD claim path", func(t *testing.T) {
@@ -884,7 +884,7 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 		require.Nil(t, displayVCC.Subject[0].CustomFields["email"])
 
 		checkSubmission(t, vp, pd)
-		checkVP(t, vp)
+		checkVP(t, vp, FormatLDPVP)
 	})
 
 	t.Run("SD-JWT: No Limit Disclosure + Predicate Satisfied", func(t *testing.T) {
@@ -943,7 +943,7 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 		require.Equal(t, "johndoe@example.com", displayVCC.Subject[0].CustomFields["email"])
 
 		checkSubmission(t, vp, pd)
-		checkVP(t, vp)
+		checkVP(t, vp, FormatLDPVP)
 	})
 
 	/*t.Run("SD-JWT: hash algorithm not supported", func(t *testing.T) {
@@ -1229,7 +1229,7 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 		require.NotEmpty(t, vc.Proofs())
 
 		checkSubmission(t, vp, pd)
-		checkVP(t, vp)
+		checkVP(t, vp, FormatLDPVP)
 	})
 
 	t.Run("Predicate and limit disclosure BBS+ (no proof)", func(t *testing.T) {
@@ -1338,7 +1338,7 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 		require.Empty(t, vc.Proofs())
 
 		checkSubmission(t, vp, pd)
-		checkVP(t, vp)
+		checkVP(t, vp, FormatLDPVP)
 	})
 
 	t.Run("Predicate (marshal error)", func(t *testing.T) {
@@ -1409,7 +1409,7 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 		}, lddl)
 
 		require.EqualError(t, err, errMsgSchema)
-		require.Nil(t, vp)
+		require.Nil(t, vp, FormatLDPVP)
 	})
 
 	t.Run("No matches (one field path)", func(t *testing.T) {
@@ -1449,7 +1449,7 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 		}, lddl)
 
 		require.EqualError(t, err, errMsgSchema)
-		require.Nil(t, vp)
+		require.Nil(t, vp, FormatLDPVP)
 	})
 
 	t.Run("Matches one credentials (two fields)", func(t *testing.T) {
@@ -1502,7 +1502,7 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 		require.Equal(t, 1, len(vp.Credentials()))
 
 		checkSubmission(t, vp, pd)
-		checkVP(t, vp)
+		checkVP(t, vp, FormatLDPVP)
 	})
 
 	t.Run("Matches one credentials (three fields - disclosure)", func(t *testing.T) {
@@ -1613,7 +1613,7 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 		}, cred.CustomField("all"))
 
 		checkSubmission(t, vp, pd)
-		checkVP(t, vp)
+		checkVP(t, vp, FormatLDPVP)
 	})
 
 	t.Run("Create new credential (error)", func(t *testing.T) {
@@ -1708,7 +1708,7 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 		require.Equal(t, 1, len(vp.Credentials()))
 
 		checkSubmission(t, vp, pd)
-		checkVP(t, vp)
+		checkVP(t, vp, FormatLDPVP)
 	})
 
 	t.Run("Matches one credentials", func(t *testing.T) {
@@ -1757,7 +1757,7 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 		require.Equal(t, 1, len(vp.Credentials()))
 
 		checkSubmission(t, vp, pd)
-		checkVP(t, vp)
+		checkVP(t, vp, FormatLDPVP)
 	})
 
 	t.Run("Matches one credentials (two descriptors)", func(t *testing.T) {
@@ -1822,7 +1822,7 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 		require.Equal(t, 1, len(vp.Credentials()))
 
 		checkSubmission(t, vp, pd)
-		checkVP(t, vp)
+		checkVP(t, vp, FormatLDPVP)
 	})
 
 	t.Run("Matches two credentials (one descriptor)", func(t *testing.T) {
@@ -1866,7 +1866,7 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 		require.Equal(t, 2, len(vp.Credentials()))
 
 		checkSubmission(t, vp, pd)
-		checkVP(t, vp)
+		checkVP(t, vp, FormatLDPVP)
 	})
 
 	t.Run("Matches two credentials", func(t *testing.T) {
@@ -1898,7 +1898,7 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 		require.Equal(t, 2, len(vp.Credentials()))
 
 		checkSubmission(t, vp, pd)
-		checkVP(t, vp)
+		checkVP(t, vp, FormatLDPVP)
 	})
 
 	t.Run("Matches one credentials (one ignored)", func(t *testing.T) {
@@ -1930,7 +1930,7 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 		require.Equal(t, 1, len(vp.Credentials()))
 
 		checkSubmission(t, vp, pd)
-		checkVP(t, vp)
+		checkVP(t, vp, FormatLDPVP)
 	})
 
 	t.Run("No matches", func(t *testing.T) {
@@ -2002,7 +2002,7 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 		require.Equal(t, 2, len(vp.Credentials()))
 
 		checkSubmission(t, vp, pd)
-		checkVP(t, vp)
+		checkVP(t, vp, FormatLDPVP)
 	})
 
 	t.Run("Does not match one of descriptors", func(t *testing.T) {
@@ -2112,7 +2112,7 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 		require.Equal(t, 1, len(vp.Credentials()))
 
 		checkSubmission(t, vp, pd)
-		checkVP(t, vp)
+		checkVP(t, vp, FormatLDPVP)
 	})
 
 	t.Run("Ignores schema that is not required", func(t *testing.T) {
@@ -2151,7 +2151,7 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 		require.Equal(t, 2, len(vp.Credentials()))
 
 		checkSubmission(t, vp, pd)
-		checkVP(t, vp)
+		checkVP(t, vp, FormatLDPVP)
 	})
 
 	t.Run("Requires two schemas", func(t *testing.T) {
@@ -2199,7 +2199,7 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 		require.Equal(t, 2, len(vp.Credentials()))
 
 		checkSubmission(t, vp, pd)
-		checkVP(t, vp)
+		checkVP(t, vp, FormatLDPVP)
 	})
 
 	t.Run("Matches two descriptors (jwt_vp)", func(t *testing.T) {
@@ -2254,7 +2254,7 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 		require.True(t, ok)
 		require.Equal(t, "jwt_vp", ps.DescriptorMap[0].Format)
 
-		checkVP(t, vp)
+		checkVP(t, vp, FormatJWTVP)
 	})
 
 	t.Run("request two VCs that have different base contexts -> error", func(t *testing.T) {
@@ -2329,6 +2329,275 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 	})
 }
 
+func TestPresentationDefinition_CreateVP_V2Credential(t *testing.T) {
+	lddl := createTestJSONLDDocumentLoader(t)
+
+	t.Run("Checks credentials V2 submission requirements", func(t *testing.T) {
+		issuerID := "did:example:76e12ec712ebc6f1c221ebfeb1f"
+
+		vc1 := createTestCredential(t, credentialProto{
+			Issued:  utiltime.NewTime(time.Now()),
+			Context: []string{verifiable.V2ContextURI},
+			Types:   []string{verifiable.VCType},
+			ID:      "http://example.edu/credentials/1872",
+			Subject: []verifiable.Subject{{ID: issuerID}},
+			Issuer:  &verifiable.Issuer{ID: issuerID},
+			CustomFields: map[string]interface{}{
+				"first_name": "Jesse",
+				"last_name":  "Travis",
+				"age":        17,
+			},
+		})
+
+		ed25519ProofCreator, _ := testsupport.NewKMSSigVerPair(t, kms.ED25519Type, testsupport.AnyPubKeyID)
+
+		vc1JWT, err := vc1.CreateSignedJWTVC(true,
+			verifiable.EdDSA,
+			ed25519ProofCreator,
+			issuerID+"#keys-76e12ec712ebc6f1c221ebfeb1f")
+		require.NoError(t, err)
+
+		candidateVCs := []*verifiable.Credential{
+			vc1JWT,
+			createTestCredential(t, credentialProto{
+				Context: []string{verifiable.V2ContextURI},
+				Types:   []string{verifiable.VCType},
+				ID:      "http://example.edu/credentials/1872",
+				CustomFields: map[string]interface{}{
+					"first_name": "Jesse",
+				},
+				Proofs: []verifiable.Proof{{"type": "JsonWebSignature2020"}},
+			}),
+			createTestCredential(t, credentialProto{
+				Context: []string{verifiable.V2ContextURI},
+				Types:   []string{verifiable.VCType},
+				ID:      "http://example.edu/credentials/1872",
+				Subject: []verifiable.Subject{{ID: issuerID}},
+				Issuer:  &verifiable.Issuer{ID: issuerID},
+				CustomFields: map[string]interface{}{
+					"first_name": "Jesse",
+					"last_name":  "Travis",
+					"age":        17,
+				},
+				Proofs: []verifiable.Proof{{"type": "JsonWebSignature2020"}},
+			}),
+			createTestCredential(t, credentialProto{
+				Context: []string{verifiable.V2ContextURI},
+				Types:   []string{verifiable.VCType},
+				ID:      "http://example.edu/credentials/1872",
+				Subject: []verifiable.Subject{{ID: issuerID}},
+				Issuer:  &verifiable.Issuer{ID: issuerID},
+				CustomFields: map[string]interface{}{
+					"first_name": "Jesse",
+					"last_name":  "Travis",
+					"age":        2,
+				},
+				Proofs: []verifiable.Proof{{"type": "JsonWebSignature2020"}},
+			}),
+		}
+
+		type expect struct {
+			baseContext string
+			vpType      string
+			mediaType   verifiable.MediaType
+		}
+
+		tests := []struct {
+			name    string
+			format  string
+			vFormat *Format
+			expect  expect
+		}{
+			{
+				name:   "test LDP format",
+				format: FormatLDP,
+				vFormat: &Format{
+					Ldp: &LdpType{ProofType: []string{"JsonWebSignature2020"}},
+				},
+				expect: expect{
+					baseContext: verifiable.V2ContextURI,
+					vpType:      verifiable.VPType,
+				},
+			},
+			{
+				name:   "test LDPVP format",
+				format: FormatLDPVP,
+				vFormat: &Format{
+					LdpVP: &LdpType{ProofType: []string{"JsonWebSignature2020"}},
+				},
+				expect: expect{
+					baseContext: verifiable.V2ContextURI,
+					vpType:      verifiable.VPType,
+				},
+			},
+			{
+				name:   "test LDPVC format",
+				format: FormatLDPVC,
+				vFormat: &Format{
+					LdpVC: &LdpType{ProofType: []string{"JsonWebSignature2020"}},
+				},
+				expect: expect{
+					baseContext: verifiable.V2ContextURI,
+					vpType:      verifiable.VPType,
+				},
+			},
+			{
+				name:   "test JWT format",
+				format: FormatJWT,
+				vFormat: &Format{
+					Jwt: &JwtType{Alg: []string{"EdDSA"}},
+				},
+				expect: expect{
+					baseContext: verifiable.V2ContextURI,
+					vpType:      verifiable.VPType,
+				},
+			},
+			{
+				name:   "test JWTVC format",
+				format: FormatJWTVC,
+				vFormat: &Format{
+					JwtVC: &JwtType{Alg: []string{"EdDSA"}},
+				},
+				expect: expect{
+					baseContext: verifiable.V2ContextURI,
+					vpType:      verifiable.VPType,
+				},
+			},
+			{
+				name:   "test JWTVP format",
+				format: FormatJWTVP,
+				vFormat: &Format{
+					JwtVP: &JwtType{Alg: []string{"EdDSA"}},
+				},
+				expect: expect{
+					baseContext: verifiable.V2ContextURI,
+					vpType:      verifiable.VPEnvelopedType,
+					mediaType:   verifiable.VPMediaTypeJWT,
+				},
+			},
+		}
+
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				pd := &PresentationDefinition{
+					ID: uuid.New().String(),
+					SubmissionRequirements: []*SubmissionRequirement{
+						{
+							Rule: "all",
+							From: "A",
+						},
+						{
+							Rule:  "pick",
+							Count: 1,
+							FromNested: []*SubmissionRequirement{
+								{
+									Rule: "all",
+									From: "teenager",
+								},
+								{
+									Rule: "all",
+									From: "child",
+								},
+								{
+									Rule: "pick",
+									From: "adult",
+									Min:  2,
+								},
+							},
+						},
+					},
+					InputDescriptors: []*InputDescriptor{{
+						ID:    uuid.New().String(),
+						Group: []string{"A"},
+						Schema: []*Schema{{
+							URI: fmt.Sprintf("%s#%s", verifiable.V1ContextID, verifiable.VCType),
+						}},
+						Constraints: &Constraints{
+							SubjectIsIssuer: &subIsIssuerRequired,
+							Fields: []*Field{{
+								Path: []string{"$.first_name", "$.last_name"},
+							}},
+						},
+					}, {
+						ID:    uuid.New().String(),
+						Group: []string{"child"},
+						Schema: []*Schema{{
+							URI: fmt.Sprintf("%s#%s", verifiable.V1ContextID, verifiable.VCType),
+						}},
+						Constraints: &Constraints{
+							SubjectIsIssuer: &subIsIssuerRequired,
+							Fields: []*Field{{
+								Path: []string{"$.age"},
+								Filter: &Filter{
+									Type:    &intFilterType,
+									Minimum: 3,
+									Maximum: 12,
+								},
+							}},
+						},
+					}, {
+						ID:    uuid.New().String(),
+						Group: []string{"teenager"},
+						Schema: []*Schema{{
+							URI: fmt.Sprintf("%s#%s", verifiable.V1ContextID, verifiable.VCType),
+						}},
+						Constraints: &Constraints{
+							SubjectIsIssuer: &subIsIssuerRequired,
+							Fields: []*Field{{
+								Path: []string{"$.age"},
+								Filter: &Filter{
+									Type:    &intFilterType,
+									Minimum: 13,
+									Maximum: 17,
+								},
+							}},
+						},
+					}, {
+						ID:    uuid.New().String(),
+						Group: []string{"adult"},
+						Schema: []*Schema{{
+							URI: fmt.Sprintf("%s#%s", verifiable.V1ContextID, verifiable.VCType),
+						}},
+						Constraints: &Constraints{
+							SubjectIsIssuer: &subIsIssuerRequired,
+							Fields: []*Field{{
+								Path: []string{"$.age"},
+								Filter: &Filter{
+									Type:    &intFilterType,
+									Minimum: 18,
+									Maximum: 23,
+								},
+							}},
+						},
+					}},
+					Format: tc.vFormat,
+				}
+
+				vp, err := pd.CreateVP(candidateVCs, lddl)
+
+				if tc.format == FormatJWTVP {
+					claims, err := vp.JWTClaims([]string{""}, false)
+					require.NoError(t, err)
+					require.NotNil(t, claims)
+
+					unsecuredJWT, err := claims.MarshalUnsecuredJWT()
+					require.NoError(t, err)
+					require.NotEmpty(t, unsecuredJWT)
+
+					vp.JWT = unsecuredJWT
+				}
+
+				require.NoError(t, err)
+				require.NotNil(t, vp)
+				require.Equal(t, 1, len(vp.Credentials()))
+
+				checkSubmission(t, vp, pd)
+				checkVPEx(t, vp, tc.format, tc.expect.baseContext, tc.expect.vpType, tc.expect.mediaType)
+			})
+		}
+	})
+}
+
 func TestPresentationDefinition_CreateVPArray(t *testing.T) {
 	lddl := createTestJSONLDDocumentLoader(t)
 
@@ -2373,7 +2642,7 @@ func TestPresentationDefinition_CreateVPArray(t *testing.T) {
 		require.Equal(t, FormatLDPVP, ps.DescriptorMap[0].Format)
 
 		for _, vp := range vpList {
-			checkVP(t, vp)
+			checkVP(t, vp, FormatLDPVP)
 		}
 	})
 
@@ -2431,7 +2700,7 @@ func TestPresentationDefinition_CreateVPArray(t *testing.T) {
 		require.Equal(t, FormatJWTVP, ps.DescriptorMap[0].Format)
 
 		for _, vp := range vpList {
-			checkVP(t, vp)
+			checkVP(t, vp, FormatJWTVP)
 		}
 	})
 }
@@ -2638,11 +2907,36 @@ func (p *pathEvaluator) Evaluate(t *testing.T, data interface{}, descriptor *Inp
 	return val
 }
 
-func checkVP(t *testing.T, vp *verifiable.Presentation) {
+func checkVP(t *testing.T, vp *verifiable.Presentation, format string) {
+	t.Helper()
+
+	checkVPEx(t, vp, format, verifiable.V1ContextURI, verifiable.VPType, "")
+}
+
+func checkVPEx(
+	t *testing.T,
+	vp *verifiable.Presentation,
+	format, expectedBaseContext, expectedType string,
+	expectedMediaType verifiable.MediaType,
+) {
 	t.Helper()
 
 	b, err := json.Marshal(vp)
 	require.NoError(t, err)
+
+	if format != FormatJWTVP || expectedBaseContext == verifiable.V2ContextURI {
+		var doc map[string]interface{}
+		require.NoError(t, json.Unmarshal(b, &doc))
+		require.True(t, verifiable.HasBaseContext(doc, expectedBaseContext))
+		require.Contains(t, doc["type"].([]interface{}), expectedType)
+
+		if expectedType == verifiable.VPEnvelopedType && expectedMediaType != "" {
+			mediaType, _, data, err := verifiable.ParseDataURL(doc["id"].(string))
+			require.NoError(t, err)
+			require.Equal(t, expectedMediaType, mediaType)
+			require.NotEmpty(t, data)
+		}
+	}
 
 	_, err = verifiable.ParsePresentation(b,
 		verifiable.WithPresDisabledProofCheck(),
