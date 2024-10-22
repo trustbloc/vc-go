@@ -91,3 +91,33 @@ func decodePresJWT(vpJWT string, unmarshaller JWTPresClaimsUnmarshaller) ([]byte
 
 	return rawBytes, vpRaw, nil
 }
+
+// CreateJWTVP creates a JWT presentation from the given presentation.
+func (vp *Presentation) CreateJWTVP(
+	aud []string,
+	signatureAlg JWSAlgorithm,
+	signer jwt.ProofCreator,
+	keyID string,
+	minimizeVP bool,
+) (*Presentation, error) {
+	jwtClaims, err := vp.JWTClaims(aud, minimizeVP)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create JWT claims: %w", err)
+	}
+
+	jws, err := jwtClaims.MarshalJWS(signatureAlg, signer, keyID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal JWS: %w", err)
+	}
+
+	vp2 := vp.Clone()
+	vp2.CWT = nil
+	vp2.JWT = jws
+
+	return vp2, nil
+}
+
+// IsJWT checks whether the Presentation is a JWT.
+func (vp *Presentation) IsJWT() bool {
+	return vp.JWT != ""
+}

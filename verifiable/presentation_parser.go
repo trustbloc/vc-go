@@ -1,11 +1,19 @@
+/*
+Copyright Gen Digital Inc. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
 package verifiable
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 
 	"github.com/fxamacker/cbor/v2"
+	"github.com/samber/lo"
 	"github.com/veraison/go-cose"
 
 	"github.com/trustbloc/vc-go/jwt"
@@ -162,4 +170,35 @@ func (p *PresentationCWTParser) parsePres(data []byte) (*cose.Sign1Message, erro
 	}
 
 	return &message, nil
+}
+
+// presentationEnvelopedParser is a parser for presentations of type, EnvelopedVerifiablePresentation.
+type presentationEnvelopedParser struct {
+}
+
+func (p *presentationEnvelopedParser) parse(vpData []byte, vpOpts *presentationOpts) (*parsePresentationResponse, error) {
+	vpEnveloped := &Envelope{}
+	if err := json.Unmarshal(vpData, vpEnveloped); err != nil {
+		return nil, fmt.Errorf("unmarshal envelopedCredential: %w", err)
+	}
+
+	if !lo.Contains(vpEnveloped.Type, VPEnvelopedType) {
+		return nil, errors.New("not a verifiable presentation envelopedCredential")
+	}
+
+	mediaType, _, data, err := ParseDataURL(vpEnveloped.ID)
+	if err != nil {
+		return nil, fmt.Errorf("enveloped presentation ID is not a valid data URL: %w", err)
+	}
+
+	switch mediaType {
+	case VPMediaTypeJWT:
+		parser := &PresentationJSONParser{}
+		return parser.parse([]byte(data), vpOpts)
+	case VPMediaTypeCOSE:
+		parser := &PresentationCWTParser{}
+		return parser.parse([]byte(data), vpOpts)
+	default:
+		return nil, fmt.Errorf("unsupported media type for enveloped presentation: %s", mediaType)
+	}
 }

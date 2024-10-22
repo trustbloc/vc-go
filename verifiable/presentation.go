@@ -6,18 +6,38 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 
 	"github.com/fxamacker/cbor/v2"
 	jsonld "github.com/piprate/json-gold/ld"
+	docjsonld "github.com/trustbloc/did-go/doc/ld/validator"
 	"github.com/xeipuuv/gojsonschema"
 
 	"github.com/trustbloc/vc-go/dataintegrity"
 	jsonutil "github.com/trustbloc/vc-go/util/json"
+)
 
-	docjsonld "github.com/trustbloc/did-go/doc/ld/validator"
+const (
+	// VPEnvelopedType indicates that the verifiable presentation is given as an enveloped verifiable presentation.
+	// https://www.w3.org/TR/vc-data-model-2.0/#enveloped-verifiable-presentations
+	VPEnvelopedType = "EnvelopedVerifiablePresentation"
+)
+
+const (
+	// VPMediaTypeJWT is the media type for JWT-based verifiable presentations.
+	// See https://www.w3.org/TR/vc-jose-cose/#vp-ld-json-jwt.
+	VPMediaTypeJWT MediaType = "application/vp-ld+jwt"
+
+	// VPMediaTypeSDJWT is the media type for selective disclosure JWT-based verifiable presentations.
+	// See https://www.w3.org/TR/vc-jose-cose/#vp-ld-json-sd-jwt
+	VPMediaTypeSDJWT MediaType = "application/vp-ld+sd-jwt"
+
+	// VPMediaTypeCOSE is the media type for COSE-based verifiable presentations.
+	// See https://www.w3.org/TR/vc-jose-cose/#vp-ld-json-cose.
+	VPMediaTypeCOSE MediaType = "application/vp-ld+cose"
 )
 
 const v1BasePresentationSchema = `
@@ -336,9 +356,8 @@ type Presentation struct {
 // NewPresentation creates a new Presentation with default context and type with the provided credentials.
 func NewPresentation(opts ...CreatePresentationOpt) (*Presentation, error) {
 	p := Presentation{
-		Context:     []string{V1ContextURI},
-		Type:        []string{VPType},
-		credentials: []*Credential{},
+		Context: []string{V1ContextURI},
+		Type:    []string{VPType},
 	}
 
 	for _, o := range opts {
@@ -373,7 +392,17 @@ func WithBaseContext(ctx string) CreatePresentationOpt {
 
 // MarshalJSON converts Verifiable Presentation to JSON bytes.
 func (vp *Presentation) MarshalJSON() ([]byte, error) {
-	if vp.JWT != "" {
+	if IsBaseContext(vp.Context, V2ContextURI) {
+		if vp.IsJWT() {
+			return vp.marshalEnveloped(VPMediaTypeJWT, vp.JWT)
+		}
+
+		if vp.IsCWT() {
+			return vp.marshalEnveloped(VPMediaTypeCOSE, hex.EncodeToString(vp.CWT.Raw))
+		}
+	}
+
+	if vp.IsJWT() {
 		// If vc.JWT exists, marshal only the JWT, since all other values should be unchanged
 		// from when the JWT was parsed.
 		return []byte("\"" + vp.JWT + "\""), nil
@@ -390,6 +419,22 @@ func (vp *Presentation) MarshalJSON() ([]byte, error) {
 	}
 
 	return byteCred, nil
+}
+
+// marshalEnveloped marshals the presentation as an EnvelopedVerifiablePresentation type.
+func (vp *Presentation) marshalEnveloped(mediaType MediaType, data string) ([]byte, error) {
+	e := &Envelope{
+		Context: []string{V2ContextURI},
+		Type:    []string{VPEnvelopedType},
+		ID:      NewDataURL(mediaType, "", data),
+	}
+
+	vpBytes, err := json.Marshal(e)
+	if err != nil {
+		return nil, fmt.Errorf("marshal envelope: %w", err)
+	}
+
+	return vpBytes, nil
 }
 
 func (vp *Presentation) MarshalCBOR() ([]byte, error) {
@@ -437,7 +482,7 @@ func (vp *Presentation) MarshalledCredentials() ([]MarshalledCredential, error) 
 	for i := range vp.credentials {
 		cred := vp.credentials[i]
 
-		credBytes, err := json.Marshal(cred)
+		credBytes, err := cred.MarshalJSON()
 		if err != nil {
 			return nil, fmt.Errorf("marshal credentials from presentation: %w", err)
 		}
@@ -476,9 +521,12 @@ func (vp *Presentation) raw() (rawPresentation, error) {
 	if len(vp.credentials) > 0 {
 		var err error
 
-		rp[vpFldCredential], err = mapSlice2(vp.credentials, func(c *Credential) (interface{}, error) {
-			return c.ToUniversalForm()
-		})
+		rp[vpFldCredential], err = mapSlice2(
+			vp.credentials,
+			func(cred *Credential) (interface{}, error) {
+				return cred.ToUniversalForm()
+			},
+		)
 		if err != nil {
 			return nil, fmt.Errorf("serialize credentials to raw presentation: %w", err)
 		}
@@ -491,6 +539,22 @@ func (vp *Presentation) raw() (rawPresentation, error) {
 	}
 
 	return rp, nil
+}
+
+// Clone returns an exact copy of the presentation.
+func (vp *Presentation) Clone() *Presentation {
+	return &Presentation{
+		Context:       vp.Context,
+		CustomContext: vp.CustomContext,
+		ID:            vp.ID,
+		Type:          vp.Type,
+		credentials:   vp.credentials,
+		Holder:        vp.Holder,
+		Proofs:        vp.Proofs,
+		CustomFields:  vp.CustomFields,
+		JWT:           vp.JWT,
+		CWT:           vp.CWT,
+	}
 }
 
 const (
@@ -587,13 +651,11 @@ func ParsePresentation(vpData []byte, opts ...PresentationOpt) (*Presentation, e
 	vpOpts := getPresentationOpts(opts)
 
 	parsers := []PresentationParser{
+		&presentationEnvelopedParser{},
 		&PresentationJSONParser{},
 		&PresentationCWTParser{},
 	}
 
-	//var vpDataDecoded []byte
-	//var vpRaw rawPresentation
-	//var vpJWT string
 	var parsed *parsePresentationResponse
 	var finalErr error
 	var err error
@@ -726,23 +788,16 @@ func decodeCredentials(rawCred interface{}, opts *presentationOpts) ([]*Credenti
 		// Check the case when VC is defined in string format (e.g. JWT).
 		// Decode credential and keep result of decoding.
 		if sCred, ok := cred.(string); ok {
-			bCred := []byte(sCred)
-
-			vc, err := ParseCredential(bCred, credOpts...)
-
-			return vc, err
+			return ParseCredential([]byte(sCred), credOpts...)
 		}
 
 		if jsonCred, ok := cred.(JSONObject); ok {
 			//TODO: Previous implementation do not validate credentials, should we enable it?
-			credOpts = append(credOpts, WithCredDisableValidation())
-			vc, err := ParseCredentialJSON(jsonCred, credOpts...)
-
-			return vc, err
+			return ParseCredentialJSON(jsonCred, append(credOpts, WithCredDisableValidation())...)
 		}
 
 		return nil,
-			fmt.Errorf("invalid crenetial type should be string or map[string]interface{}, got: %T", cred)
+			fmt.Errorf("invalid credential type should be string or map[string]interface{}, got: %T", cred)
 	}
 
 	switch cred := rawCred.(type) {

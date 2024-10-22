@@ -16,6 +16,7 @@ import (
 	ldprocessor "github.com/trustbloc/did-go/doc/ld/processor"
 	ldtestutil "github.com/trustbloc/did-go/doc/ld/testutil"
 	"github.com/trustbloc/kms-go/spi/kms"
+	"github.com/veraison/go-cose"
 
 	"github.com/trustbloc/vc-go/proof/testsupport"
 )
@@ -153,6 +154,7 @@ const v2ValidPresentation = `{
   "type": ["VerifiablePresentation"],
   "verifiableCredential": [{
     "@context": "https://www.w3.org/ns/credentials/v2",
+    "id": "urn:uuid:1998343f-5597-2c3a-b979-2fcada3903c2",
     "type": "VerifiableCredential",
     "credentialSubject": {
 	  "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
@@ -873,4 +875,170 @@ func TestParseUnverifiedPresentation(t *testing.T) {
 		WithPresJSONLDDocumentLoader(loader))
 	require.Error(t, err)
 	require.Nil(t, vp)
+}
+
+func TestPresentation_MarshalAndParseVP(t *testing.T) {
+	const pubKeyID = "did:123#issuer-key"
+
+	t.Run("v1.1 jwt string", func(t *testing.T) {
+		vcc := vccProto
+		vcc.Issuer.ID = "did:123"
+
+		vc, err := CreateCredential(vcc, nil)
+		require.NoError(t, err)
+
+		issuerSigner, proofChecker := testsupport.NewKMSSigVerPair(t, kms.RSARS256Type, pubKeyID)
+
+		jwtVC, err := vc.CreateSignedJWTVC(false, RS256, issuerSigner, pubKeyID)
+		require.NoError(t, err)
+
+		vp, err := NewPresentation(WithCredentials(jwtVC))
+		require.NoError(t, err)
+		require.NotNil(t, vp)
+		require.Equal(t, []string{"https://www.w3.org/2018/credentials/v1"}, vp.Context)
+		require.Empty(t, vp.ID)
+		require.Equal(t, []string{"VerifiablePresentation"}, vp.Type)
+		require.Len(t, vp.Credentials(), 1)
+
+		vpJWT, err := vp.CreateJWTVP(
+			[]string{"did:example:4a57546973436f6f6c4a4a57573"},
+			RS256,
+			issuerSigner,
+			pubKeyID,
+			true,
+		)
+		require.NoError(t, err)
+
+		vpJWTBytes, err := vpJWT.MarshalJSON()
+		require.NoError(t, err)
+		require.NotEmpty(t, vpJWTBytes)
+
+		jwtHeader, vcDataDecoded, err := decodeJWTVC(string(unQuote(vpJWTBytes)))
+		require.NoError(t, err)
+		require.NotEmpty(t, jwtHeader)
+		require.NotEmpty(t, vcDataDecoded)
+
+		vp2, err := ParsePresentation(vpJWTBytes,
+			WithPresProofChecker(proofChecker),
+			WithPresStrictValidation(),
+			WithPresJSONLDDocumentLoader(createTestDocumentLoader(t)),
+		)
+		require.NoError(t, err)
+
+		vp2Bytes, err := vp2.MarshalJSON()
+		require.NoError(t, err)
+		require.Equal(t, vpJWTBytes, vp2Bytes)
+	})
+
+	t.Run("v2.0 enveloped jwt", func(t *testing.T) {
+		vcc := vccProtoV2
+		vcc.Issuer.ID = "did:123"
+
+		vc, err := CreateCredential(vcc, nil)
+		require.NoError(t, err)
+
+		issuerSigner, proofChecker := testsupport.NewKMSSigVerPair(t, kms.RSARS256Type, pubKeyID)
+
+		jwtVC, err := vc.CreateSignedJWTVC(false, RS256, issuerSigner, pubKeyID)
+		require.NoError(t, err)
+
+		vp, err := NewPresentation(WithBaseContext(V2ContextURI), WithCredentials(jwtVC))
+		require.NoError(t, err)
+		require.NotNil(t, vp)
+		require.Equal(t, []string{"https://www.w3.org/ns/credentials/v2"}, vp.Context)
+		require.Empty(t, vp.ID)
+		require.Equal(t, []string{"VerifiablePresentation"}, vp.Type)
+		require.Len(t, vp.Credentials(), 1)
+
+		vpJWT, err := vp.CreateJWTVP(
+			[]string{"did:example:4a57546973436f6f6c4a4a57573"},
+			RS256,
+			issuerSigner,
+			pubKeyID,
+			true,
+		)
+		require.NoError(t, err)
+
+		vpJWTBytes, err := vpJWT.MarshalJSON()
+		require.NoError(t, err)
+		require.NotEmpty(t, vpJWTBytes)
+
+		validateEnvelopedVP(t, vpJWTBytes, VPMediaTypeJWT)
+
+		vp2, err := ParsePresentation(vpJWTBytes,
+			WithPresProofChecker(proofChecker),
+			WithPresStrictValidation(),
+			WithPresJSONLDDocumentLoader(createTestDocumentLoader(t)),
+		)
+		require.NoError(t, err)
+
+		vp2Bytes, err := vp2.MarshalJSON()
+		require.NoError(t, err)
+		require.Equal(t, vpJWTBytes, vp2Bytes)
+	})
+
+	t.Run("v2.0 enveloped cwt", func(t *testing.T) {
+		vcc := vccProtoV2
+		vcc.Issuer.ID = "did:123"
+
+		vc, err := CreateCredential(vcc, nil)
+		require.NoError(t, err)
+
+		issuerSigner, proofChecker := testsupport.NewKMSSigVerPair(t, kms.RSARS256Type, pubKeyID)
+
+		cwtVC, err := vc.CreateSignedCOSEVC(cose.AlgorithmRS256, issuerSigner, pubKeyID)
+		require.NoError(t, err)
+
+		vp, err := NewPresentation(WithBaseContext(V2ContextURI), WithCredentials(cwtVC))
+		require.NoError(t, err)
+		require.NotNil(t, vp)
+		require.Equal(t, []string{"https://www.w3.org/ns/credentials/v2"}, vp.Context)
+		require.Empty(t, vp.ID)
+		require.Equal(t, []string{"VerifiablePresentation"}, vp.Type)
+		require.Len(t, vp.Credentials(), 1)
+
+		vpCWT, err := vp.CreateCWTVP(
+			[]string{"did:example:4a57546973436f6f6c4a4a57573"},
+			cose.AlgorithmRS256,
+			issuerSigner,
+			pubKeyID,
+			false,
+		)
+		require.NoError(t, err)
+
+		vpCWTBytes, err := vpCWT.MarshalJSON()
+		require.NoError(t, err)
+		require.NotEmpty(t, vpCWTBytes)
+
+		validateEnvelopedVP(t, vpCWTBytes, VPMediaTypeCOSE)
+
+		vp2, err := ParsePresentation(vpCWTBytes,
+			WithPresProofChecker(proofChecker),
+			WithPresStrictValidation(),
+			WithPresJSONLDDocumentLoader(createTestDocumentLoader(t)),
+		)
+		require.NoError(t, err)
+
+		vp2Bytes, err := vp2.MarshalJSON()
+		require.NoError(t, err)
+		require.Equal(t, vpCWTBytes, vp2Bytes)
+	})
+}
+
+func validateEnvelopedVP(t *testing.T, vcBytes []byte, expectedMediaType MediaType) {
+	var doc JSONObject
+	require.NoError(t, json.Unmarshal(vcBytes, &doc))
+	require.True(t, HasBaseContext(doc, V2ContextURI))
+
+	types, err := decodeType(doc[jsonFldType])
+	require.NoError(t, err)
+	require.Contains(t, types, VPEnvelopedType)
+
+	id, err := parseStringFld(doc, jsonFldID)
+	require.NoError(t, err)
+
+	mediaType, _, data, err := ParseDataURL(id)
+	require.NoError(t, err)
+	require.Equal(t, expectedMediaType, mediaType)
+	require.NotEmpty(t, data)
 }
