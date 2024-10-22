@@ -337,7 +337,7 @@ type Presentation struct {
 func NewPresentation(opts ...CreatePresentationOpt) (*Presentation, error) {
 	p := Presentation{
 		Context:     []string{V1ContextURI},
-		Type:        []string{vpType},
+		Type:        []string{VPType},
 		credentials: []*Credential{},
 	}
 

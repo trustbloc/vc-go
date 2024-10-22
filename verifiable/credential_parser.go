@@ -12,6 +12,7 @@ import (
 	"fmt"
 
 	"github.com/fxamacker/cbor/v2"
+	"github.com/samber/lo"
 	"github.com/trustbloc/kms-go/doc/jose"
 	"github.com/veraison/go-cose"
 
@@ -64,7 +65,7 @@ func (p *CredentialJSONParser) Parse(
 
 	vcJSON, err := parseCredentialJSON(vcDataDecoded)
 	if err != nil {
-		return nil, err
+		return nil, errors.Join(errUnsupportedCredentialFormat, err)
 	}
 
 	contents, err := parseCredentialContents(vcJSON, jwtParseRes.isSDJWT)
@@ -167,7 +168,7 @@ func (p *CredentialCBORParser) Parse(
 
 		vcData, hexErr = hex.DecodeString(string(vcData))
 		if hexErr != nil {
-			return nil, errors.Join(errors.New("vcData is not a valid hex string"), hexErr)
+			return nil, errors.Join(errUnsupportedCredentialFormat, hexErr)
 		}
 
 		message, hexRawErr = p.parseCred(vcData)
@@ -215,3 +216,39 @@ func (p *CredentialCBORParser) Parse(
 
 	return finalCred, nil
 }
+
+// EnvelopedCredentialParser is a parser for enveloped credentials.
+// See https://www.w3.org/TR/vc-data-model-2.0/#enveloped-verifiable-credentials.
+type EnvelopedCredentialParser struct {
+}
+
+// Parse parses an enveloped credential.
+func (p *EnvelopedCredentialParser) Parse(vcData []byte, opts *credentialOpts) (*Credential, error) {
+	vcJSON, err := parseCredentialJSON(vcData)
+	if err != nil {
+		return nil, errUnsupportedCredentialFormat
+	}
+
+	types, err := decodeType(vcJSON[jsonFldType])
+	if err != nil {
+		return nil, errUnsupportedCredentialFormat
+	}
+
+	if !lo.Contains(types, VCEnvelopedType) {
+		return nil, errUnsupportedCredentialFormat
+	}
+
+	id, ok := vcJSON[jsonFldID].(string)
+	if !ok {
+		return nil, errors.New("id is required for enveloped credential")
+	}
+
+	vc, err := parseCredentialDataURL(id, opts)
+	if err != nil {
+		return nil, fmt.Errorf("parse credential data URL: %w", err)
+	}
+
+	return vc, nil
+}
+
+var errUnsupportedCredentialFormat = errors.New("unsupported credential format")

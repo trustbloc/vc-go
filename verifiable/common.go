@@ -17,6 +17,7 @@ package verifiable
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/piprate/json-gold/ld"
 	util "github.com/trustbloc/did-go/doc/util/time"
@@ -370,4 +371,53 @@ func mapSlice2[T any, U any](slice []T, mapFN func(T) (U, error)) ([]U, error) {
 	}
 
 	return result, nil
+}
+
+// MediaType specifies the media type of the data.
+type MediaType string
+
+// Encoding specifies the encoding of the data.
+type Encoding string
+
+// NewDataURL returns a new Data URL given the media type, encoding, and data.
+// The URL will be in the format "data:<media type>[;base64],<data>".
+// See https://www.rfc-editor.org/rfc/rfc2397.
+func NewDataURL(mediaType MediaType, encoding Encoding, data string) string {
+	if encoding == "" {
+		return fmt.Sprintf("data:%s,%s", mediaType, data)
+	}
+
+	return fmt.Sprintf("data:%s;%s,%s", mediaType, encoding, data)
+}
+
+// ParseDataURL parses the given data URL and returns the media type, encoding, and data.
+// The URL must be in the format "data:<media type>[;base64],<data>".
+// See https://www.rfc-editor.org/rfc/rfc2397.
+func ParseDataURL(url string) (MediaType, Encoding, string, error) {
+	if !strings.HasPrefix(url, "data:") {
+		return "", "", "", fmt.Errorf("invalid data URL format: %s", url)
+	}
+
+	url = url[5:] // Remove "data:" prefix
+	commaIndex := strings.Index(url, ",")
+	if commaIndex == -1 {
+		return "", "", "", fmt.Errorf("invalid data URL format: %s", url)
+	}
+
+	fullMediaType := url[:commaIndex]
+	if fullMediaType == "" {
+		return "", "", "", fmt.Errorf("media type is required")
+	}
+
+	data := url[commaIndex+1:]
+
+	semicolonIndex := strings.Index(fullMediaType, ";")
+	if semicolonIndex == -1 {
+		return MediaType(fullMediaType), "", data, nil
+	}
+
+	mediaType := MediaType(fullMediaType[:semicolonIndex])
+	encoding := Encoding(fullMediaType[semicolonIndex+1:])
+
+	return mediaType, encoding, data, nil
 }

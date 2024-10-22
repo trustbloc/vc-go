@@ -236,6 +236,47 @@ func Test_parseLDProof(t *testing.T) {
 	})
 }
 
+func TestParseDataURL(t *testing.T) {
+	t.Run("Valid data URL with media type and encoding", func(t *testing.T) {
+		url := "data:text/plain;base64,SGVsbG8sIFdvcmxkIQ=="
+		mediaType, encoding, data, err := ParseDataURL(url)
+		require.NoError(t, err)
+		require.Equal(t, MediaType("text/plain"), mediaType)
+		require.Equal(t, Encoding("base64"), encoding)
+		require.Equal(t, "SGVsbG8sIFdvcmxkIQ==", data)
+	})
+
+	t.Run("Valid data URL with media type only", func(t *testing.T) {
+		url := "data:text/plain,HelloWorld"
+		mediaType, encoding, data, err := ParseDataURL(url)
+		require.NoError(t, err)
+		require.Equal(t, MediaType("text/plain"), mediaType)
+		require.Empty(t, encoding)
+		require.Equal(t, "HelloWorld", data)
+	})
+
+	t.Run("Invalid data URL without media type", func(t *testing.T) {
+		url := "data:,HelloWorld"
+		_, _, _, err := ParseDataURL(url)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "media type is required")
+	})
+
+	t.Run("Invalid data URL without comma", func(t *testing.T) {
+		url := "data:text/plain;base64SGVsbG8sIFdvcmxkIQ=="
+		_, _, _, err := ParseDataURL(url)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid data URL format")
+	})
+
+	t.Run("Invalid data URL without prefix", func(t *testing.T) {
+		url := "text/plain;base64,SGVsbG8sIFdvcmxkIQ=="
+		_, _, _, err := ParseDataURL(url)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid data URL format")
+	})
+}
+
 // toArray convert array to array of json objects.
 func toArray[T any](v []T) ([]interface{}, error) {
 	maps := make([]interface{}, len(v))

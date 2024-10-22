@@ -153,8 +153,7 @@ const v2ValidPresentation = `{
   "type": ["VerifiablePresentation"],
   "verifiableCredential": [{
     "@context": "https://www.w3.org/ns/credentials/v2",
-    "id": "data:application/vc+sd-jwt,QzVjV...RMjU",
-    "type": "EnvelopedVerifiableCredential",
+    "type": "VerifiableCredential",
     "credentialSubject": {
 	  "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
       "validFrom": "2010-01-01T19:23:24Z",
