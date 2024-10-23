@@ -1,5 +1,5 @@
 /*
-Copyright SecureKey Technologies Inc. All Rights Reserved.
+Copyright Gen Digital Inc. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
@@ -1825,7 +1825,6 @@ const exampleJSONLDContext = `{
     "@context":{
       "@version":1.1,
       "@protected":true,
-      "name":"http://schema.org/name",
       "ex":"https://example.org/examples#",
 	  "Customer":"ex:Customer",
 	  "Street":"ex:Street",
