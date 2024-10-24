@@ -1,5 +1,5 @@
 /*
-Copyright SecureKey Technologies Inc. All Rights Reserved.
+Copyright Gen Digital Inc. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
@@ -24,11 +24,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/bbs-signature-go/bbs12381g2pub"
+	ldcontext "github.com/trustbloc/did-go/doc/ld/context"
 	lddocloader "github.com/trustbloc/did-go/doc/ld/documentloader"
 	ldprocessor "github.com/trustbloc/did-go/doc/ld/processor"
 	ldtestutil "github.com/trustbloc/did-go/doc/ld/testutil"
 	utiltime "github.com/trustbloc/did-go/doc/util/time"
 	"github.com/trustbloc/kms-go/spi/kms"
+	"github.com/veraison/go-cose"
 
 	"github.com/trustbloc/vc-go/crypto-ext/testutil"
 	"github.com/trustbloc/vc-go/jwt"
@@ -2732,6 +2734,106 @@ func TestExtractExtraFields(t *testing.T) {
 	require.Len(t, results, 2)
 	require.Contains(t, results, "mhV9Kt70m-8slbu1TgIpdr6_AWO-kG51Q2amF3w9qQyyxM-aXsTn77uxMBAnFM67")
 	require.Contains(t, results, "xxx")
+}
+
+func TestPresentationDefinition_Match_cwt(t *testing.T) {
+	const pubKeyID = "did:123#issuer-key"
+
+	verifierDefinitions := &PresentationDefinition{
+		InputDescriptors: []*InputDescriptor{
+			{
+				ID: "banking",
+				Schema: []*Schema{{
+					URI: "https://example.org/examples#Customer",
+				}},
+			},
+		},
+	}
+
+	issuerSigner, _ := testsupport.NewKMSSigVerPair(t, kms.RSARS256Type, pubKeyID)
+
+	vc, err := createCredential(credentialProto{
+		Context: append([]string{verifiable.V2ContextURI}, "https://example.context.jsonld/account"),
+		Types:   append([]string{verifiable.VCType}, "Customer"),
+		ID:      "http://test.credential.com/123",
+		Issuer:  &verifiable.Issuer{ID: "http://test.issuer.com"},
+		Issued: &utiltime.TimeWrapper{
+			Time: time.Now(),
+		},
+		Subject: []verifiable.Subject{{
+			ID: uuid.New().String(),
+		}},
+	})
+	require.NoError(t, err)
+
+	cwtVC, err := vc.CreateSignedCOSEVC(cose.AlgorithmRS256, issuerSigner, pubKeyID)
+	require.NoError(t, err)
+
+	vp, err := verifiable.NewPresentation(
+		verifiable.WithCredentials(cwtVC),
+		verifiable.WithBaseContext(verifiable.V2ContextURI),
+	)
+	require.NoError(t, err)
+
+	vp.Context = append(vp.Context, "https://identity.foundation/presentation-exchange/submission/v1")
+	vp.Type = append(vp.Type, "PresentationSubmission")
+
+	vp.CustomFields = make(map[string]interface{})
+	vp.CustomFields["presentation_submission"] = toExampleMap(&PresentationSubmission{DescriptorMap: []*InputDescriptorMapping{
+		{
+			ID:   "banking",
+			Path: "$.verifiableCredential[0]", // use invalid path (missing .vp) to demonstrate the workaround
+		},
+	}})
+
+	vp, err = vp.CreateCWTVP(
+		[]string{"did:example:4a57546973436f6f6c4a4a57573"},
+		cose.AlgorithmRS256,
+		issuerSigner,
+		pubKeyID,
+		false,
+	)
+	require.NoError(t, err)
+
+	vpBytes, err := json.Marshal(vp)
+	require.NoError(t, err)
+
+	loader, err := ldtestutil.DocumentLoader(
+		ldcontext.Document{
+			URL:     "https://example.context.jsonld/account",
+			Content: []byte(exampleJSONLDContext),
+		},
+	)
+	require.NoError(t, err)
+
+	receivedVP, err := verifiable.ParsePresentation(vpBytes,
+		verifiable.WithPresDisabledProofCheck(),
+		verifiable.WithPresJSONLDDocumentLoader(loader),
+	)
+	require.NoError(t, err)
+
+	matched, err := verifierDefinitions.Match(
+		[]*verifiable.Presentation{receivedVP}, loader,
+		WithCredentialOptions(
+			verifiable.WithDisabledProofCheck(),
+			verifiable.WithJSONLDDocumentLoader(loader)),
+	)
+	require.NoError(t, err)
+
+	var matchedContext string
+	var matchedDescriptor string
+
+	for _, descriptor := range verifierDefinitions.InputDescriptors {
+		for _, match := range matched {
+			if match.DescriptorID == descriptor.ID {
+				matchedContext = match.Credential.Contents().Context[1]
+				matchedDescriptor = descriptor.ID
+			}
+		}
+	}
+
+	require.Equal(t, "https://example.context.jsonld/account", matchedContext)
+	require.Equal(t, "banking", matchedDescriptor)
 }
 
 func getTestVCWithContext(t *testing.T, issuerID string, ctx []string) *verifiable.Credential {

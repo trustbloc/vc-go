@@ -1,5 +1,5 @@
 /*
-Copyright SecureKey Technologies Inc. All Rights Reserved.
+Copyright Gen Digital Inc. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
@@ -168,25 +168,9 @@ func getMatchedCreds( //nolint:gocyclo,funlen
 			return nil, err
 		}
 
-		typelessVP := interface{}(nil)
-
-		if vp.JWT != "" {
-			token, _, parseErr := jwt.Parse(vp.JWT)
-			if parseErr != nil {
-				return nil, fmt.Errorf("failed to parse vp.JWT: %w", parseErr)
-			}
-
-			typelessVP = token.Payload
-		} else {
-			b, marshalErr := vp.MarshalJSON()
-			if marshalErr != nil {
-				return nil, fmt.Errorf("failed to marshal vp: %w", marshalErr)
-			}
-
-			err = json.Unmarshal(b, &typelessVP)
-			if err != nil {
-				return nil, fmt.Errorf("failed to unmarshal vp: %w", err)
-			}
+		typelessVP, err := getTypelessVP(vp)
+		if err != nil {
+			return nil, err
 		}
 
 		rawVPs[vpIdx] = typelessVP
@@ -497,4 +481,31 @@ func stringsContain(s []string, val string) bool {
 	}
 
 	return false
+}
+
+func getTypelessVP(vp *verifiable.Presentation) (interface{}, error) {
+	switch {
+	case vp.IsJWT():
+		token, _, parseErr := jwt.Parse(vp.JWT)
+		if parseErr != nil {
+			return nil, fmt.Errorf("failed to parse vp.JWT: %w", parseErr)
+		}
+
+		return token.Payload, nil
+	case vp.IsCWT():
+		return vp.CWT.VPMap, nil
+	default:
+		b, marshalErr := vp.MarshalJSON()
+		if marshalErr != nil {
+			return nil, fmt.Errorf("failed to marshal vp: %w", marshalErr)
+		}
+
+		typelessVP := interface{}(nil)
+
+		if err := json.Unmarshal(b, &typelessVP); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal vp: %w", err)
+		}
+
+		return typelessVP, nil
+	}
 }
