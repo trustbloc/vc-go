@@ -108,8 +108,6 @@ github.com/samber/lo v1.47.0 h1:z7RynLwP5nbyRscyvcD043DWYoOcYRv3mV8lBeqOCLc=
 github.com/samber/lo v1.47.0/go.mod h1:RmDH9Ct32Qy3gduHQuKJ3gW1fMHAnE/fAzQuf6He5cU=
 github.com/shopspring/decimal v1.3.1 h1:2Usl1nmF/WZucqkFZhnfFYxxxu8LG21F6nPQBE5gKV8=
 github.com/shopspring/decimal v1.3.1/go.mod h1:DKyhrW/HYNuLGql+MJL6WCR6knT2jwCFRcu2hWCYk4o=
-github.com/skynet2/json-gold v0.6.0 h1:w64ixhVsG7eqJ/R69U1iyq8LtmBmz0gEzBF9os4DxA8=
-github.com/skynet2/json-gold v0.6.0/go.mod h1:RVhE35veDX19r5gfUAR+IYHkAUuPwJO8Ie/qVeFaIzw=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
 github.com/stretchr/testify v1.6.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
@@ -132,6 +130,8 @@ github.com/trustbloc/bbs-signature-go v1.0.2 h1:gepEsbLiZHv/vva9FKG5gF38mGtOIyGe
 github.com/trustbloc/bbs-signature-go v1.0.2/go.mod h1:xYotcXHAbcE0TO+SteW0J6XI3geQaXq4wdnXR2k+XCU=
 github.com/trustbloc/did-go v1.3.1-0.20241021165331-5721a3ff7396 h1:z9x5gLgDeUtcPUS8uQgHD/KQ/PL5VK2QV9oENYjsWbU=
 github.com/trustbloc/did-go v1.3.1-0.20241021165331-5721a3ff7396/go.mod h1:L5m4TVlPwe7VN5FRrANPMg6EJN8wIlthC8CvossDZVI=
+github.com/trustbloc/json-gold v0.5.1 h1:0HHf0ildMnN4rUr7Rgxwnm1CO116JoGMrgoWIFngM1U=
+github.com/trustbloc/json-gold v0.5.1/go.mod h1:RVhE35veDX19r5gfUAR+IYHkAUuPwJO8Ie/qVeFaIzw=
 github.com/trustbloc/kms-go v1.1.2 h1:nAlhDoHkSyX1eQFRz/sJsdgmJuNadyX7FJEy/9ROwys=
 github.com/trustbloc/kms-go v1.1.2/go.mod h1:OKOtsLbE6W5s4mpjWkvk8XEqcmt9vTgVmDNkHELpWO0=
 github.com/veraison/go-cose v1.1.1-0.20240126165338-2300d5c96dbd h1:QhdCHSW1/oosJbzBTEYLU6xcKxXbQzzqFnhCtW2UWbA=
