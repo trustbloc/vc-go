@@ -239,9 +239,6 @@ func (s *Suite) transformAndHash(doc []byte, opts *models.ProofOptions) ([]byte,
 		return nil, nil, nil, err
 	}
 
-	b, _ := json.Marshal(confData)
-	fmt.Println(b)
-
 	canonConf, err := canonicalize(confData, s.ldLoader)
 	if err != nil {
 		return nil, nil, nil, err

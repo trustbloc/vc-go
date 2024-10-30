@@ -7,9 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
-	"crypto/sha256"
 	_ "embed"
-	"fmt"
 	"net/http"
 	"testing"
 	"time"
@@ -28,6 +26,8 @@ import (
 	"github.com/trustbloc/vc-go/dataintegrity/suite/ecdsa2019"
 	"github.com/trustbloc/vc-go/dataintegrity/suite/eddsa2022"
 	"github.com/trustbloc/vc-go/internal/testutil/kmscryptoutil"
+	"github.com/trustbloc/vc-go/proof/defaults"
+	"github.com/trustbloc/vc-go/vermethod"
 )
 
 func Test_DataIntegrity_SignVerify(t *testing.T) {
@@ -191,29 +191,14 @@ func Test_DataIntegrity_SignVerify(t *testing.T) {
 //go:embed testdata/example_presentation.jsonld
 var examplePresentation []byte
 
+//go:embed testdata/example_presentation_2.json
+var examplePresentation2 []byte
+
 //go:embed testdata/context/credential_v2.jsonld
 var credentialV2Context []byte
 
 func TestCanParseRDFC2022Presentation(t *testing.T) {
 	vdr := vdrpkg.New(vdrpkg.WithVDR(jwk.New()), vdrpkg.WithVDR(key.New()))
-	//loader := createTestDocumentLoader(t, ldcontext.Document{
-	//	URL:         "https://www.w3.org/ns/credentials/v2",
-	//	DocumentURL: "https://www.w3.org/ns/credentials/v2",
-	//	Content:     credentialV2Context,
-	//})
-
-	h := sha256.New()
-	h.Write([]byte("transformedDoc"))
-	docHash := h.Sum(nil)
-	docHashStr := fmt.Sprintf("%x", docHash) // 3ae874fe130861ca6f3096f7714ea099dbe293cc5733d0e1fdba445004a59b9e
-
-	h.Reset()
-	h.Write([]byte("confData")) // 20b024fc197298c106e2d0ba9eb8dc2386d4f24b1d69b1f1d5c18cd0ee0d2095
-	confDataStr := fmt.Sprintf("%x", h.Sum(nil))
-
-	res := h.Sum(docHash)
-	resHashStr := fmt.Sprintf("%x", res) // 3ae874fe130861ca6f3096f7714ea099dbe293cc5733d0e1fdba445004a59b9e20b024fc197298c106e2d0ba9eb8dc2386d4f24b1d69b1f1d5c18cd0ee0d2095
-	fmt.Println(docHashStr, confDataStr, res, resHashStr)
 
 	loader := ld.NewDefaultDocumentLoader(http.DefaultClient)
 	verifier, err := dataintegrity.NewVerifier(&dataintegrity.Options{
@@ -227,6 +212,33 @@ func TestCanParseRDFC2022Presentation(t *testing.T) {
 		WithPresJSONLDDocumentLoader(loader),
 		WithPresExpectedDataIntegrityFields("authentication",
 			"github.com/w3c/vc-data-model-2.0-test-suite", "ubXbWYV5hUDu1VCy2b75qKg"),
+	)
+	require.NoError(t, err)
+	assert.NotNil(t, resp)
+}
+
+func TestCanParsePlaygroundPresentation(t *testing.T) {
+	vdr := vdrpkg.New(vdrpkg.WithVDR(jwk.New()), vdrpkg.WithVDR(key.New()))
+
+	loader := ld.NewDefaultDocumentLoader(http.DefaultClient)
+	verifier, err := dataintegrity.NewVerifier(&dataintegrity.Options{
+		DIDResolver: vdr,
+	}, eddsa2022.NewVerifierInitializer(&eddsa2022.VerifierInitializerOptions{
+		LDDocumentLoader: loader,
+	}), ecdsa2019.NewVerifierInitializer(&ecdsa2019.VerifierInitializerOptions{
+		LDDocumentLoader: loader,
+	}))
+
+	proofChecker := defaults.NewDefaultProofChecker(vermethod.NewVDRResolver(vdr))
+
+	resp, err := ParsePresentation(examplePresentation2,
+		WithPresDataIntegrityVerifier(verifier),
+		WithPresJSONLDDocumentLoader(loader),
+		WithPresProofChecker(proofChecker),
+		WithPresExpectedDataIntegrityFields("authentication",
+			"https://playground.chapi.io",
+			"3779e883a51a8086039db1d4e773aec26faeb3ee99643706345c572cddded857",
+		),
 	)
 	require.NoError(t, err)
 	assert.NotNil(t, resp)
