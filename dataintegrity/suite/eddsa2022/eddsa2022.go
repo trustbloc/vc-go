@@ -30,7 +30,8 @@ const (
 	// SuiteType "eddsa-rdfc-2022" is the data integrity Type identifier for the suite
 	// implementing eddsa signatures with RDF canonicalization as per this
 	// spec:https://w3c.github.io/vc-di-eddsa/#verify-proof-eddsa-rdfc-2022
-	SuiteType = "eddsa-rdfc-2022"
+	SuiteType  = "eddsa-rdfc-2022"
+	SuiteType2 = "eddsa-2022"
 )
 
 // SignerGetter returns a Signer, which must sign with the private key matching
@@ -126,7 +127,7 @@ func (i initializer) Verifier() (suite.Verifier, error) {
 // Type private, implements suite.SignerInitializer and
 // suite.VerifierInitializer.
 func (i initializer) Type() []string {
-	return []string{SuiteType}
+	return []string{SuiteType, SuiteType2}
 }
 
 // SignerInitializerOptions provides options for a SignerInitializer.
@@ -230,7 +231,8 @@ func (s *Suite) transformAndHash(doc []byte, opts *models.ProofOptions) ([]byte,
 
 	confData := proofConfig(docData[ldCtxKey], opts)
 
-	if opts.ProofType != "DataIntegrityProof" || opts.SuiteType != SuiteType {
+	if opts.ProofType != "DataIntegrityProof" || (opts.SuiteType != SuiteType &&
+		opts.SuiteType != SuiteType2) {
 		return nil, nil, nil, suite.ErrProofTransformation
 	}
 
@@ -296,10 +298,15 @@ func hashData(docData, proofData []byte, h hash.Hash) []byte {
 }
 
 func proofConfig(docCtx interface{}, opts *models.ProofOptions) map[string]interface{} {
+	suiteType := SuiteType
+	if opts.SuiteType != "" {
+		suiteType = opts.SuiteType
+	}
+
 	proof := map[string]interface{}{
 		ldCtxKey:             docCtx,
 		"type":               models.DataIntegrityProof,
-		"cryptosuite":        SuiteType,
+		"cryptosuite":        suiteType,
 		"verificationMethod": opts.VerificationMethodID,
 		"created":            opts.Created.Format(models.DateTimeFormat),
 		"proofPurpose":       opts.Purpose,
