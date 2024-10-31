@@ -30,7 +30,9 @@ const (
 	// SuiteType "eddsa-rdfc-2022" is the data integrity Type identifier for the suite
 	// implementing eddsa signatures with RDF canonicalization as per this
 	// spec:https://w3c.github.io/vc-di-eddsa/#verify-proof-eddsa-rdfc-2022
-	SuiteType  = "eddsa-rdfc-2022"
+	SuiteType = "eddsa-rdfc-2022"
+
+	// SuiteType2 "eddsa-2022" is the data integrity Type identifier for the suite. Alias (vc playground).
 	SuiteType2 = "eddsa-2022"
 )
 
@@ -201,6 +203,7 @@ func (s *Suite) CreateProof(doc []byte, opts *models.ProofOptions) (*models.Proo
 	return p, nil
 }
 
+// nolint:gocyclo
 func (s *Suite) transformAndHash(doc []byte, opts *models.ProofOptions) ([]byte, *pubkey.PublicKey, Verifier, error) {
 	docData := make(map[string]interface{})
 
@@ -315,6 +318,7 @@ func proofConfig(docCtx interface{}, opts *models.ProofOptions) map[string]inter
 	if opts.Challenge != "" {
 		proof["challenge"] = opts.Challenge
 	}
+
 	if opts.Domain != "" {
 		proof["domain"] = opts.Domain
 	}
