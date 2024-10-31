@@ -1,0 +1,40 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/credentials/v2"
+  ],
+  "type": [
+    "VerifiablePresentation"
+  ],
+  "verifiableCredential": [
+    {
+      "@context": [
+        "https://www.w3.org/ns/credentials/v2"
+      ],
+      "type": [
+        "VerifiableCredential"
+      ],
+      "issuer": "did:key:z6MkpJySvETLnxhQG9DzEdmKJtysBDjuuTeDfUj1uNNCUqcj",
+      "credentialSubject": {
+        "id": "did:example:subject"
+      },
+      "proof": {
+        "type": "DataIntegrityProof",
+        "created": "2024-10-21T19:27:16Z",
+        "verificationMethod": "did:key:z6MkpJySvETLnxhQG9DzEdmKJtysBDjuuTeDfUj1uNNCUqcj#z6MkpJySvETLnxhQG9DzEdmKJtysBDjuuTeDfUj1uNNCUqcj",
+        "cryptosuite": "eddsa-rdfc-2022",
+        "proofPurpose": "assertionMethod",
+        "proofValue": "z2kb5qAGHsTYw9zeGqEScYFFHmWj8qoYrN5JeK6rp3PJ88Ma5sPAgvoZpvPbbfRFwAZZhmDG1w3L5A2jdzSKX4TPJ"
+      }
+    }
+  ],
+  "proof": {
+    "type": "DataIntegrityProof",
+    "created": "2024-10-21T19:27:40Z",
+    "verificationMethod": "did:key:z6MkpJySvETLnxhQG9DzEdmKJtysBDjuuTeDfUj1uNNCUqcj#z6MkpJySvETLnxhQG9DzEdmKJtysBDjuuTeDfUj1uNNCUqcj",
+    "cryptosuite": "eddsa-rdfc-2022",
+    "proofPurpose": "authentication",
+    "challenge": "ubXbWYV5hUDu1VCy2b75qKg",
+    "domain": "github.com/w3c/vc-data-model-2.0-test-suite",
+    "proofValue": "z2dmNLqEfBenLXXJnd79ucZr1UJR2qkNdWkNuohmTfXfKMwc7U2MKuMVSje1mJKmSWpNtfVmZRDKeSeLsNrWPRk9f"
+  }
+}

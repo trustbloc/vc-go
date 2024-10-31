@@ -71,12 +71,11 @@ linters-settings:
     allow-cuddle-declarations: false
   godot:
     check-all: false
-  gomoddirectives:
-    replace-local: true
 
 linters:
   enable-all: true
   disable:
+    - gomoddirectives
     - nolintlint
     - varnamelen
     - tenv

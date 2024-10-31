@@ -7,17 +7,27 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
+	_ "embed"
+	"net/http"
 	"testing"
 	"time"
 
+	"github.com/piprate/json-gold/ld"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/did-go/doc/did"
+	"github.com/trustbloc/did-go/method/jwk"
+	"github.com/trustbloc/did-go/method/key"
+	vdrpkg "github.com/trustbloc/did-go/vdr"
 	vdrapi "github.com/trustbloc/did-go/vdr/api"
 	kmsapi "github.com/trustbloc/kms-go/spi/kms"
 
 	"github.com/trustbloc/vc-go/dataintegrity"
 	"github.com/trustbloc/vc-go/dataintegrity/suite/ecdsa2019"
+	"github.com/trustbloc/vc-go/dataintegrity/suite/eddsa2022"
 	"github.com/trustbloc/vc-go/internal/testutil/kmscryptoutil"
+	"github.com/trustbloc/vc-go/proof/defaults"
+	"github.com/trustbloc/vc-go/vermethod"
 )
 
 func Test_DataIntegrity_SignVerify(t *testing.T) {
@@ -176,6 +186,62 @@ func Test_DataIntegrity_SignVerify(t *testing.T) {
 			require.Contains(t, err.Error(), "unsupported cryptographic suite")
 		})
 	})
+}
+
+//go:embed testdata/example_presentation.jsonld
+var examplePresentation []byte
+
+//go:embed testdata/example_presentation_2.json
+var examplePresentation2 []byte
+
+//go:embed testdata/context/credential_v2.jsonld
+var credentialV2Context []byte
+
+func TestCanParseRDFC2022Presentation(t *testing.T) {
+	vdr := vdrpkg.New(vdrpkg.WithVDR(jwk.New()), vdrpkg.WithVDR(key.New()))
+
+	loader := ld.NewDefaultDocumentLoader(http.DefaultClient)
+	verifier, err := dataintegrity.NewVerifier(&dataintegrity.Options{
+		DIDResolver: vdr,
+	}, eddsa2022.NewVerifierInitializer(&eddsa2022.VerifierInitializerOptions{
+		LDDocumentLoader: loader,
+	}))
+
+	resp, err := ParsePresentation(examplePresentation,
+		WithPresDataIntegrityVerifier(verifier),
+		WithPresJSONLDDocumentLoader(loader),
+		WithPresExpectedDataIntegrityFields("authentication",
+			"github.com/w3c/vc-data-model-2.0-test-suite", "ubXbWYV5hUDu1VCy2b75qKg"),
+	)
+	require.NoError(t, err)
+	assert.NotNil(t, resp)
+}
+
+func TestCanParsePlaygroundPresentation(t *testing.T) {
+	vdr := vdrpkg.New(vdrpkg.WithVDR(jwk.New()), vdrpkg.WithVDR(key.New()))
+
+	loader := ld.NewDefaultDocumentLoader(http.DefaultClient)
+	verifier, err := dataintegrity.NewVerifier(&dataintegrity.Options{
+		DIDResolver: vdr,
+	}, eddsa2022.NewVerifierInitializer(&eddsa2022.VerifierInitializerOptions{
+		LDDocumentLoader: loader,
+	}), ecdsa2019.NewVerifierInitializer(&ecdsa2019.VerifierInitializerOptions{
+		LDDocumentLoader: loader,
+	}))
+
+	proofChecker := defaults.NewDefaultProofChecker(vermethod.NewVDRResolver(vdr))
+
+	resp, err := ParsePresentation(examplePresentation2,
+		WithPresDataIntegrityVerifier(verifier),
+		WithPresJSONLDDocumentLoader(loader),
+		WithPresProofChecker(proofChecker),
+		WithPresExpectedDataIntegrityFields("authentication",
+			"https://playground.chapi.io",
+			"3779e883a51a8086039db1d4e773aec26faeb3ee99643706345c572cddded857",
+		),
+	)
+	require.NoError(t, err)
+	assert.NotNil(t, resp)
 }
 
 type resolveFunc func(id string) (*did.DocResolution, error)

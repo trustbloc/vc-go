@@ -51,7 +51,7 @@ func TestNew(t *testing.T) {
 		require.NotNil(t, signer)
 		require.False(t, signer.RequiresCreated())
 
-		require.EqualValues(t, []string{"eddsa-rdfc-2022"}, sigInit.Type())
+		require.EqualValues(t, []string{"eddsa-rdfc-2022", "eddsa-2022"}, sigInit.Type())
 	})
 
 	t.Run("verifier success", func(t *testing.T) {
@@ -246,18 +246,6 @@ func TestSharedFailures(t *testing.T) {
 
 		tc.document = []byte("not JSON!")
 		tc.errStr = "expects JSON-LD payload"
-
-		testSign(t, tc)
-	})
-
-	t.Run("no jwk in vm", func(t *testing.T) {
-		tc := successCase(t)
-
-		tc.proofOpts.VerificationMethod = &did.VerificationMethod{
-			ID:    tc.proofOpts.VerificationMethodID,
-			Value: []byte(fooBar),
-		}
-		tc.errStr = "verification method needs JWK"
 
 		testSign(t, tc)
 	})

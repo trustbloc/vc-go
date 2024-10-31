@@ -31,6 +31,9 @@ const (
 	// implementing eddsa signatures with RDF canonicalization as per this
 	// spec:https://w3c.github.io/vc-di-eddsa/#verify-proof-eddsa-rdfc-2022
 	SuiteType = "eddsa-rdfc-2022"
+
+	// SuiteType2 "eddsa-2022" is the data integrity Type identifier for the suite. Alias (vc playground).
+	SuiteType2 = "eddsa-2022"
 )
 
 // SignerGetter returns a Signer, which must sign with the private key matching
@@ -126,7 +129,7 @@ func (i initializer) Verifier() (suite.Verifier, error) {
 // Type private, implements suite.SignerInitializer and
 // suite.VerifierInitializer.
 func (i initializer) Type() []string {
-	return []string{SuiteType}
+	return []string{SuiteType, SuiteType2}
 }
 
 // SignerInitializerOptions provides options for a SignerInitializer.
@@ -200,17 +203,13 @@ func (s *Suite) CreateProof(doc []byte, opts *models.ProofOptions) (*models.Proo
 	return p, nil
 }
 
+// nolint:gocyclo
 func (s *Suite) transformAndHash(doc []byte, opts *models.ProofOptions) ([]byte, *pubkey.PublicKey, Verifier, error) {
 	docData := make(map[string]interface{})
 
 	err := json.Unmarshal(doc, &docData)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("eddsa-2022 suite expects JSON-LD payload: %w", err)
-	}
-
-	vmKey := opts.VerificationMethod.JSONWebKey()
-	if vmKey == nil {
-		return nil, nil, nil, errors.New("verification method needs JWK")
 	}
 
 	var (
@@ -221,11 +220,22 @@ func (s *Suite) transformAndHash(doc []byte, opts *models.ProofOptions) ([]byte,
 
 	verifier = s.eD25519Verifier
 	keyType = kms.ED25519Type
+
+	finalKey := &pubkey.PublicKey{Type: keyType, JWK: opts.VerificationMethod.JSONWebKey()}
+	if finalKey.JWK == nil && len(opts.VerificationMethod.Value) > 0 {
+		finalKey.BytesKey = &pubkey.BytesKey{Bytes: opts.VerificationMethod.Value}
+	}
+
+	if finalKey.JWK == nil && finalKey.BytesKey == nil {
+		return nil, nil, nil, errors.New("verification method needs JWK")
+	}
+
 	h = sha256.New()
 
 	confData := proofConfig(docData[ldCtxKey], opts)
 
-	if opts.ProofType != "DataIntegrityProof" || opts.SuiteType != SuiteType {
+	if opts.ProofType != "DataIntegrityProof" || (opts.SuiteType != SuiteType &&
+		opts.SuiteType != SuiteType2) {
 		return nil, nil, nil, suite.ErrProofTransformation
 	}
 
@@ -241,7 +251,7 @@ func (s *Suite) transformAndHash(doc []byte, opts *models.ProofOptions) ([]byte,
 
 	docHash := hashData(canonDoc, canonConf, h)
 
-	return docHash, &pubkey.PublicKey{Type: keyType, JWK: vmKey}, verifier, nil
+	return docHash, finalKey, verifier, nil
 }
 
 // VerifyProof implements the eddsa-2022 cryptographic suite for CheckJWTProof Proof.
@@ -279,26 +289,41 @@ func canonicalize(data map[string]interface{}, loader ld.DocumentLoader) ([]byte
 	return out, nil
 }
 
-func hashData(transformedDoc, confData []byte, h hash.Hash) []byte {
-	h.Write(transformedDoc)
+func hashData(docData, proofData []byte, h hash.Hash) []byte {
+	h.Write(docData)
 	docHash := h.Sum(nil)
 
 	h.Reset()
-	h.Write(confData)
-	result := h.Sum(docHash)
+	h.Write(proofData)
+	proofHash := h.Sum(nil)
 
-	return result
+	return append(proofHash, docHash...)
 }
 
 func proofConfig(docCtx interface{}, opts *models.ProofOptions) map[string]interface{} {
-	return map[string]interface{}{
+	suiteType := SuiteType
+	if opts.SuiteType != "" {
+		suiteType = opts.SuiteType
+	}
+
+	proof := map[string]interface{}{
 		ldCtxKey:             docCtx,
 		"type":               models.DataIntegrityProof,
-		"cryptosuite":        SuiteType,
+		"cryptosuite":        suiteType,
 		"verificationMethod": opts.VerificationMethodID,
 		"created":            opts.Created.Format(models.DateTimeFormat),
 		"proofPurpose":       opts.Purpose,
 	}
+
+	if opts.Challenge != "" {
+		proof["challenge"] = opts.Challenge
+	}
+
+	if opts.Domain != "" {
+		proof["domain"] = opts.Domain
+	}
+
+	return proof
 }
 
 func sign(sigBase []byte, key *jwk.JWK, signerGetter SignerGetter) ([]byte, error) {
