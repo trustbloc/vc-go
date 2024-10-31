@@ -311,19 +311,19 @@ func canonicalize(data map[string]interface{}, loader ld.DocumentLoader) ([]byte
 	return out, nil
 }
 
-func hashData(transformedDoc, confData []byte, h hash.Hash) []byte {
-	h.Write(transformedDoc)
+func hashData(docData, proofData []byte, h hash.Hash) []byte {
+	h.Write(docData)
 	docHash := h.Sum(nil)
 
 	h.Reset()
-	h.Write(confData)
-	result := h.Sum(docHash)
+	h.Write(proofData)
+	proofHash := h.Sum(nil)
 
-	return result
+	return append(proofHash, docHash...)
 }
 
 func proofConfig(docCtx interface{}, opts *models.ProofOptions) map[string]interface{} {
-	return map[string]interface{}{
+	proof := map[string]interface{}{
 		ldCtxKey:             docCtx,
 		"type":               models.DataIntegrityProof,
 		"cryptosuite":        opts.SuiteType,
@@ -331,6 +331,15 @@ func proofConfig(docCtx interface{}, opts *models.ProofOptions) map[string]inter
 		"created":            opts.Created.Format(models.DateTimeFormat),
 		"proofPurpose":       opts.Purpose,
 	}
+
+	if opts.Challenge != "" {
+		proof["challenge"] = opts.Challenge
+	}
+	if opts.Domain != "" {
+		proof["domain"] = opts.Domain
+	}
+
+	return proof
 }
 
 func sign(sigBase []byte, key *jwk.JWK, signerGetter SignerGetter) ([]byte, error) {
