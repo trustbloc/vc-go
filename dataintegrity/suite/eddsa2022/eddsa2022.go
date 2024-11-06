@@ -239,6 +239,8 @@ func (s *Suite) transformAndHash(doc []byte, opts *models.ProofOptions) ([]byte,
 		return nil, nil, nil, suite.ErrProofTransformation
 	}
 
+	fmt.Println("Calculating canonical document")
+
 	canonDoc, err := canonicalize(docData, s.ldLoader)
 	if err != nil {
 		return nil, nil, nil, err
@@ -249,7 +251,20 @@ func (s *Suite) transformAndHash(doc []byte, opts *models.ProofOptions) ([]byte,
 		return nil, nil, nil, err
 	}
 
+	b, _ := json.Marshal(docData)
+	b1, _ := json.Marshal(confData)
+
+	c, _ := json.Marshal(canonDoc)
+	c1, _ := json.Marshal(canonConf)
+
 	docHash := hashData(canonDoc, canonConf, h)
+
+	fmt.Println("docData\n" + string(b))
+	fmt.Println("confData\n" + string(b1))
+
+	fmt.Println("canonDoc\n" + string(c))
+	fmt.Println("canonConf\n" + string(c1))
+	fmt.Println("docHash\n" + string(docHash))
 
 	return docHash, finalKey, verifier, nil
 }
