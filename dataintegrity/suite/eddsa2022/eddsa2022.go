@@ -189,6 +189,8 @@ func (s *Suite) CreateProof(doc []byte, opts *models.ProofOptions) (*models.Proo
 		return nil, err
 	}
 
+	fmt.Println("Signature: " + string(sigStr))
+
 	p := &models.Proof{
 		Type:               models.DataIntegrityProof,
 		CryptoSuite:        SuiteType,
@@ -264,7 +266,7 @@ func (s *Suite) transformAndHash(doc []byte, opts *models.ProofOptions) ([]byte,
 
 	fmt.Println("canonDoc\n" + string(c))
 	fmt.Println("canonConf\n" + string(c1))
-	fmt.Println("docHash\n" + string(docHash))
+	fmt.Println("docHash\n" + fmt.Sprintf("%x", docHash))
 
 	return docHash, finalKey, verifier, nil
 }
@@ -280,6 +282,8 @@ func (s *Suite) VerifyProof(doc []byte, proof *models.Proof, opts *models.ProofO
 	if err != nil {
 		return fmt.Errorf("decoding proofValue: %w", err)
 	}
+
+	fmt.Println("Decoded signature: " + string(signature))
 
 	err = verifier.Verify(signature, message, vmKey)
 	if err != nil {
