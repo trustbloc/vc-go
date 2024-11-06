@@ -283,7 +283,7 @@ func (s *Suite) VerifyProof(doc []byte, proof *models.Proof, opts *models.ProofO
 		return fmt.Errorf("decoding proofValue: %w", err)
 	}
 
-	fmt.Println("Decoded signature: " + string(signature))
+	fmt.Println("Decoded signature: " + fmt.Sprintf("%x", signature))
 
 	err = verifier.Verify(signature, message, vmKey)
 	if err != nil {
