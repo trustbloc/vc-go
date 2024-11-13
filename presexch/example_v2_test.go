@@ -51,15 +51,19 @@ func ExamplePresentationDefinition_CreateVP_v2() {
 						Path:      []string{"$.credentialSubject.age", "$.vc.credentialSubject.age", "$.age"},
 						Predicate: &required,
 						Filter: &Filter{
-							Type:    &intFilterType,
-							Minimum: 18,
+							FilterItem: FilterItem{
+								Type:    &intFilterType,
+								Minimum: 18,
+							},
 						},
 					},
 					{
 						Path: []string{"$.credentialSchema[0].id", "$.credentialSchema.id", "$.vc.credentialSchema.id"},
 						Filter: &Filter{
-							Type:  &strFilterType,
-							Const: "hub://did:foo:123/Collections/schema.us.gov/passport.json",
+							FilterItem: FilterItem{
+								Type:  &strFilterType,
+								Const: "hub://did:foo:123/Collections/schema.us.gov/passport.json",
+							},
 						},
 					},
 				},
@@ -175,15 +179,19 @@ func ExamplePresentationDefinition_CreateVP_with_LdpVC_Format() {
 						Path:      []string{"$.credentialSubject.age", "$.vc.credentialSubject.age", "$.age"},
 						Predicate: &required,
 						Filter: &Filter{
-							Type:    &intFilterType,
-							Minimum: 18,
+							FilterItem: FilterItem{
+								Type:    &intFilterType,
+								Minimum: 18,
+							},
 						},
 					},
 					{
 						Path: []string{"$.credentialSchema[0].id", "$.credentialSchema.id", "$.vc.credentialSchema.id"},
 						Filter: &Filter{
-							Type:  &strFilterType,
-							Const: "hub://did:foo:123/Collections/schema.us.gov/passport.json",
+							FilterItem: FilterItem{
+								Type:  &strFilterType,
+								Const: "hub://did:foo:123/Collections/schema.us.gov/passport.json",
+							},
 						},
 					},
 				},
@@ -302,15 +310,19 @@ func ExamplePresentationDefinition_CreateVP_with_Ldp_Format() {
 						Path:      []string{"$.credentialSubject.age", "$.vc.credentialSubject.age", "$.age"},
 						Predicate: &required,
 						Filter: &Filter{
-							Type:    &intFilterType,
-							Minimum: 18,
+							FilterItem: FilterItem{
+								Type:    &intFilterType,
+								Minimum: 18,
+							},
 						},
 					},
 					{
 						Path: []string{"$.credentialSchema[0].id", "$.credentialSchema.id", "$.vc.credentialSchema.id"},
 						Filter: &Filter{
-							Type:  &strFilterType,
-							Const: "hub://did:foo:123/Collections/schema.us.gov/passport.json",
+							FilterItem: FilterItem{
+								Type:  &strFilterType,
+								Const: "hub://did:foo:123/Collections/schema.us.gov/passport.json",
+							},
 						},
 					},
 				},
@@ -429,15 +441,19 @@ func ExamplePresentationDefinition_CreateVP_withFormatInInputDescriptor() {
 						Path:      []string{"$.credentialSubject.age", "$.vc.credentialSubject.age", "$.age"},
 						Predicate: &required,
 						Filter: &Filter{
-							Type:    &intFilterType,
-							Minimum: 18,
+							FilterItem: FilterItem{
+								Type:    &intFilterType,
+								Minimum: 18,
+							},
 						},
 					},
 					{
 						Path: []string{"$.credentialSchema[0].id", "$.credentialSchema.id", "$.vc.credentialSchema.id"},
 						Filter: &Filter{
-							Type:  &strFilterType,
-							Const: "hub://did:foo:123/Collections/schema.us.gov/passport.json",
+							FilterItem: FilterItem{
+								Type:  &strFilterType,
+								Const: "hub://did:foo:123/Collections/schema.us.gov/passport.json",
+							},
 						},
 					},
 				},
@@ -556,15 +572,19 @@ func TestExamplePresentationDefinition_CreateVPWithFormat_NoMatch(t *testing.T) 
 						Path:      []string{"$.credentialSubject.age", "$.vc.credentialSubject.age", "$.age"},
 						Predicate: &required,
 						Filter: &Filter{
-							Type:    &intFilterType,
-							Minimum: 18,
+							FilterItem: FilterItem{
+								Type:    &intFilterType,
+								Minimum: 18,
+							},
 						},
 					},
 					{
 						Path: []string{"$.credentialSchema[0].id", "$.credentialSchema.id", "$.vc.credentialSchema.id"},
 						Filter: &Filter{
-							Type:  &strFilterType,
-							Const: "hub://did:foo:123/Collections/schema.us.gov/passport.json",
+							FilterItem: FilterItem{
+								Type:  &strFilterType,
+								Const: "hub://did:foo:123/Collections/schema.us.gov/passport.json",
+							},
 						},
 					},
 				},
@@ -688,8 +708,10 @@ func ExamplePresentationDefinition_CreateVP_withFrame() {
 						Path:      []string{"$.credentialSubject.birthCountry", "$.vc.credentialSubject.birthCountry"},
 						Predicate: &required,
 						Filter: &Filter{
-							Type:  &strFilterType,
-							Const: "Bahamas",
+							FilterItem: FilterItem{
+								Type:  &strFilterType,
+								Const: "Bahamas",
+							},
 						},
 					},
 				},
@@ -827,8 +849,10 @@ func ExamplePresentationDefinition_CreateVP_limitedDisclosureSkipsNonSDVCs() {
 						Path: []string{"$.credentialSubject.warn_alert", "$.vc.credentialSubject.warn_alert", "$.warn_alert"},
 						// Predicate: &required,
 						Filter: &Filter{
-							Type:  &strFilterType,
-							Const: "mauve",
+							FilterItem: FilterItem{
+								Type:  &strFilterType,
+								Const: "mauve",
+							},
 						},
 					},
 				},

@@ -191,6 +191,12 @@ type Field struct {
 
 // Filter describes filter.
 type Filter struct {
+	FilterItem
+	AllOf []*FilterItem `json:"allOf,omitempty"`
+}
+
+// FilterItem describes filter item.
+type FilterItem struct {
 	Type             *string                `json:"type,omitempty"`
 	Format           string                 `json:"format,omitempty"`
 	Pattern          string                 `json:"pattern,omitempty"`
@@ -466,9 +472,36 @@ func makeRequirement(requirements []*SubmissionRequirement, descriptors []*Input
 	return req, nil
 }
 
+func (pd *PresentationDefinition) adjustFields() {
+	if pd == nil || pd.InputDescriptors == nil {
+		return
+	}
+
+	for _, descriptor := range pd.InputDescriptors {
+		if descriptor.Constraints == nil {
+			continue
+		}
+
+		for _, f := range descriptor.Constraints.Fields {
+			var updatedPath []string
+
+			for _, path := range f.Path {
+				updatedPath = append(updatedPath, strings.ReplaceAll(path, "'", "\""))
+			}
+
+			f.Path = updatedPath
+		}
+	}
+}
+
 // CreateVP creates verifiable presentation.
-func (pd *PresentationDefinition) CreateVP(credentials []*verifiable.Credential,
-	documentLoader ld.DocumentLoader, opts ...MatchRequirementsOpt) (*verifiable.Presentation, error) {
+func (pd *PresentationDefinition) CreateVP(
+	credentials []*verifiable.Credential,
+	documentLoader ld.DocumentLoader,
+	opts ...MatchRequirementsOpt,
+) (*verifiable.Presentation, error) {
+	pd.adjustFields()
+
 	matchOpts := &matchRequirementsOpts{defaultVPFormat: FormatLDPVP}
 	for _, opt := range opts {
 		opt(matchOpts)
@@ -825,13 +858,17 @@ type descriptorMatch struct {
 	creds  []*credWrapper
 }
 
-func (pd *PresentationDefinition) filterCredentialsThatMatchDescriptor(creds []*verifiable.Credential,
+func (pd *PresentationDefinition) filterCredentialsThatMatchDescriptor(
+	creds []*verifiable.Credential,
 	descriptor *InputDescriptor,
-	documentLoader ld.DocumentLoader) (string, []constraintsFilterResult, error) {
+	documentLoader ld.DocumentLoader,
+) (string, []constraintsFilterResult, error) {
 	format := pd.Format
 	if descriptor.Format.notNil() {
 		format = descriptor.Format
 	}
+
+	pd.adjustFields()
 
 	vpFormat := ""
 	filtered := creds
@@ -1452,7 +1489,7 @@ func filterField(f *Field, credential map[string]interface{}) error {
 		if err == nil {
 			// TODO: refactor this + selective disclosure so that the accepted path for a constraint field
 			//  is the only path revealed, instead of revealing all paths for the field.
-			err = validatePatch(schema, patch)
+			err = validatePatch(schema, patch, f)
 			if err == nil {
 				return nil
 			}
@@ -1468,7 +1505,7 @@ func filterField(f *Field, credential map[string]interface{}) error {
 	return lastErr
 }
 
-func validatePatch(schema gojsonschema.JSONLoader, patch interface{}) error {
+func validatePatch(schema gojsonschema.JSONLoader, patch interface{}, field *Field) error {
 	if schema == nil {
 		return nil
 	}
@@ -1478,9 +1515,21 @@ func validatePatch(schema gojsonschema.JSONLoader, patch interface{}) error {
 		return err
 	}
 
-	result, err := gojsonschema.Validate(schema, gojsonschema.NewBytesLoader(raw))
-	if err != nil || !result.Valid() {
-		return errPathNotApplicable
+	var schemasToExecute []gojsonschema.JSONLoader
+
+	for _, all := range field.Filter.AllOf {
+		schemasToExecute = append(schemasToExecute, gojsonschema.NewGoLoader(all))
+	}
+
+	if len(schemasToExecute) == 0 {
+		schemasToExecute = append(schemasToExecute, schema) // fallback
+	}
+
+	for _, sh := range schemasToExecute {
+		result, err := gojsonschema.Validate(sh, gojsonschema.NewBytesLoader(raw))
+		if err != nil || !result.Valid() {
+			return errors.Join(errPathNotApplicable)
+		}
 	}
 
 	return nil

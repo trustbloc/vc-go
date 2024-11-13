@@ -22,6 +22,7 @@ import (
 	"github.com/PaesslerAG/gval"
 	"github.com/PaesslerAG/jsonpath"
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/bbs-signature-go/bbs12381g2pub"
 	ldcontext "github.com/trustbloc/did-go/doc/ld/context"
@@ -253,9 +254,11 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 							Fields: []*Field{{
 								Path: []string{"$.age"},
 								Filter: &Filter{
-									Type:    &intFilterType,
-									Minimum: 3,
-									Maximum: 12,
+									FilterItem: FilterItem{
+										Type:    &intFilterType,
+										Minimum: 3,
+										Maximum: 12,
+									},
 								},
 							}},
 						},
@@ -270,9 +273,11 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 							Fields: []*Field{{
 								Path: []string{"$.age"},
 								Filter: &Filter{
-									Type:    &intFilterType,
-									Minimum: 13,
-									Maximum: 17,
+									FilterItem: FilterItem{
+										Type:    &intFilterType,
+										Minimum: 13,
+										Maximum: 17,
+									},
 								},
 							}},
 						},
@@ -287,9 +292,11 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 							Fields: []*Field{{
 								Path: []string{"$.age"},
 								Filter: &Filter{
-									Type:    &intFilterType,
-									Minimum: 18,
-									Maximum: 23,
+									FilterItem: FilterItem{
+										Type:    &intFilterType,
+										Minimum: 18,
+										Maximum: 23,
+									},
 								},
 							}},
 						},
@@ -471,7 +478,11 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 					Fields: []*Field{{
 						Path:      []string{"$.first_name", "$.last_name"},
 						Predicate: &predicate,
-						Filter:    &Filter{Type: &strFilterType},
+						Filter: &Filter{
+							FilterItem: FilterItem{
+								Type: &strFilterType,
+							},
+						},
 					}},
 				},
 			}},
@@ -508,6 +519,273 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 		require.EqualValues(t, "Info", vc.CustomField("info"))
 
 		checkSubmission(t, vp, pd)
+		checkVP(t, vp, FormatLDPVP)
+	})
+
+	t.Run("All of", func(t *testing.T) {
+		pd := &PresentationDefinition{
+			ID: uuid.New().String(),
+			InputDescriptors: []*InputDescriptor{{
+				ID: uuid.New().String(),
+				Schema: []*Schema{{
+					URI: fmt.Sprintf("%s#%s", verifiable.V1ContextID, verifiable.VCType),
+				}},
+				Constraints: &Constraints{
+					Fields: []*Field{
+						{
+							Path: []string{"$['@context']"},
+							Filter: &Filter{
+								FilterItem: FilterItem{
+									Type: lo.ToPtr("array"),
+								},
+								AllOf: []*FilterItem{
+									{
+										Contains: map[string]interface{}{
+											"type":  "string",
+											"const": verifiable.V1ContextURI,
+										},
+									},
+									{
+										Contains: map[string]interface{}{
+											"type":  "string",
+											"const": "https://www.w3.org/2018/credentials/examples/v1",
+										},
+									},
+								},
+							},
+						},
+						{
+							Path: []string{"$['type']"},
+							Filter: &Filter{
+								FilterItem: FilterItem{
+									Type: lo.ToPtr("array"),
+								},
+								AllOf: []*FilterItem{
+									{
+										Contains: map[string]interface{}{
+											"type":  "string",
+											"const": "SuperType",
+										},
+									},
+								},
+							},
+						},
+						{
+							Path: []string{"$.first_name"},
+							Filter: &Filter{
+								FilterItem: FilterItem{
+									Type: lo.ToPtr("array"),
+								},
+								AllOf: []*FilterItem{
+									{
+										Type:  lo.ToPtr("string"),
+										Const: "First name",
+									},
+								},
+							},
+						},
+						{
+							Path: []string{"$.last_name"},
+							Filter: &Filter{
+								FilterItem: FilterItem{
+									Type: lo.ToPtr("array"),
+								},
+								AllOf: []*FilterItem{
+									{
+										Type:  lo.ToPtr("string"),
+										Const: "Last name",
+									},
+								},
+							},
+						},
+					},
+				},
+			}},
+		}
+
+		vp, err := pd.CreateVP([]*verifiable.Credential{
+			createTestCredential(t, credentialProto{
+				Context: []string{
+					verifiable.V1ContextURI,
+					"https://www.w3.org/2018/credentials/examples/v1",
+				},
+				Types:   []string{verifiable.VCType, "SuperType"},
+				ID:      "http://example.edu/credentials/1872",
+				Subject: []verifiable.Subject{{ID: "did:example:76e12ec712ebc6f1c221ebfeb1f"}},
+				Issued: &utiltime.TimeWrapper{
+					Time: time.Now(),
+				},
+				Issuer: &verifiable.Issuer{
+					ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+				},
+				CustomFields: map[string]interface{}{
+					"first_name": "First name",
+					"last_name":  "Last name",
+					"info":       "Info",
+				},
+			}),
+		}, lddl, WithSDCredentialOptions(verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t))))
+
+		require.NoError(t, err)
+		require.NotNil(t, vp)
+		require.Equal(t, 1, len(vp.Credentials()))
+
+		vc := vp.Credentials()[0]
+
+		require.EqualValues(t, "First name", vc.CustomField("first_name"))
+		require.EqualValues(t, "Last name", vc.CustomField("last_name"))
+		require.EqualValues(t, "Info", vc.CustomField("info"))
+
+		checkSubmission(t, vp, pd)
+		checkVP(t, vp, FormatLDPVP)
+	})
+
+	t.Run("All of fail", func(t *testing.T) {
+		pd := &PresentationDefinition{
+			ID: uuid.New().String(),
+			InputDescriptors: []*InputDescriptor{{
+				ID: uuid.New().String(),
+				Schema: []*Schema{{
+					URI: fmt.Sprintf("%s#%s", verifiable.V1ContextID, verifiable.VCType),
+				}},
+				Constraints: &Constraints{
+					Fields: []*Field{
+						{
+							Path: []string{"$['@context']"},
+							Filter: &Filter{
+								FilterItem: FilterItem{
+									Type: lo.ToPtr("array"),
+								},
+								AllOf: []*FilterItem{
+									{
+										Contains: map[string]interface{}{
+											"type":  "string",
+											"const": verifiable.V1ContextURI,
+										},
+									},
+									{
+										Contains: map[string]interface{}{
+											"type":  "string",
+											"const": "https://404",
+										},
+									},
+								},
+							},
+						},
+						{
+							Path: []string{"$.first_name"},
+							Filter: &Filter{
+								FilterItem: FilterItem{
+									Type: lo.ToPtr("array"),
+								},
+								AllOf: []*FilterItem{
+									{
+										Type:  lo.ToPtr("string"),
+										Const: "First name",
+									},
+								},
+							},
+						},
+						{
+							Path: []string{"$.last_name"},
+							Filter: &Filter{
+								FilterItem: FilterItem{
+									Type: lo.ToPtr("array"),
+								},
+								AllOf: []*FilterItem{
+									{
+										Type:  lo.ToPtr("string"),
+										Const: "Last name",
+									},
+								},
+							},
+						},
+					},
+				},
+			}},
+		}
+
+		vp, err := pd.CreateVP([]*verifiable.Credential{
+			createTestCredential(t, credentialProto{
+				Context: []string{
+					verifiable.V1ContextURI,
+					"https://www.w3.org/2018/credentials/examples/v1",
+				},
+				Types:   []string{verifiable.VCType},
+				ID:      "http://example.edu/credentials/1872",
+				Subject: []verifiable.Subject{{ID: "did:example:76e12ec712ebc6f1c221ebfeb1f"}},
+				Issued: &utiltime.TimeWrapper{
+					Time: time.Now(),
+				},
+				Issuer: &verifiable.Issuer{
+					ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+				},
+				CustomFields: map[string]interface{}{
+					"first_name": "First name",
+					"last_name":  "Last name",
+					"info":       "Info",
+				},
+			}),
+		}, lddl, WithSDCredentialOptions(verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t))))
+
+		require.ErrorContains(t, err, "credentials do not satisfy requirements")
+		require.Nil(t, vp)
+	})
+
+	t.Run("Get By Context", func(t *testing.T) {
+		const queryByCredType = `{
+				   "id": "69ddc987-55c2-4f1f-acea-f2838be10607",
+				   "input_descriptors": [
+					   {
+						   "id": "26b00531-caa1-49f3-a5a1-4a0eae8c0925",
+						   "constraints": {
+							   "fields": [
+								   {
+									   "path": [
+										   "$[\"@context\"]"
+									   ],
+								 "filter": {
+									"type": "array",
+									"contains": {
+											"type": "string",
+											"const": "https://www.w3.org/2018/credentials/v1"
+											}
+								   		}
+								   }
+							   ]
+						   }
+					   }
+				   ]
+				}`
+
+		var pd PresentationDefinition
+		require.NoError(t, json.Unmarshal([]byte(queryByCredType), &pd))
+
+		vp, err := pd.CreateVP([]*verifiable.Credential{
+			createTestCredential(t, credentialProto{
+				Context: []string{verifiable.V1ContextURI},
+				Types:   []string{verifiable.VCType, "DemoCred"},
+				ID:      "http://example.edu/credentials/1872",
+				Subject: []verifiable.Subject{{ID: "did:example:76e12ec712ebc6f1c221ebfeb1f"}},
+				Issued: &utiltime.TimeWrapper{
+					Time: time.Now(),
+				},
+				Issuer: &verifiable.Issuer{
+					ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+				},
+				CustomFields: map[string]interface{}{
+					"first_name": "First name",
+					"last_name":  "Last name",
+					"info":       "Info",
+				},
+			}),
+		}, lddl, WithSDCredentialOptions(verifiable.WithJSONLDDocumentLoader(createTestJSONLDDocumentLoader(t))))
+
+		require.NoError(t, err)
+		require.NotNil(t, vp)
+		require.Equal(t, 1, len(vp.Credentials()))
+
+		checkSubmission(t, vp, &pd)
 		checkVP(t, vp, FormatLDPVP)
 	})
 
@@ -584,7 +862,11 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 					Fields: []*Field{{
 						Path:      []string{"$.first_name", "$.last_name"},
 						Predicate: &required,
-						Filter:    &Filter{Type: &strFilterType},
+						Filter: &Filter{
+							FilterItem: FilterItem{
+								Type: &strFilterType,
+							},
+						},
 					}},
 				},
 			}},
@@ -642,7 +924,11 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 					Fields: []*Field{{
 						Path:      []string{"$.first_name", "$.last_name"},
 						Predicate: &required,
-						Filter:    &Filter{Type: &strFilterType},
+						Filter: &Filter{
+							FilterItem: FilterItem{
+								Type: &strFilterType,
+							},
+						},
 					}},
 				},
 			}},
@@ -790,8 +1076,10 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 							Path: []string{
 								"$.credentialSchema[0].id", "$.credentialSchema.id", "$.vc.credentialSchema.id"},
 							Filter: &Filter{
-								Type:  &strFilterType,
-								Const: "https://www.w3.org/TR/vc-data-model/2.0/#types",
+								FilterItem: FilterItem{
+									Type:  &strFilterType,
+									Const: "https://www.w3.org/TR/vc-data-model/2.0/#types",
+								},
 							},
 						},
 					},
@@ -905,7 +1193,11 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 							"$.credentialSubject.family_name",
 						},
 						Predicate: &required,
-						Filter:    &Filter{Type: &strFilterType},
+						Filter: &Filter{
+							FilterItem: FilterItem{
+								Type: &strFilterType,
+							},
+						},
 					}},
 				},
 			}},
@@ -1035,7 +1327,11 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 							"$.credentialSubject.address.country",
 						},
 						Predicate: &required,
-						Filter:    &Filter{Type: &arrFilterType},
+						Filter: &Filter{
+							FilterItem: FilterItem{
+								Type: &arrFilterType,
+							},
+						},
 					}},
 				},
 			}},
@@ -1071,7 +1367,11 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 							"$.credentialSubject.address.country",
 						},
 						Predicate: &required,
-						Filter:    &Filter{Type: &arrFilterType},
+						Filter: &Filter{
+							FilterItem: FilterItem{
+								Type: &arrFilterType,
+							},
+						},
 					}},
 				},
 			}},
@@ -1135,8 +1435,12 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 				Constraints: &Constraints{
 					LimitDisclosure: &required,
 					Fields: []*Field{{
-						Path:   []string{"$.credentialSubject.degree.degreeSchool"},
-						Filter: &Filter{Type: &strFilterType},
+						Path: []string{"$.credentialSubject.degree.degreeSchool"},
+						Filter: &Filter{
+							FilterItem: FilterItem{
+								Type: &strFilterType,
+							},
+						},
 					}},
 				},
 			}},
@@ -1247,12 +1551,20 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 				Constraints: &Constraints{
 					LimitDisclosure: &required,
 					Fields: []*Field{{
-						Path:      []string{"$.credentialSubject.givenName", "$.credentialSubject.familyName"},
-						Filter:    &Filter{Type: &strFilterType},
+						Path: []string{"$.credentialSubject.givenName", "$.credentialSubject.familyName"},
+						Filter: &Filter{
+							FilterItem: FilterItem{
+								Type: &strFilterType,
+							},
+						},
 						Predicate: &required,
 					}, {
-						Path:   []string{"$.credentialSubject.type"},
-						Filter: &Filter{Type: &arrFilterType},
+						Path: []string{"$.credentialSubject.type"},
+						Filter: &Filter{
+							FilterItem: FilterItem{
+								Type: &arrFilterType,
+							},
+						},
 					}},
 				},
 			}},
@@ -1353,8 +1665,12 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 				}},
 				Constraints: &Constraints{
 					Fields: []*Field{{
-						Path:   []string{"$.last_name"},
-						Filter: &Filter{Type: &strFilterType},
+						Path: []string{"$.last_name"},
+						Filter: &Filter{
+							FilterItem: FilterItem{
+								Type: &strFilterType,
+							},
+						},
 					}},
 				},
 			}},
@@ -1467,11 +1783,19 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 				Constraints: &Constraints{
 					SubjectIsIssuer: &subIsIssuerRequired,
 					Fields: []*Field{{
-						Path:   []string{"$.first_name"},
-						Filter: &Filter{Type: &strFilterType},
+						Path: []string{"$.first_name"},
+						Filter: &Filter{
+							FilterItem: FilterItem{
+								Type: &strFilterType,
+							},
+						},
 					}, {
-						Path:   []string{"$.last_name"},
-						Filter: &Filter{Type: &strFilterType},
+						Path: []string{"$.last_name"},
+						Filter: &Filter{
+							FilterItem: FilterItem{
+								Type: &strFilterType,
+							},
+						},
 					}},
 				},
 			}},
@@ -1522,15 +1846,25 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 					SubjectIsIssuer: &subIsIssuerRequired,
 					LimitDisclosure: &required,
 					Fields: []*Field{{
-						Path:   []string{"$.first_name"},
-						Filter: &Filter{Type: &strFilterType},
+						Path: []string{"$.first_name"},
+						Filter: &Filter{
+							FilterItem: FilterItem{
+								Type: &strFilterType,
+							},
+						},
 					}, {
-						Path:   []string{"$.issuer"},
-						Filter: &Filter{Type: &strFilterType},
+						Path: []string{"$.issuer"},
+						Filter: &Filter{
+							FilterItem: FilterItem{
+								Type: &strFilterType,
+							},
+						},
 					}, {
 						Path: []string{"$.all[*].authors[*].name"},
 						Filter: &Filter{
-							Type: &arrFilterType,
+							FilterItem: FilterItem{
+								Type: &arrFilterType,
+							},
 						},
 					}},
 				},
@@ -1633,8 +1967,10 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 					Fields: []*Field{{
 						Path: []string{"$.first_name"},
 						Filter: &Filter{
-							Type:    &strFilterType,
-							Pattern: "^Jesse",
+							FilterItem: FilterItem{
+								Type:    &strFilterType,
+								Pattern: "^Jesse",
+							},
 						},
 						Predicate: &required,
 					}},
@@ -1674,8 +2010,10 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 					Fields: []*Field{{
 						Path: []string{"$.first_name"},
 						Filter: &Filter{
-							Type:    &strFilterType,
-							Pattern: "^Jesse",
+							FilterItem: FilterItem{
+								Type:    &strFilterType,
+								Pattern: "^Jesse",
+							},
 						},
 					}},
 				},
@@ -2531,9 +2869,11 @@ func TestPresentationDefinition_CreateVP_V2Credential(t *testing.T) {
 							Fields: []*Field{{
 								Path: []string{"$.age"},
 								Filter: &Filter{
-									Type:    &intFilterType,
-									Minimum: 3,
-									Maximum: 12,
+									FilterItem: FilterItem{
+										Type:    &intFilterType,
+										Minimum: 3,
+										Maximum: 12,
+									},
 								},
 							}},
 						},
@@ -2548,9 +2888,11 @@ func TestPresentationDefinition_CreateVP_V2Credential(t *testing.T) {
 							Fields: []*Field{{
 								Path: []string{"$.age"},
 								Filter: &Filter{
-									Type:    &intFilterType,
-									Minimum: 13,
-									Maximum: 17,
+									FilterItem: FilterItem{
+										Type:    &intFilterType,
+										Minimum: 13,
+										Maximum: 17,
+									},
 								},
 							}},
 						},
@@ -2565,9 +2907,11 @@ func TestPresentationDefinition_CreateVP_V2Credential(t *testing.T) {
 							Fields: []*Field{{
 								Path: []string{"$.age"},
 								Filter: &Filter{
-									Type:    &intFilterType,
-									Minimum: 18,
-									Maximum: 23,
+									FilterItem: FilterItem{
+										Type:    &intFilterType,
+										Minimum: 18,
+										Maximum: 23,
+									},
 								},
 							}},
 						},
