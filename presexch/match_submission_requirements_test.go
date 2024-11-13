@@ -172,8 +172,12 @@ func TestInstance_GetSubmissionRequirements(t *testing.T) {
 				Constraints: &presexch.Constraints{
 					LimitDisclosure: &required,
 					Fields: []*presexch.Field{{
-						Path:   []string{"$.credentialSubject.degree.degreeSchool"},
-						Filter: &presexch.Filter{Type: &strFilterType},
+						Path: []string{"$.credentialSubject.degree.degreeSchool"},
+						Filter: &presexch.Filter{
+							FilterItem: presexch.FilterItem{
+								Type: &strFilterType,
+							},
+						},
 					}},
 				},
 			}},

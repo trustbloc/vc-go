@@ -41,8 +41,10 @@ func ExamplePresentationDefinition_CreateVP_v1() {
 					Path:      []string{"$.age"},
 					Predicate: &required,
 					Filter: &Filter{
-						Type:    &intFilterType,
-						Minimum: 18,
+						FilterItem: FilterItem{
+							Type:    &intFilterType,
+							Minimum: 18,
+						},
 					},
 				}},
 			},
@@ -147,8 +149,10 @@ func ExamplePresentationDefinition_CreateVP_v1_With_LDP_FormatAndProof() {
 					Path:      []string{"$.age"},
 					Predicate: &required,
 					Filter: &Filter{
-						Type:    &intFilterType,
-						Minimum: 18,
+						FilterItem: FilterItem{
+							Type:    &intFilterType,
+							Minimum: 18,
+						},
 					},
 				}},
 			},
@@ -257,8 +261,10 @@ func ExamplePresentationDefinition_CreateVP_v1_With_LDPVC_FormatAndProof() {
 					Path:      []string{"$.age"},
 					Predicate: &required,
 					Filter: &Filter{
-						Type:    &intFilterType,
-						Minimum: 18,
+						FilterItem: FilterItem{
+							Type:    &intFilterType,
+							Minimum: 18,
+						},
 					},
 				}},
 			},
@@ -363,8 +369,10 @@ func ExamplePresentationDefinition_CreateVP_multipleMatches() {
 				Fields: []*Field{{
 					Path: []string{"$.age"},
 					Filter: &Filter{
-						Type:    &intFilterType,
-						Minimum: 18,
+						FilterItem: FilterItem{
+							Type:    &intFilterType,
+							Minimum: 18,
+						},
 					},
 				}},
 			},
@@ -378,8 +386,10 @@ func ExamplePresentationDefinition_CreateVP_multipleMatches() {
 				Fields: []*Field{{
 					Path: []string{"$.first_name"},
 					Filter: &Filter{
-						Type:    &strFilterType,
-						Pattern: "Andrew|Jesse",
+						FilterItem: FilterItem{
+							Type:    &strFilterType,
+							Pattern: "Andrew|Jesse",
+						},
 					},
 				}},
 			},
@@ -548,8 +558,10 @@ func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
 				Fields: []*Field{{
 					Path: []string{"$.age"},
 					Filter: &Filter{
-						Type:    &intFilterType,
-						Minimum: 18,
+						FilterItem: FilterItem{
+							Type:    &intFilterType,
+							Minimum: 18,
+						},
 					},
 				}},
 			},
@@ -564,8 +576,10 @@ func ExamplePresentationDefinition_CreateVP_multipleMatchesDisclosure() {
 				Fields: []*Field{{
 					Path: []string{"$.first_name"},
 					Filter: &Filter{
-						Type:    &strFilterType,
-						Pattern: "Andrew|Jesse",
+						FilterItem: FilterItem{
+							Type:    &strFilterType,
+							Pattern: "Andrew|Jesse",
+						},
 					},
 				}},
 			},
@@ -778,8 +792,10 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 				Fields: []*Field{{
 					Path: []string{"$.age"},
 					Filter: &Filter{
-						Type:    &intFilterType,
-						Minimum: 18,
+						FilterItem: FilterItem{
+							Type:    &intFilterType,
+							Minimum: 18,
+						},
 					},
 				}},
 			},
@@ -795,8 +811,10 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 				Fields: []*Field{{
 					Path: []string{"$.photo"},
 					Filter: &Filter{
-						Type:   &strFilterType,
-						Format: "uri",
+						FilterItem: FilterItem{
+							Type:   &strFilterType,
+							Format: "uri",
+						},
 					},
 				}},
 			},
@@ -812,8 +830,10 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirementsLimitDisclosur
 				Fields: []*Field{{
 					Path: []string{"$.image"},
 					Filter: &Filter{
-						Type:   &strFilterType,
-						Format: "uri",
+						FilterItem: FilterItem{
+							Type:   &strFilterType,
+							Format: "uri",
+						},
 					},
 				}},
 			},
@@ -1013,8 +1033,10 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 				Fields: []*Field{{
 					Path: []string{"$.age"},
 					Filter: &Filter{
-						Type:    &intFilterType,
-						Minimum: 18,
+						FilterItem: FilterItem{
+							Type:    &intFilterType,
+							Minimum: 18,
+						},
 					},
 				}},
 			},
@@ -1029,8 +1051,10 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 				Fields: []*Field{{
 					Path: []string{"$.photo"},
 					Filter: &Filter{
-						Type:   &strFilterType,
-						Format: "uri",
+						FilterItem: FilterItem{
+							Type:   &strFilterType,
+							Format: "uri",
+						},
 					},
 				}},
 			},
@@ -1045,8 +1069,10 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements() {
 				Fields: []*Field{{
 					Path: []string{"$.image"},
 					Filter: &Filter{
-						Type:   &strFilterType,
-						Format: "uri",
+						FilterItem: FilterItem{
+							Type:   &strFilterType,
+							Format: "uri",
+						},
 					},
 				}},
 			},
@@ -1245,8 +1271,10 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements2() {
 					Fields: []*Field{{
 						Path: []string{"$.photo"},
 						Filter: &Filter{
-							Type:   &strFilterType,
-							Format: "uri",
+							FilterItem: FilterItem{
+								Type:   &strFilterType,
+								Format: "uri",
+							},
 						},
 					}},
 				},
@@ -1262,8 +1290,10 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements2() {
 					Fields: []*Field{{
 						Path: []string{"$.image"},
 						Filter: &Filter{
-							Type:   &strFilterType,
-							Format: "uri",
+							FilterItem: FilterItem{
+								Type:   &strFilterType,
+								Format: "uri",
+							},
 						},
 					}},
 				},
@@ -1278,12 +1308,16 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements2() {
 					Fields: []*Field{{
 						Path: []string{"$.credentialSubject.pilot_id"},
 						Filter: &Filter{
-							Type: &strFilterType,
+							FilterItem: FilterItem{
+								Type: &strFilterType,
+							},
 						},
 					}, {
 						Path: []string{"$.credentialSubject.expiry"},
 						Filter: &Filter{
-							Type: &strFilterType,
+							FilterItem: FilterItem{
+								Type: &strFilterType,
+							},
 						},
 					}},
 				},
@@ -1298,12 +1332,16 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements2() {
 					Fields: []*Field{{
 						Path: []string{"$.credentialSubject.pilot_id"},
 						Filter: &Filter{
-							Type: &strFilterType,
+							FilterItem: FilterItem{
+								Type: &strFilterType,
+							},
 						},
 					}, {
 						Path: []string{"$.credentialSubject.employed_since"},
 						Filter: &Filter{
-							Type: &strFilterType,
+							FilterItem: FilterItem{
+								Type: &strFilterType,
+							},
 						},
 					}},
 				},
@@ -1318,13 +1356,17 @@ func ExamplePresentationDefinition_CreateVP_submissionRequirements2() {
 					Fields: []*Field{{
 						Path: []string{"$.credentialSubject.clearance_level"},
 						Filter: &Filter{
-							Type: &arrFilterType,
+							FilterItem: FilterItem{
+								Type: &arrFilterType,
+							},
 						},
 					}, {
 						Path: []string{"$.credentialSubject.travel_authorization.subnational"},
 						Filter: &Filter{
-							Type:  &strFilterType,
-							Const: "Allow",
+							FilterItem: FilterItem{
+								Type:  &strFilterType,
+								Const: "Allow",
+							},
 						},
 					}},
 				},

@@ -94,7 +94,7 @@ const DefinitionJSONSchemaV1 = `
          "required":[
             "type"
          ],
-         "additionalProperties":false
+         "additionalProperties":true
       },
       "format":{
          "type":"object",
