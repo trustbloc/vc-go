@@ -555,6 +555,22 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 							},
 						},
 						{
+							Path: []string{"$['type']"},
+							Filter: &Filter{
+								FilterItem: FilterItem{
+									Type: lo.ToPtr("array"),
+								},
+								AllOf: []*FilterItem{
+									{
+										Contains: map[string]interface{}{
+											"type":  "string",
+											"const": "SuperType",
+										},
+									},
+								},
+							},
+						},
+						{
 							Path: []string{"$.first_name"},
 							Filter: &Filter{
 								FilterItem: FilterItem{
@@ -593,7 +609,7 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 					verifiable.V1ContextURI,
 					"https://www.w3.org/2018/credentials/examples/v1",
 				},
-				Types:   []string{verifiable.VCType},
+				Types:   []string{verifiable.VCType, "SuperType"},
 				ID:      "http://example.edu/credentials/1872",
 				Subject: []verifiable.Subject{{ID: "did:example:76e12ec712ebc6f1c221ebfeb1f"}},
 				Issued: &utiltime.TimeWrapper{
