@@ -112,8 +112,13 @@ func WithMergedSubmissionMap(submissionMap map[string]interface{}) MatchOption {
 }
 
 // Match returns the credentials matched against the InputDescriptors ids.
-func (pd *PresentationDefinition) Match(vpList []*verifiable.Presentation,
-	contextLoader ld.DocumentLoader, options ...MatchOption) ([]*MatchValue, error) {
+func (pd *PresentationDefinition) Match(
+	vpList []*verifiable.Presentation,
+	contextLoader ld.DocumentLoader,
+	options ...MatchOption,
+) ([]*MatchValue, error) {
+	pd.adjustFields()
+
 	opts := &MatchOptions{}
 
 	for i := range options {
