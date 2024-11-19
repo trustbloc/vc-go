@@ -14,8 +14,6 @@ import (
 	"github.com/trustbloc/vc-go/proof/testsupport"
 )
 
-const ()
-
 func Test_checkEmbeddedProofBytes(t *testing.T) {
 	expectedIssuer := "did:example:76e12ec712ebc6f1c221ebfeb1f"
 
@@ -75,7 +73,8 @@ func Test_checkEmbeddedProofBytes(t *testing.T) {
   "@context": "https://www.w3.org/2018/credentials/v1"
 }`
 		err := checkEmbeddedProofBytes([]byte(docWithoutProof), nil, defaultOpts)
-		r.NoError(err)
+		r.Error(err)
+		r.EqualError(err, "proof not found")
 	})
 
 	t.Run("error on not map \"proof\" element", func(t *testing.T) {
