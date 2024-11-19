@@ -44,9 +44,7 @@ func checkEmbeddedProofBytes(docBytes []byte, expectedProofIssuer *string, opts 
 func checkEmbeddedProof(jsonldDoc map[string]interface{}, expectedProofIssuer *string, opts *embeddedProofCheckOpts) error { // nolint:gocyclo
 	proofElement, ok := jsonldDoc["proof"]
 	if !ok || proofElement == nil {
-		// TODO: review this logic, probably should return error here, like this:
-		// do not make a check if there is no proof defined as proof presence is not mandatory
-		return nil
+		return fmt.Errorf("proof not found")
 	}
 
 	proofs, err := getProofs(proofElement)
