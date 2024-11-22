@@ -8,15 +8,23 @@ package verifiable
 import (
 	"crypto/ed25519"
 	"crypto/sha256"
+	_ "embed"
 	"encoding/base64"
 	"encoding/json"
+	"net/http"
 	"testing"
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/uuid"
+	jsonld "github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
+	"github.com/trustbloc/did-go/method/web"
+	vdrpkg "github.com/trustbloc/did-go/vdr"
 
 	"github.com/trustbloc/vc-go/crypto-ext/testutil"
+	"github.com/trustbloc/vc-go/dataintegrity"
+	"github.com/trustbloc/vc-go/dataintegrity/suite/ecdsa2019"
+	"github.com/trustbloc/vc-go/dataintegrity/suite/eddsa2022"
 	"github.com/trustbloc/vc-go/internal/testutil/kmscryptoutil"
 	"github.com/trustbloc/vc-go/proof/creator"
 	"github.com/trustbloc/vc-go/proof/defaults"
@@ -1155,4 +1163,29 @@ func TestCredential_AddLinkedDataProof(t *testing.T) {
 		r.Len(capabilities, 1)
 		r.Equal(rootCapability, capabilities[0])
 	})
+}
+
+//go:embed testdata/example-uscis.json
+var exampleUscis []byte
+
+func TestIntegrationCred(t *testing.T) {
+	vdr := vdrpkg.New(vdrpkg.WithVDR(web.New()))
+
+	docLoaded := jsonld.NewDefaultDocumentLoader(http.DefaultClient)
+	verifier, err := dataintegrity.NewVerifier(&dataintegrity.Options{
+		DIDResolver: vdr,
+	}, eddsa2022.NewVerifierInitializer(&eddsa2022.VerifierInitializerOptions{
+		LDDocumentLoader: docLoaded,
+	}), ecdsa2019.NewVerifierInitializer(&ecdsa2019.VerifierInitializerOptions{
+		LDDocumentLoader: docLoaded,
+	}))
+	require.NoError(t, err)
+
+	resp, err := ParseCredential(exampleUscis,
+		WithJSONLDDocumentLoader(jsonld.NewDefaultDocumentLoader(http.DefaultClient)),
+		WithDataIntegrityVerifier(verifier),
+	)
+
+	require.NoError(t, err)
+	require.NotNil(t, resp)
 }

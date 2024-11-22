@@ -123,7 +123,7 @@ func (v *Verifier) VerifyProof(doc []byte, opts *models.ProofOptions) error { //
 		return ErrMalformedProof
 	}
 
-	if opts.Created.IsZero() {
+	if opts.Created.IsZero() && proof.Created != "" {
 		var parsedCreatedTime time.Time
 
 		parsedCreatedTime, err = time.Parse(models.DateTimeFormat, proof.Created)

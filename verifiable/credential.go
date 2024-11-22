@@ -400,8 +400,7 @@ const SchemaTemplateV2 = `{
       "required": [
         "type",
         "proofPurpose",
-        "verificationMethod",
-        "created"
+        "verificationMethod"
       ],
       "additionalProperties": true
     },
