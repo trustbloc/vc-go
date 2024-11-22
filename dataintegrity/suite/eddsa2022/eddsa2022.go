@@ -311,8 +311,11 @@ func proofConfig(docCtx interface{}, opts *models.ProofOptions) map[string]inter
 		"type":               models.DataIntegrityProof,
 		"cryptosuite":        suiteType,
 		"verificationMethod": opts.VerificationMethodID,
-		"created":            opts.Created.Format(models.DateTimeFormat),
 		"proofPurpose":       opts.Purpose,
+	}
+
+	if !opts.Created.IsZero() {
+		proof["created"] = opts.Created.Format(models.DateTimeFormat)
 	}
 
 	if opts.Challenge != "" {

@@ -7,12 +7,14 @@ SPDX-License-Identifier: Apache-2.0
 package ecdsa2019
 
 import (
+	"crypto/elliptic"
 	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"hash"
+	"reflect"
 
 	"github.com/multiformats/go-multibase"
 	"github.com/piprate/json-gold/ld"
@@ -218,6 +220,22 @@ func (s *Suite) CreateProof(doc []byte, opts *models.ProofOptions) (*models.Proo
 	return p, nil
 }
 
+func (s *Suite) unmarshalECKey(ecCRV elliptic.Curve, pubKey []byte) ([]byte, error) {
+	xBig, yBig := elliptic.UnmarshalCompressed(ecCRV, pubKey)
+
+	if xBig != nil && yBig != nil {
+		pubKey = elliptic.Marshal(ecCRV, xBig, yBig)
+	} else {
+		pubKey = append([]byte{4}, pubKey...)
+	}
+
+	if pubKey == nil {
+		return nil, errors.New("failed to unmarshal EC key")
+	}
+
+	return pubKey, nil
+}
+
 func (s *Suite) transformAndHash(doc []byte, opts *models.ProofOptions) ([]byte, *pubkey.PublicKey, Verifier, error) {
 	if opts.SuiteType == "" {
 		opts.SuiteType = SuiteType
@@ -230,28 +248,61 @@ func (s *Suite) transformAndHash(doc []byte, opts *models.ProofOptions) ([]byte,
 		return nil, nil, nil, fmt.Errorf("ecdsa-2019 suite expects JSON-LD payload: %w", err)
 	}
 
-	vmKey := opts.VerificationMethod.JSONWebKey()
-	if vmKey == nil {
-		return nil, nil, nil, errors.New("verification method needs JWK")
-	}
-
 	var (
-		keyType  kms.KeyType
 		h        hash.Hash
 		verifier Verifier
 	)
 
-	switch vmKey.Crv {
-	case "P-256":
-		h = sha256.New()
-		verifier = s.p256Verifier
-		keyType = kms.ECDSAP256TypeIEEEP1363
-	case "P-384":
-		h = sha512.New384()
-		verifier = s.p384Verifier
-		keyType = kms.ECDSAP384TypeIEEEP1363
-	default:
-		return nil, nil, nil, errors.New("unsupported ECDSA curve")
+	finalKey := &pubkey.PublicKey{Type: "", JWK: opts.VerificationMethod.JSONWebKey()}
+
+	if finalKey.JWK == nil && len(opts.VerificationMethod.Value) > 2 {
+		header := opts.VerificationMethod.Value[0:2]
+
+		var curve elliptic.Curve
+
+		// ref https://www.w3.org/TR/controller-document/#Multikey
+		if reflect.DeepEqual([]byte{0x80, 0x24}, header) ||
+			reflect.DeepEqual([]byte{0x12, 0x00}, header) {
+			verifier = s.p256Verifier
+			h = sha256.New()
+			curve = elliptic.P256()
+		} else if reflect.DeepEqual([]byte{0x81, 0x24}, header) ||
+			reflect.DeepEqual([]byte{0x12, 0x01}, header) {
+			verifier = s.p384Verifier
+			h = sha512.New384()
+			curve = elliptic.P384()
+		}
+
+		if curve == nil {
+			return nil, nil, nil, errors.New("unsupported ECDSA curve")
+		}
+
+		pubKey, errEc := s.unmarshalECKey(elliptic.P256(), opts.VerificationMethod.Value[2:])
+		if errEc != nil {
+			return nil, nil, nil, errors.Join(errors.New("failed to unmarshal EC key"), errEc)
+		}
+
+		finalKey.Type = kms.ECDSAP256TypeIEEEP1363
+		finalKey.BytesKey = &pubkey.BytesKey{Bytes: pubKey}
+	}
+
+	if finalKey.JWK == nil && finalKey.BytesKey == nil {
+		return nil, nil, nil, errors.New("verification method needs JWK")
+	}
+
+	if finalKey.JWK != nil {
+		switch finalKey.JWK.Crv {
+		case "P-256":
+			h = sha256.New()
+			verifier = s.p256Verifier
+			finalKey.Type = kms.ECDSAP256TypeIEEEP1363
+		case "P-384":
+			h = sha512.New384()
+			verifier = s.p384Verifier
+			finalKey.Type = kms.ECDSAP384TypeIEEEP1363
+		default:
+			return nil, nil, nil, errors.New("unsupported ECDSA curve")
+		}
 	}
 
 	confData := proofConfig(docData[ldCtxKey], opts)
@@ -272,7 +323,7 @@ func (s *Suite) transformAndHash(doc []byte, opts *models.ProofOptions) ([]byte,
 
 	docHash := hashData(canonDoc, canonConf, h)
 
-	return docHash, &pubkey.PublicKey{Type: keyType, JWK: vmKey}, verifier, nil
+	return docHash, finalKey, verifier, nil
 }
 
 // VerifyProof implements the ecdsa-2019 cryptographic suite for CheckJWTProof Proof:
@@ -328,8 +379,11 @@ func proofConfig(docCtx interface{}, opts *models.ProofOptions) map[string]inter
 		"type":               models.DataIntegrityProof,
 		"cryptosuite":        opts.SuiteType,
 		"verificationMethod": opts.VerificationMethodID,
-		"created":            opts.Created.Format(models.DateTimeFormat),
 		"proofPurpose":       opts.Purpose,
+	}
+
+	if !opts.Created.IsZero() {
+		proof["created"] = opts.Created.Format(models.DateTimeFormat)
 	}
 
 	if opts.Challenge != "" {
