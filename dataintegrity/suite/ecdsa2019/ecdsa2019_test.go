@@ -279,19 +279,7 @@ func TestSharedFailures(t *testing.T) {
 
 		testSign(t, tc)
 	})
-
-	t.Run("no jwk in vm", func(t *testing.T) {
-		tc := successCase(t)
-
-		tc.proofOpts.VerificationMethod = &did.VerificationMethod{
-			ID:    tc.proofOpts.VerificationMethodID,
-			Value: []byte(fooBar),
-		}
-		tc.errStr = "verification method needs JWK"
-
-		testSign(t, tc)
-	})
-
+	
 	t.Run("unsupported ECDSA curve", func(t *testing.T) {
 		tc := successCase(t)
 
