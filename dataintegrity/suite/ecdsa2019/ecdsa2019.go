@@ -276,12 +276,20 @@ func (s *Suite) transformAndHash(doc []byte, opts *models.ProofOptions) ([]byte,
 		}
 
 		if curve == nil {
-			return nil, nil, nil, errors.New("unsupported ECDSA curve")
+			return nil, nil, nil, fmt.Errorf(
+				"unsupported ECDSA curve. Header %x. Length %v",
+				header,
+				len(opts.VerificationMethod.Value),
+			)
 		}
 
-		pubKey, errEc := s.unmarshalECKey(elliptic.P256(), opts.VerificationMethod.Value[2:])
+		pubKey, errEc := s.unmarshalECKey(curve, opts.VerificationMethod.Value[2:])
 		if errEc != nil {
-			return nil, nil, nil, errors.Join(errors.New("failed to unmarshal EC key"), errEc)
+			return nil, nil, nil, errors.Join(fmt.Errorf(
+				"failed to unmarshal EC key. Header %x. Length %v",
+				header,
+				len(opts.VerificationMethod.Value),
+			), errEc)
 		}
 
 		finalKey.BytesKey = &pubkey.BytesKey{Bytes: pubKey}
@@ -302,7 +310,7 @@ func (s *Suite) transformAndHash(doc []byte, opts *models.ProofOptions) ([]byte,
 			verifier = s.p384Verifier
 			finalKey.Type = kms.ECDSAP384TypeIEEEP1363
 		default:
-			return nil, nil, nil, errors.New("unsupported ECDSA curve")
+			return nil, nil, nil, fmt.Errorf("unsupported ECDSA curve. %v", finalKey.JWK.Crv)
 		}
 	}
 
