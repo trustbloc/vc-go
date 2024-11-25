@@ -266,11 +266,13 @@ func (s *Suite) transformAndHash(doc []byte, opts *models.ProofOptions) ([]byte,
 			verifier = s.p256Verifier
 			h = sha256.New()
 			curve = elliptic.P256()
+			finalKey.Type = kms.ECDSAP256TypeIEEEP1363
 		} else if reflect.DeepEqual([]byte{0x81, 0x24}, header) ||
 			reflect.DeepEqual([]byte{0x12, 0x01}, header) {
 			verifier = s.p384Verifier
 			h = sha512.New384()
 			curve = elliptic.P384()
+			finalKey.Type = kms.ECDSAP384TypeIEEEP1363
 		}
 
 		if curve == nil {
@@ -282,7 +284,6 @@ func (s *Suite) transformAndHash(doc []byte, opts *models.ProofOptions) ([]byte,
 			return nil, nil, nil, errors.Join(errors.New("failed to unmarshal EC key"), errEc)
 		}
 
-		finalKey.Type = kms.ECDSAP256TypeIEEEP1363
 		finalKey.BytesKey = &pubkey.BytesKey{Bytes: pubKey}
 	}
 
