@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/fxamacker/cbor/v2"
 	jsonld "github.com/piprate/json-gold/ld"
@@ -576,6 +577,7 @@ type presentationOpts struct {
 	verifyDataIntegrity *verifyDataIntegrityOpts
 
 	jsonldCredentialOpts
+	checkHolder bool
 }
 
 // PresentationOpt is the Verifiable Presentation decoding option.
@@ -610,6 +612,13 @@ func WithPresStrictValidation() PresentationOpt {
 func WithPresJSONLDDocumentLoader(documentLoader jsonld.DocumentLoader) PresentationOpt {
 	return func(opts *presentationOpts) {
 		opts.jsonldDocumentLoader = documentLoader
+	}
+}
+
+// WithPresHolderCheck indicates that the holder property of the presentation should be checked.
+func WithPresHolderCheck(checkHolder bool) PresentationOpt {
+	return func(opts *presentationOpts) {
+		opts.checkHolder = checkHolder
 	}
 }
 
@@ -722,6 +731,59 @@ func decodeHolder(holder any) (string, error) {
 	}
 }
 
+func validateHolder(
+	proofs []Proof,
+	creds []*Credential,
+	holder string,
+) error {
+	if len(proofs) == 0 {
+		return nil
+	}
+
+	existingMethods := make(map[string]struct{})
+
+	for _, proof := range proofs {
+		verMethod := fmt.Sprint(proof["verificationMethod"])
+
+		if verMethod == "" {
+			continue
+		}
+
+		existingMethods[strings.Split(verMethod, "#")[0]] = struct{}{}
+	}
+
+	for _, cred := range creds {
+		content := cred.Contents().Issuer
+		var issuerID string
+
+		if content != nil {
+			issuerID = content.ID
+		}
+
+		for _, proof := range cred.Proofs() {
+			verMethod := strings.Split(fmt.Sprint(proof["verificationMethod"]), "#")[0]
+
+			// https://w3c.github.io/vc-data-model/#presentations-including-holder-claims
+			if _, ok := existingMethods[verMethod]; ok {
+				if holder == "" {
+					return errors.New("a verifiable presentation that includes a self-asserted verifiable " +
+						"credential, which is secured only using the same mechanism as the verifiable presentation, " +
+						"MUST include a holder property")
+				}
+
+				if holder != issuerID {
+					return errors.New("when a self-asserted verifiable credential is secured using the " +
+						"same mechanism as the verifiable presentation, the value of the issuer property of the " +
+						"verifiable credential MUST be identical to the holder property of the " +
+						"verifiable presentation")
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
 func newPresentation(vpRaw rawPresentation, vpOpts *presentationOpts) (*Presentation, error) {
 	types, err := decodeType(vpRaw[vpFldType])
 	if err != nil {
@@ -751,6 +813,12 @@ func newPresentation(vpRaw rawPresentation, vpOpts *presentationOpts) (*Presenta
 	holder, err := decodeHolder(vpRaw[vpFldHolder])
 	if err != nil {
 		return nil, fmt.Errorf("fill presentation holder from raw: %w", err)
+	}
+
+	if vpOpts.checkHolder {
+		if err = validateHolder(proofs, creds, holder); err != nil {
+			return nil, err
+		}
 	}
 
 	return &Presentation{
