@@ -18,6 +18,7 @@ import (
 	"github.com/google/uuid"
 	jsonld "github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
+	"github.com/trustbloc/did-go/method/key"
 	"github.com/trustbloc/did-go/method/web"
 	vdrpkg "github.com/trustbloc/did-go/vdr"
 
@@ -1168,6 +1169,9 @@ func TestCredential_AddLinkedDataProof(t *testing.T) {
 //go:embed testdata/example-uscis.json
 var exampleUscis []byte
 
+//go:embed testdata/example-vcs.json
+var exampleVCS []byte
+
 func TestIntegrationCred(t *testing.T) {
 	vdr := vdrpkg.New(vdrpkg.WithVDR(web.New()))
 
@@ -1182,6 +1186,28 @@ func TestIntegrationCred(t *testing.T) {
 	require.NoError(t, err)
 
 	resp, err := ParseCredential(exampleUscis,
+		WithJSONLDDocumentLoader(jsonld.NewDefaultDocumentLoader(http.DefaultClient)),
+		WithDataIntegrityVerifier(verifier),
+	)
+
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+}
+
+func TestVCSCred(t *testing.T) {
+	vdr := vdrpkg.New(vdrpkg.WithVDR(web.New()), vdrpkg.WithVDR(key.New()))
+
+	docLoaded := jsonld.NewDefaultDocumentLoader(http.DefaultClient)
+	verifier, err := dataintegrity.NewVerifier(&dataintegrity.Options{
+		DIDResolver: vdr,
+	}, eddsa2022.NewVerifierInitializer(&eddsa2022.VerifierInitializerOptions{
+		LDDocumentLoader: docLoaded,
+	}), ecdsa2019.NewVerifierInitializer(&ecdsa2019.VerifierInitializerOptions{
+		LDDocumentLoader: docLoaded,
+	}))
+	require.NoError(t, err)
+
+	resp, err := ParseCredential(exampleVCS,
 		WithJSONLDDocumentLoader(jsonld.NewDefaultDocumentLoader(http.DefaultClient)),
 		WithDataIntegrityVerifier(verifier),
 	)

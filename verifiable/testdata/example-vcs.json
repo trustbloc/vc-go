@@ -1,0 +1,52 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/credentials/v2",
+    {
+      "@protected": true,
+      "DriverLicense": {
+        "@context": {
+          "@protected": true,
+          "dateOfBirth": "urn:example:dateOfBirth",
+          "documentIdentifier": "urn:example:documentIdentifier",
+          "expirationDate": "urn:example:expiration",
+          "id": "@id",
+          "issuingAuthority": "urn:example:issuingAuthority",
+          "type": "@type"
+        },
+        "@id": "urn:example:DriverLicense"
+      },
+      "DriverLicenseCredential": "urn:example:DriverLicenseCredential",
+      "driverLicense": {
+        "@id": "urn:example:driverLicense",
+        "@type": "@id"
+      }
+    }
+  ],
+  "credentialSubject": {
+    "driverLicense": {
+      "dateOfBirth": "01-01-1990",
+      "documentIdentifier": "T21387yc328c7y32h23f23",
+      "expirationDate": "01-01-2030",
+      "issuingAuthority": "VA",
+      "type": "DriverLicense"
+    },
+    "id": "urn:uuid:1a0e4ef5-091f-4060-842e-18e519ab9440"
+  },
+  "id": "urn:uuid:8fff3a44-df43-49cf-88d1-613d7e01cf84",
+  "issuer": {
+    "id": "did:key:z82Lm1Lzm8tFZvUaA3egHh3MAbiPiD6LSGSi8X6yzQ9yH7zaxNt7JfDcVKLhVnn5pRPAkh4",
+    "name": "ecdsa-test-suite-issuer"
+  },
+  "proof": {
+    "created": "2024-11-25T12:06:55Z",
+    "cryptosuite": "ecdsa-rdfc-2019",
+    "proofPurpose": "assertionMethod",
+    "proofValue": "z3nj9tns6ZptdGiAC99azefeaKmbxLMHcF6S868922a6ghNF9dfDX1boevtEetH4cUsLU6wcfZ8nc3tmFnkmv6Pk5Bq3SGsaZfysKPXukgtE7cTeHDc3XZfWsAeNwZwmHYLkX2qAGucZDU",
+    "type": "DataIntegrityProof",
+    "verificationMethod": "did:key:z82Lm1Lzm8tFZvUaA3egHh3MAbiPiD6LSGSi8X6yzQ9yH7zaxNt7JfDcVKLhVnn5pRPAkh4#z82Lm1Lzm8tFZvUaA3egHh3MAbiPiD6LSGSi8X6yzQ9yH7zaxNt7JfDcVKLhVnn5pRPAkh4"
+  },
+  "type": [
+    "VerifiableCredential",
+    "DriverLicenseCredential"
+  ]
+}

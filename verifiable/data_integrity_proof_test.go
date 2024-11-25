@@ -194,6 +194,9 @@ var examplePresentation []byte
 //go:embed testdata/example_presentation_2.json
 var examplePresentation2 []byte
 
+//go:embed testdata/example_presentation_3.json
+var examplePresentation3 []byte
+
 //go:embed testdata/context/credential_v2.jsonld
 var credentialV2Context []byte
 
@@ -232,6 +235,33 @@ func TestCanParsePlaygroundPresentation(t *testing.T) {
 	proofChecker := defaults.NewDefaultProofChecker(vermethod.NewVDRResolver(vdr))
 
 	resp, err := ParsePresentation(examplePresentation2,
+		WithPresDataIntegrityVerifier(verifier),
+		WithPresJSONLDDocumentLoader(loader),
+		WithPresProofChecker(proofChecker),
+		WithPresExpectedDataIntegrityFields("authentication",
+			"https://playground.chapi.io",
+			"3779e883a51a8086039db1d4e773aec26faeb3ee99643706345c572cddded857",
+		),
+	)
+	require.NoError(t, err)
+	assert.NotNil(t, resp)
+}
+
+func TestCanParsePlaygroundPresentation2(t *testing.T) {
+	vdr := vdrpkg.New(vdrpkg.WithVDR(jwk.New()), vdrpkg.WithVDR(key.New()))
+
+	loader := ld.NewDefaultDocumentLoader(http.DefaultClient)
+	verifier, err := dataintegrity.NewVerifier(&dataintegrity.Options{
+		DIDResolver: vdr,
+	}, eddsa2022.NewVerifierInitializer(&eddsa2022.VerifierInitializerOptions{
+		LDDocumentLoader: loader,
+	}), ecdsa2019.NewVerifierInitializer(&ecdsa2019.VerifierInitializerOptions{
+		LDDocumentLoader: loader,
+	}))
+
+	proofChecker := defaults.NewDefaultProofChecker(vermethod.NewVDRResolver(vdr))
+
+	resp, err := ParsePresentation(examplePresentation3,
 		WithPresDataIntegrityVerifier(verifier),
 		WithPresJSONLDDocumentLoader(loader),
 		WithPresProofChecker(proofChecker),
