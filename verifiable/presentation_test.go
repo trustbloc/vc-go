@@ -740,12 +740,12 @@ func TestValidateVP_Holder(t *testing.T) {
 	t.Run("rejects verifiable presentation with non-url holder", func(t *testing.T) {
 		var raw rawPresentation
 		require.NoError(t, json.Unmarshal([]byte(validPresentation), &raw))
-		raw[vpFldHolder] = "not valid presentation Holder URL"
+		raw[vpFldHolder] = 1234
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
 		vp, err := newTestPresentation(t, bytes, WithPresDisabledProofCheck())
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "holder: Does not match format 'uri'")
+		require.Contains(t, err.Error(), "holder must be string or map[string]interface{}")
 		require.Nil(t, vp)
 	})
 }
