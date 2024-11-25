@@ -110,10 +110,6 @@ const v1BasePresentationSchema = `
         }
       ]
     },
-    "holder": {
-      "type": "string",
-      "format": "uri"
-    },
     "proof": {
       "anyOf": [
         {
@@ -713,6 +709,17 @@ func getPresentationOpts(opts []PresentationOpt) *presentationOpts {
 	return vpOpts
 }
 
+func decodeHolder(holder any) (string, error) {
+	switch val := holder.(type) {
+	case string:
+		return val, nil
+	case map[string]interface{}:
+		return parseStringFld(val, "id")
+	default:
+		return "", fmt.Errorf("holder must be string or map[string]interface{}, got: %T", holder)
+	}
+}
+
 func newPresentation(vpRaw rawPresentation, vpOpts *presentationOpts) (*Presentation, error) {
 	types, err := decodeType(vpRaw[vpFldType])
 	if err != nil {
@@ -739,7 +746,7 @@ func newPresentation(vpRaw rawPresentation, vpOpts *presentationOpts) (*Presenta
 		return nil, fmt.Errorf("fill presentation id from raw: %w", err)
 	}
 
-	holder, err := parseStringFld(vpRaw, vpFldHolder)
+	holder, err := decodeHolder(vpRaw[vpFldHolder])
 	if err != nil {
 		return nil, fmt.Errorf("fill presentation holder from raw: %w", err)
 	}
