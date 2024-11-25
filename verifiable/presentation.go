@@ -711,6 +711,8 @@ func getPresentationOpts(opts []PresentationOpt) *presentationOpts {
 
 func decodeHolder(holder any) (string, error) {
 	switch val := holder.(type) {
+	case nil:
+		return "", nil
 	case string:
 		return val, nil
 	case map[string]interface{}:
