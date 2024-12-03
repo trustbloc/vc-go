@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/PaesslerAG/jsonpath"
 	"github.com/google/uuid"
@@ -1493,7 +1494,7 @@ func filterField(f *Field, credential map[string]interface{}, isJWTCredential bo
 		if err == nil {
 			// TODO: refactor this + selective disclosure so that the accepted path for a constraint field
 			//  is the only path revealed, instead of revealing all paths for the field.
-			err = validatePatch(schema, patch, f)
+			err = validatePatch(schema, patch, f, isJWTCredential)
 			if err == nil {
 				return nil
 			}
@@ -1509,9 +1510,19 @@ func filterField(f *Field, credential map[string]interface{}, isJWTCredential bo
 	return lastErr
 }
 
-func validatePatch(schema gojsonschema.JSONLoader, patch interface{}, field *Field) error {
+//nolint:gocyclo
+func validatePatch(schema gojsonschema.JSONLoader, patch interface{}, field *Field, isJWTCredential bool) error {
 	if schema == nil {
 		return nil
+	}
+
+	// convert date string to Unix timestamp for JWT credential
+	if isJWTCredential && field.Path != nil && isDateField(field.Path) {
+		if val, ok := patch.(string); ok {
+			if t, err := time.Parse(time.RFC3339, val); err == nil {
+				patch = t.Unix()
+			}
+		}
 	}
 
 	raw, err := json.Marshal(patch)
@@ -1537,6 +1548,20 @@ func validatePatch(schema gojsonschema.JSONLoader, patch interface{}, field *Fie
 	}
 
 	return nil
+}
+
+func isDateField(paths []string) bool {
+	// date fields that are refined from JWT claims
+	dateKeywords := []string{".expirationDate", ".issuanceDate", ".validFrom", ".validUntil"}
+	for _, path := range paths {
+		for _, keyword := range dateKeywords {
+			if strings.Contains(path, keyword) {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 type pathTransform struct {
