@@ -2704,6 +2704,50 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, vp.Credentials(), 1)
 	})
+
+	t.Run("Match credential in jwt_vc format with expirationDate minimum filter", func(t *testing.T) {
+		pd := &PresentationDefinition{
+			ID: uuid.New().String(),
+			InputDescriptors: []*InputDescriptor{{
+				ID: uuid.New().String(),
+				Constraints: &Constraints{
+					Fields: []*Field{{
+						Path: []string{"$.expirationDate", "$.exp"},
+						Filter: &Filter{
+							FilterItem: FilterItem{
+								Type:    &intFilterType,
+								Minimum: 1733214225,
+							},
+						},
+					}},
+				},
+			}},
+		}
+
+		issuerDID := "did:example:76e12ec712ebc6f1c221ebfeb1f"
+
+		vc := createTestCredential(t, credentialProto{
+			Issued:  utiltime.NewTime(time.Now()),
+			Expired: utiltime.NewTime(time.Now().Add(5 * time.Minute)),
+			Context: []string{verifiable.V1ContextURI},
+			Types:   []string{verifiable.VCType},
+			ID:      uuid.New().String(),
+			Subject: []verifiable.Subject{{ID: issuerDID}},
+			Issuer:  &verifiable.Issuer{ID: issuerDID},
+			CustomFields: map[string]interface{}{
+				"first_name": "Jesse",
+				"last_name":  "Travis",
+				"age":        17,
+			},
+		})
+
+		jwtVC, err := vc.CreateUnsecuredJWTVC(false)
+		require.NoError(t, err)
+
+		vp, err := pd.CreateVP([]*verifiable.Credential{jwtVC}, lddl)
+		require.NoError(t, err)
+		require.Len(t, vp.Credentials(), 1)
+	})
 }
 
 func TestPresentationDefinition_CreateVP_V2Credential(t *testing.T) {
