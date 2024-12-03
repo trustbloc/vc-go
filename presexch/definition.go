@@ -1012,7 +1012,7 @@ func filterConstraints(constraints *Constraints, creds []*verifiable.Credential)
 		debugCred = append(debugCred, credentialMap)
 
 		for i, field := range constraints.Fields {
-			err = filterField(field, credentialMap)
+			err = filterField(field, credentialMap, credential.IsJWT())
 			if errors.Is(err, errPathNotApplicable) {
 				applicable = false
 
@@ -1475,7 +1475,7 @@ func supportsSelectiveDisclosure(credential *verifiable.Credential) bool {
 	return isSDJWTCredential(&cc) || hasBBS(credential)
 }
 
-func filterField(f *Field, credential map[string]interface{}) error {
+func filterField(f *Field, credential map[string]interface{}, isJWTCredential bool) error {
 	var schema gojsonschema.JSONLoader
 
 	if f.Filter != nil {
@@ -1485,6 +1485,10 @@ func filterField(f *Field, credential map[string]interface{}) error {
 	var lastErr error
 
 	for _, path := range f.Path {
+		if isJWTCredential && strings.Contains(path, "$.vc.") {
+			path = strings.Replace(path, "$.vc.", "$.", 1)
+		}
+
 		patch, err := jsonpath.Get(path, credential)
 		if err == nil {
 			// TODO: refactor this + selective disclosure so that the accepted path for a constraint field
