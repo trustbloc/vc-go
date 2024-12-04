@@ -25,8 +25,8 @@ require (
 	github.com/tidwall/gjson v1.14.3
 	github.com/tidwall/sjson v1.1.4
 	github.com/trustbloc/bbs-signature-go v1.0.2
-	github.com/trustbloc/did-go v1.3.1-0.20241122115441-c010226da580
-	github.com/trustbloc/kms-go v1.1.2
+	github.com/trustbloc/did-go v1.3.1
+	github.com/trustbloc/kms-go v1.2.0
 	github.com/veraison/go-cose v1.1.1-0.20240126165338-2300d5c96dbd
 	github.com/xeipuuv/gojsonschema v1.2.0
 	golang.org/x/exp v0.0.0-20230817173708-d852ddb80c63
