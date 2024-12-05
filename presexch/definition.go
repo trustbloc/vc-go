@@ -1504,7 +1504,7 @@ func filterField(f *Field, credential map[string]interface{}, isJWTCredential bo
 				path = strings.Replace(path, "$.vc.", "$.", 1)
 			}
 
-			if strings.Contains(path, "$.issuer") {
+			if strings.EqualFold(path, "$.issuer") {
 				switch issuerFld := credential["issuer"].(type) {
 				case map[string]interface{}:
 					if _, ok := issuerFld["id"]; ok {
