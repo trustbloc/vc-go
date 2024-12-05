@@ -1476,18 +1476,42 @@ func supportsSelectiveDisclosure(credential *verifiable.Credential) bool {
 	return isSDJWTCredential(&cc) || hasBBS(credential)
 }
 
+//nolint:gocyclo,nestif
 func filterField(f *Field, credential map[string]interface{}, isJWTCredential bool) error {
 	var schema gojsonschema.JSONLoader
 
 	if f.Filter != nil {
-		schema = gojsonschema.NewGoLoader(*f.Filter)
+		filter := *f.Filter
+		if *filter.Type == "string" && filter.Format == "date-time" {
+			if val, ok := filter.Minimum.(string); ok && val != "" {
+				if t, err := time.Parse(time.RFC3339, val); err == nil {
+					numFilterType := "number"
+					filter.Type = &numFilterType
+					filter.Format = ""
+					filter.Minimum = t.Unix()
+				}
+			}
+		}
+
+		schema = gojsonschema.NewGoLoader(filter)
 	}
 
 	var lastErr error
 
 	for _, path := range f.Path {
-		if isJWTCredential && strings.Contains(path, "$.vc.") {
-			path = strings.Replace(path, "$.vc.", "$.", 1)
+		if isJWTCredential {
+			if strings.Contains(path, "$.vc.") {
+				path = strings.Replace(path, "$.vc.", "$.", 1)
+			}
+
+			if strings.Contains(path, "$.issuer") {
+				switch issuerFld := credential["issuer"].(type) {
+				case map[string]interface{}:
+					if _, ok := issuerFld["id"]; ok {
+						path = "$.issuer.id"
+					}
+				}
+			}
 		}
 
 		patch, err := jsonpath.Get(path, credential)
