@@ -16,6 +16,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/did-go/doc/did"
+	ldcontext "github.com/trustbloc/did-go/doc/ld/context"
+	"github.com/trustbloc/did-go/doc/ld/testutil"
 	"github.com/trustbloc/did-go/method/jwk"
 	"github.com/trustbloc/did-go/method/key"
 	vdrpkg "github.com/trustbloc/did-go/vdr"
@@ -188,17 +190,35 @@ func Test_DataIntegrity_SignVerify(t *testing.T) {
 	})
 }
 
-//go:embed testdata/example_presentation.jsonld
-var examplePresentation []byte
+//go:embed testdata/example_presentation_1_ed25519.jsonld
+var examplePresentation1Ed25519 []byte
 
-//go:embed testdata/example_presentation_2.json
-var examplePresentation2 []byte
+//go:embed testdata/example_presentation_2_ed25519.json
+var examplePresentation2Ed25519 []byte
 
-//go:embed testdata/example_presentation_3.json
-var examplePresentation3 []byte
+//go:embed testdata/example_presentation_3_ed25519.json
+var examplePresentation3Ed25519 []byte
+
+//go:embed testdata/example_presentation_4_p256.json
+var examplePresentation4P256 []byte
+
+//go:embed testdata/example_presentation_4_p384.json
+var examplePresentation4P384 []byte
 
 //go:embed testdata/context/credential_v2.jsonld
 var credentialV2Context []byte
+
+//go:embed testdata/context/citizenship_v2.jsonld
+var citizenshipV2Context []byte
+
+//go:embed testdata/context/citizenship_v4rc1.jsonld
+var citizenshipV4rc1Context []byte
+
+//go:embed testdata/context/imsglobal_context.jsonld
+var imsglobalContext []byte
+
+//go:embed testdata/context/lds_jws2020_v1.jsonld
+var ldsJWS2020V1Context []byte
 
 func TestCanParseRDFC2022Presentation(t *testing.T) {
 	vdr := vdrpkg.New(vdrpkg.WithVDR(jwk.New()), vdrpkg.WithVDR(key.New()))
@@ -210,7 +230,7 @@ func TestCanParseRDFC2022Presentation(t *testing.T) {
 		LDDocumentLoader: loader,
 	}))
 
-	resp, err := ParsePresentation(examplePresentation,
+	resp, err := ParsePresentation(examplePresentation1Ed25519,
 		WithPresDataIntegrityVerifier(verifier),
 		WithPresJSONLDDocumentLoader(loader),
 		WithPresExpectedDataIntegrityFields("authentication",
@@ -223,8 +243,27 @@ func TestCanParseRDFC2022Presentation(t *testing.T) {
 func TestCanParsePlaygroundPresentation(t *testing.T) {
 	vdr := vdrpkg.New(vdrpkg.WithVDR(jwk.New()), vdrpkg.WithVDR(key.New()))
 
-	loader := ld.NewDefaultDocumentLoader(http.DefaultClient)
-	verifier, err := dataintegrity.NewVerifier(&dataintegrity.Options{
+	loader, e := testutil.DocumentLoader(
+		ldcontext.Document{
+			URL:     "https://w3id.org/citizenship/v2",
+			Content: citizenshipV2Context,
+		},
+		ldcontext.Document{
+			URL:     "https://purl.imsglobal.org/spec/ob/v3p0/context.json",
+			Content: imsglobalContext,
+		},
+		ldcontext.Document{
+			URL:     "https://w3id.org/citizenship/v4rc1",
+			Content: citizenshipV4rc1Context,
+		},
+		ldcontext.Document{
+			URL:     "https://w3c-ccg.github.io/lds-jws2020/contexts/lds-jws2020-v1.json",
+			Content: ldsJWS2020V1Context,
+		},
+	)
+	require.NoError(t, e)
+
+	verifier, e := dataintegrity.NewVerifier(&dataintegrity.Options{
 		DIDResolver: vdr,
 	}, eddsa2022.NewVerifierInitializer(&eddsa2022.VerifierInitializerOptions{
 		LDDocumentLoader: loader,
@@ -232,46 +271,60 @@ func TestCanParsePlaygroundPresentation(t *testing.T) {
 		LDDocumentLoader: loader,
 	}))
 
-	proofChecker := defaults.NewDefaultProofChecker(vermethod.NewVDRResolver(vdr))
-
-	resp, err := ParsePresentation(examplePresentation2,
-		WithPresDataIntegrityVerifier(verifier),
-		WithPresJSONLDDocumentLoader(loader),
-		WithPresProofChecker(proofChecker),
-		WithPresExpectedDataIntegrityFields("authentication",
-			"https://playground.chapi.io",
-			"3779e883a51a8086039db1d4e773aec26faeb3ee99643706345c572cddded857",
-		),
-	)
-	require.NoError(t, err)
-	assert.NotNil(t, resp)
-}
-
-func TestCanParsePlaygroundPresentation2(t *testing.T) {
-	vdr := vdrpkg.New(vdrpkg.WithVDR(jwk.New()), vdrpkg.WithVDR(key.New()))
-
-	loader := ld.NewDefaultDocumentLoader(http.DefaultClient)
-	verifier, err := dataintegrity.NewVerifier(&dataintegrity.Options{
-		DIDResolver: vdr,
-	}, eddsa2022.NewVerifierInitializer(&eddsa2022.VerifierInitializerOptions{
-		LDDocumentLoader: loader,
-	}), ecdsa2019.NewVerifierInitializer(&ecdsa2019.VerifierInitializerOptions{
-		LDDocumentLoader: loader,
-	}))
+	require.NoError(t, e)
 
 	proofChecker := defaults.NewDefaultProofChecker(vermethod.NewVDRResolver(vdr))
 
-	resp, err := ParsePresentation(examplePresentation3,
-		WithPresDataIntegrityVerifier(verifier),
-		WithPresJSONLDDocumentLoader(loader),
-		WithPresProofChecker(proofChecker),
-		WithPresExpectedDataIntegrityFields("authentication",
-			"https://playground.chapi.io",
-			"3779e883a51a8086039db1d4e773aec26faeb3ee99643706345c572cddded857",
-		),
-	)
-	require.NoError(t, err)
-	assert.NotNil(t, resp)
+	tests := []struct {
+		name         string
+		presentation []byte
+		purpose      string
+		domain       string
+		challenge    string
+	}{
+		{
+			name:         "VP2 Ed25519",
+			presentation: examplePresentation2Ed25519,
+			purpose:      "authentication",
+			domain:       "https://playground.chapi.io",
+			challenge:    "3779e883a51a8086039db1d4e773aec26faeb3ee99643706345c572cddded857",
+		},
+		{
+			name:         "VP3 Ed25519",
+			presentation: examplePresentation3Ed25519,
+			purpose:      "authentication",
+			domain:       "https://playground.chapi.io",
+			challenge:    "3779e883a51a8086039db1d4e773aec26faeb3ee99643706345c572cddded857",
+		},
+		{
+			name:         "VP4 P256",
+			presentation: examplePresentation4P256,
+			purpose:      "authentication",
+			domain:       "https://qa.veresexchanger.dev/exchangers/z19vRLNoFaBKDeDaMzRjUj8hi/exchanges/z19kwQeqoW6ufvxvcTEtfQjNw/openid/client/authorization/response",
+			challenge:    "z19kwQeqoW6ufvxvcTEtfQjNw",
+		},
+		{
+			name:         "VP4 P384",
+			presentation: examplePresentation4P384,
+			purpose:      "authentication",
+			domain:       "https://qa.veresexchanger.dev/exchangers/z19vRLNoFaBKDeDaMzRjUj8hi/exchanges/z19zFqnQzxPqRHRBBSE5J3ZCG/openid/client/authorization/response",
+			challenge:    "z19zFqnQzxPqRHRBBSE5J3ZCG",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resp, err := ParsePresentation(tt.presentation,
+				WithPresDataIntegrityVerifier(verifier),
+				WithPresJSONLDDocumentLoader(loader),
+				WithPresProofChecker(proofChecker),
+				WithPresExpectedDataIntegrityFields(tt.purpose, tt.domain, tt.challenge),
+			)
+
+			require.NoError(t, err)
+			assert.NotNil(t, resp)
+		})
+	}
 }
 
 type resolveFunc func(id string) (*did.DocResolution, error)

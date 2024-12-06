@@ -251,6 +251,7 @@ func (s *Suite) transformAndHash(doc []byte, opts *models.ProofOptions) ([]byte,
 	var (
 		h        hash.Hash
 		verifier Verifier
+		mda      ld.MessageDigestAlgorithm
 	)
 
 	finalKey := &pubkey.PublicKey{Type: "", JWK: opts.VerificationMethod.JSONWebKey()}
@@ -266,12 +267,14 @@ func (s *Suite) transformAndHash(doc []byte, opts *models.ProofOptions) ([]byte,
 			verifier = s.p256Verifier
 			h = sha256.New()
 			curve = elliptic.P256()
+			mda = ld.MessageDigestAlgorithmSHA256
 			finalKey.Type = kms.ECDSAP256TypeIEEEP1363
 		} else if reflect.DeepEqual([]byte{0x81, 0x24}, header) ||
 			reflect.DeepEqual([]byte{0x12, 0x01}, header) {
 			verifier = s.p384Verifier
 			h = sha512.New384()
 			curve = elliptic.P384()
+			mda = ld.MessageDigestAlgorithmSHA384
 			finalKey.Type = kms.ECDSAP384TypeIEEEP1363
 		}
 
@@ -304,10 +307,12 @@ func (s *Suite) transformAndHash(doc []byte, opts *models.ProofOptions) ([]byte,
 		case "P-256":
 			h = sha256.New()
 			verifier = s.p256Verifier
+			mda = ld.MessageDigestAlgorithmSHA256
 			finalKey.Type = kms.ECDSAP256TypeIEEEP1363
 		case "P-384":
 			h = sha512.New384()
 			verifier = s.p384Verifier
+			mda = ld.MessageDigestAlgorithmSHA384
 			finalKey.Type = kms.ECDSAP384TypeIEEEP1363
 		default:
 			return nil, nil, nil, fmt.Errorf("unsupported ECDSA curve. %v", finalKey.JWK.Crv)
@@ -320,12 +325,12 @@ func (s *Suite) transformAndHash(doc []byte, opts *models.ProofOptions) ([]byte,
 		return nil, nil, nil, suite.ErrProofTransformation
 	}
 
-	canonDoc, err := canonicalize(docData, s.ldLoader)
+	canonDoc, err := canonicalize(docData, s.ldLoader, mda)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
-	canonConf, err := canonicalize(confData, s.ldLoader)
+	canonConf, err := canonicalize(confData, s.ldLoader, mda)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -362,8 +367,12 @@ func (s *Suite) RequiresCreated() bool {
 	return false
 }
 
-func canonicalize(data map[string]interface{}, loader ld.DocumentLoader) ([]byte, error) {
-	out, err := processor.Default().GetCanonicalDocument(data, processor.WithDocumentLoader(loader))
+func canonicalize(data map[string]interface{}, loader ld.DocumentLoader, mda ld.MessageDigestAlgorithm) ([]byte, error) {
+	out, err := processor.Default().GetCanonicalDocument(
+		data,
+		processor.WithDocumentLoader(loader),
+		processor.WithMessageDigestAlgorithm(mda),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("canonicalizing signature base data: %w", err)
 	}
