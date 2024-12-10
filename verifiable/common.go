@@ -274,7 +274,12 @@ func safeStringValue(v interface{}) string {
 		return ""
 	}
 
-	return v.(string)
+	value, ok := v.(string)
+	if !ok {
+		return ""
+	}
+
+	return value
 }
 
 func proofsToRaw(proofs []Proof) interface{} {
@@ -399,6 +404,7 @@ func ParseDataURL(url string) (MediaType, Encoding, string, error) {
 	}
 
 	url = url[5:] // Remove "data:" prefix
+
 	commaIndex := strings.Index(url, ",")
 	if commaIndex == -1 {
 		return "", "", "", fmt.Errorf("invalid data URL format: %s", url)
@@ -406,7 +412,7 @@ func ParseDataURL(url string) (MediaType, Encoding, string, error) {
 
 	fullMediaType := url[:commaIndex]
 	if fullMediaType == "" {
-		return "", "", "", fmt.Errorf("media type is required")
+		return "", "", "", errors.New("media type is required")
 	}
 
 	data := url[commaIndex+1:]

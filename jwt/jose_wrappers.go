@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package jwt
 
 import (
-	"fmt"
+	"errors"
 	"strings"
 
 	"github.com/trustbloc/kms-go/doc/jose"
@@ -58,7 +58,7 @@ func (v *joseVerifier) Verify(joseHeaders jose.Headers, _, signingInput, signatu
 		// if expectedProofIssuer not set, we get issuer DID from first part of key id.
 		keyID, ok := joseHeaders.KeyID()
 		if !ok {
-			return fmt.Errorf("missed kid in jwt header")
+			return errors.New("missed kid in jwt header")
 		}
 
 		expectedProofIssuer = strings.Split(keyID, "#")[0]

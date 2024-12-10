@@ -9,6 +9,7 @@ package common
 import (
 	"crypto"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -374,7 +375,7 @@ func GetDisclosedClaims(disclosureClaims []*DisclosureClaim, claims map[string]i
 
 	outputMapped, ok := output.(map[string]interface{})
 	if !ok {
-		return nil, fmt.Errorf("unexpected output type")
+		return nil, errors.New("unexpected output type")
 	}
 
 	return outputMapped, nil
@@ -399,7 +400,7 @@ func stringArray(entry interface{}) ([]string, error) {
 	// Iterate over the slice and convert each element to a string
 	stringSlice := make([]string, sliceValue.Len())
 
-	for i := 0; i < sliceValue.Len(); i++ {
+	for i := range sliceValue.Len() {
 		sliceVal := sliceValue.Index(i).Interface()
 		val, ok := sliceVal.(string)
 

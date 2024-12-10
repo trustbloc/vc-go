@@ -12,7 +12,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/base64"
-	"fmt"
+	"errors"
 )
 
 const (
@@ -48,7 +48,7 @@ func BitAt(bitString []byte, idx int) (bool, error) {
 	nBit := idx % bitsPerByte
 
 	if idx < 0 || nByte >= len(bitString) {
-		return false, fmt.Errorf("position is invalid")
+		return false, errors.New("position is invalid")
 	}
 
 	bitValue := (bitString[nByte] & (one << nBit)) != 0

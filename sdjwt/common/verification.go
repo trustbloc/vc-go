@@ -30,11 +30,11 @@ import (
 func VerifySigningAlg(joseHeaders jose.Headers, secureAlgs []string) error {
 	alg, ok := joseHeaders.Algorithm()
 	if !ok {
-		return fmt.Errorf("missing alg")
+		return errors.New("missing alg")
 	}
 
 	if alg == afgjwt.AlgorithmNone {
-		return fmt.Errorf("alg value cannot be 'none'")
+		return errors.New("alg value cannot be 'none'")
 	}
 
 	if !contains(secureAlgs, alg) {
@@ -89,7 +89,7 @@ func VerifyJWT(signedJWT *afgjwt.JSONWebToken, leeway time.Duration) error {
 func VerifyTyp(joseHeaders jose.Headers, expectedTyp string) error {
 	typ, ok := joseHeaders.Type()
 	if !ok {
-		return fmt.Errorf("missing typ")
+		return errors.New("missing typ")
 	}
 
 	if typ != expectedTyp {

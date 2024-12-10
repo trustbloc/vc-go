@@ -129,7 +129,7 @@ func VerifyDIDAndDomain(didConfig []byte, did, domain string, opts ...DIDConfigu
 			did, domain, err.Error())
 	}
 
-	return fmt.Errorf("domain linkage credential(s) with valid proof not found")
+	return errors.New("domain linkage credential(s) with valid proof not found")
 }
 
 func getDIDConfigurationOpts(opts []DIDConfigurationOpt) *didConfigOpts {
@@ -203,19 +203,19 @@ func validateDomainLinkageCredential(vcc verifiable.CredentialContents, did, ori
 	}
 
 	if vcc.ID != "" {
-		return fmt.Errorf("id MUST NOT be present")
+		return errors.New("id MUST NOT be present")
 	}
 
 	if vcc.Issued == nil {
-		return fmt.Errorf("issuance date MUST be present")
+		return errors.New("issuance date MUST be present")
 	}
 
 	if vcc.Expired == nil {
-		return fmt.Errorf("expiration date MUST be present")
+		return errors.New("expiration date MUST be present")
 	}
 
 	if vcc.Subject == nil {
-		return fmt.Errorf("subject MUST be present")
+		return errors.New("subject MUST be present")
 	}
 
 	return validateSubject(vcc.Subject, did, origin)
@@ -247,18 +247,18 @@ func validateJWT(vc *verifiable.Credential, did, origin string) error {
 func validateJWTHeader(headers jose.Headers) error {
 	_, ok := headers.Algorithm()
 	if !ok {
-		return fmt.Errorf("alg MUST be present in the JWT Header")
+		return errors.New("alg MUST be present in the JWT Header")
 	}
 
 	_, ok = headers.KeyID()
 	if !ok {
-		return fmt.Errorf("kid MUST be present in the JWT Header")
+		return errors.New("kid MUST be present in the JWT Header")
 	}
 
 	// relaxing rule 'typ MUST NOT be present in the JWT Header' due to interop
 	typ, ok := headers.Type()
 	if ok && typ != jwt.TypeJWT {
-		return fmt.Errorf("typ is not JWT")
+		return errors.New("typ is not JWT")
 	}
 
 	allowed := []string{jose.HeaderAlgorithm, jose.HeaderKeyID, jose.HeaderType}
@@ -290,11 +290,11 @@ func validateJWTClaims(vc *verifiable.Credential, did string) error {
 	}
 
 	if jwtClaims.Issuer != did {
-		return fmt.Errorf("iss MUST be equal to credentialSubject.id")
+		return errors.New("iss MUST be equal to credentialSubject.id")
 	}
 
 	if jwtClaims.Subject != did {
-		return fmt.Errorf("sub MUST be equal to credentialSubject.id")
+		return errors.New("sub MUST be equal to credentialSubject.id")
 	}
 
 	return nil
@@ -315,13 +315,13 @@ func validateSubject(subject interface{}, did, origin string) error {
 	case []verifiable.Subject:
 		if len(s) > 1 {
 			// TODO: Can we have more than one subject in this case
-			return fmt.Errorf("encountered multiple subjects")
+			return errors.New("encountered multiple subjects")
 		}
 
 		subject := s[0]
 
 		if subject.ID == "" {
-			return fmt.Errorf("credentialSubject.id MUST be present")
+			return errors.New("credentialSubject.id MUST be present")
 		}
 
 		_, err := diddoc.Parse(subject.ID)
@@ -331,12 +331,12 @@ func validateSubject(subject interface{}, did, origin string) error {
 
 		objOrigin, ok := subject.CustomFields["origin"]
 		if !ok {
-			return fmt.Errorf("credentialSubject.origin MUST be present")
+			return errors.New("credentialSubject.origin MUST be present")
 		}
 
 		sOrigin, ok := objOrigin.(string)
 		if !ok {
-			return fmt.Errorf("credentialSubject.origin MUST be string")
+			return errors.New("credentialSubject.origin MUST be string")
 		}
 
 		// domain linkage credential format is valid - now check did configuration resource verification rules
@@ -430,7 +430,7 @@ func getCredentials(linkedDIDs []interface{}, did, domain string, opts ...verifi
 	}
 
 	if len(credentialsForDIDAndDomain) == 0 {
-		return nil, fmt.Errorf("domain linkage credential(s) not found")
+		return nil, errors.New("domain linkage credential(s) not found")
 	}
 
 	return credentialsForDIDAndDomain, nil

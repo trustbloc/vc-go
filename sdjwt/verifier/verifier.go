@@ -13,6 +13,7 @@ package verifier
 import (
 	"crypto"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -277,7 +278,7 @@ func getSignatureVerifier(claims map[string]interface{}) (afgjwt.ProofChecker, e
 func getSignatureVerifierFromCNF(cnf map[string]interface{}) (afgjwt.ProofChecker, error) {
 	jwkObj, ok := cnf["jwk"]
 	if !ok {
-		return nil, fmt.Errorf("jwk must be present in cnf")
+		return nil, errors.New("jwk must be present in cnf")
 	}
 
 	// TODO: Add handling other methods: "jwe", "jku" and "kid"
@@ -324,7 +325,7 @@ func getDisclosedClaims(
 
 func runHolderVerification(sdJWT *afgjwt.JSONWebToken, holderVerificationJWT string, pOpts *parseOpts) error {
 	if pOpts.holderVerificationRequired && holderVerificationJWT == "" {
-		return fmt.Errorf("holder verification is required")
+		return errors.New("holder verification is required")
 	}
 
 	if holderVerificationJWT == "" {
@@ -345,6 +346,7 @@ func runHolderVerification(sdJWT *afgjwt.JSONWebToken, holderVerificationJWT str
 
 	// TODO: refactor this code to use jose from kms-go instead jwt from vc-go.
 	noIssuer := ""
+
 	err = afgjwt.CheckProof(holderVerificationJWT, signatureVerifier, &noIssuer, nil)
 	if err != nil {
 		return fmt.Errorf("check proof of holder verification JWT: %w", err)

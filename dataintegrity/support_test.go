@@ -86,7 +86,7 @@ func deepEqArray(arr1, arr2 []gjson.Result) bool {
 		return false
 	}
 
-	for i := 0; i < len(arr1); i++ {
+	for i := range arr1 {
 		if !deepEqual(arr1[i], arr2[i]) {
 			return false
 		}

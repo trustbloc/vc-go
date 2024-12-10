@@ -9,6 +9,7 @@ package presexch
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -210,7 +211,7 @@ func getMatchedCreds( //nolint:gocyclo,funlen
 			} else if len(vpList) == 1 || !useMergedSubmission {
 				vc, selectErr = selectVC(typelessVP, mapping, opts)
 			} else {
-				return nil, fmt.Errorf("presentation submission has invalid path for matching a list of presentations")
+				return nil, errors.New("presentation submission has invalid path for matching a list of presentations")
 			}
 
 			if selectErr != nil {

@@ -80,8 +80,6 @@ type cwtTestCase struct {
 	CborAlg      cose.Algorithm
 	proofCreator *creator.ProofCreator
 	signingKey   *testsupport.SigningKey
-	fail         bool
-	verFail      bool
 }
 
 // TestAllLDSignersVerifiers tests all supported ld proof types.
@@ -203,6 +201,8 @@ func TestAllJWTSignersVerifiers(t *testing.T) {
 }
 
 // TestAllCWTSignersVerifiers tests all supported jwt proof types.
+//
+//nolint:funlen,gocyclo,lll // Test helper
 func TestAllCWTSignersVerifiers(t *testing.T) {
 	_, ldErr := ldtestutil.DocumentLoader()
 	require.NoError(t, ldErr)
@@ -246,6 +246,7 @@ func TestAllCWTSignersVerifiers(t *testing.T) {
 
 			keyBytes, err := parsedPubKey.MarshalCBOR()
 			assert.NoError(t, err)
+
 			pubKeyStr := hex.EncodeToString(keyBytes)
 
 			msg := &cose.Sign1Message{

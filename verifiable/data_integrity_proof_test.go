@@ -205,9 +205,6 @@ var examplePresentation4P256 []byte
 //go:embed testdata/example_presentation_4_p384.json
 var examplePresentation4P384 []byte
 
-//go:embed testdata/context/credential_v2.jsonld
-var credentialV2Context []byte
-
 //go:embed testdata/context/citizenship_v2.jsonld
 var citizenshipV2Context []byte
 
@@ -229,6 +226,7 @@ func TestCanParseRDFC2022Presentation(t *testing.T) {
 	}, eddsa2022.NewVerifierInitializer(&eddsa2022.VerifierInitializerOptions{
 		LDDocumentLoader: loader,
 	}))
+	require.NoError(t, err)
 
 	resp, err := ParsePresentation(examplePresentation1Ed25519,
 		WithPresDataIntegrityVerifier(verifier),
@@ -270,7 +268,6 @@ func TestCanParsePlaygroundPresentation(t *testing.T) {
 	}), ecdsa2019.NewVerifierInitializer(&ecdsa2019.VerifierInitializerOptions{
 		LDDocumentLoader: loader,
 	}))
-
 	require.NoError(t, e)
 
 	proofChecker := defaults.NewDefaultProofChecker(vermethod.NewVDRResolver(vdr))

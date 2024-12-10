@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -425,6 +426,7 @@ func toRequirement(sr *SubmissionRequirement, descriptors []*InputDescriptor) (*
 			if err != nil {
 				return nil, err
 			}
+
 			nested = append(nested, req)
 		}
 
@@ -1405,7 +1407,7 @@ func enhanceRevealDoc(explicitPaths map[string]bool, revealDoc, vcBytes []byte) 
 		pathParts := strings.Split(path, ".")
 		combinedPath := ""
 
-		for i := 0; i < len(pathParts)-1; i++ {
+		for i := range len(pathParts) - 1 {
 			if i == 0 {
 				combinedPath = pathParts[0]
 			} else {
@@ -1603,7 +1605,7 @@ func getPath(keys []interface{}, set map[string]int) *pathTransform {
 		switch v := k.(type) {
 		case int:
 			counterKey := strings.Join(originalPath, ".")
-			originalPath = append(originalPath, fmt.Sprintf("%d", v))
+			originalPath = append(originalPath, strconv.Itoa(v))
 			mapperKey := strings.Join(originalPath, ".")
 
 			if _, ok := set[mapperKey]; !ok {
@@ -1611,7 +1613,7 @@ func getPath(keys []interface{}, set map[string]int) *pathTransform {
 				set[counterKey]++
 			}
 
-			newPath = append(newPath, fmt.Sprintf("%d", set[mapperKey]))
+			newPath = append(newPath, strconv.Itoa(set[mapperKey]))
 		default:
 			originalPath = append(originalPath, fmt.Sprintf("%s", v))
 			newPath = append(newPath, fmt.Sprintf("%s", v))
@@ -1888,7 +1890,7 @@ func getContext(contextURI string, documentLoader ld.DocumentLoader) (*ld.Contex
 
 	doc, ok := remoteDoc.Document.(map[string]interface{})
 	if !ok {
-		return nil, fmt.Errorf("expects jsonld document to be unmarshaled into map[string]interface{}")
+		return nil, errors.New("expects jsonld document to be unmarshaled into map[string]interface{}")
 	}
 
 	ctx, ok := doc["@context"]

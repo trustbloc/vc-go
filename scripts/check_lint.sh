@@ -10,7 +10,7 @@ set -e
 echo "Running $0"
 
 DOCKER_CMD=${DOCKER_CMD:-docker}
-GOLANGCI_LINT_IMAGE="golangci/golangci-lint:v1.53.3"
+GOLANGCI_LINT_IMAGE="golangci/golangci-lint:v1.62.2"
 SHARED_OPTS="--rm --security-opt seccomp=unconfined -e GOPROXY=${GOPROXY} -v $(pwd):/opt/workspace"
 
 if [ ! $(command -v ${DOCKER_CMD}) ]; then

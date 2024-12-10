@@ -62,6 +62,7 @@ func (sv *Verifier) parseKey(pubKey *pubkey.PublicKey) (*ecdsa.PublicKey, error)
 		}
 	} else {
 		var ok bool
+
 		ecdsaPubKey, ok = pubKey.JWK.Key.(*ecdsa.PublicKey)
 		if !ok {
 			return nil, errors.New("ecdsa: invalid public key type")

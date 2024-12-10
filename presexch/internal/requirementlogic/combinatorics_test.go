@@ -47,7 +47,7 @@ func TestMofN(t *testing.T) {
 			complements[i] = complement(comb, 8)
 		}
 
-		for i := 0; i < len(expectComplement); i++ {
+		for i := range expectComplement {
 			comb := expectComplement[i]
 			comp := complements[len(complements)-i-1]
 
@@ -130,7 +130,7 @@ func validateSingleCombination(comb []int, n, m int) (bool, string) {
 		return true, ""
 	}
 
-	for i := 0; i < len(comb)-1; i++ {
+	for i := range len(comb) - 1 {
 		if comb[i] >= comb[i+1] {
 			return false, "not strictly increasing"
 		}

@@ -35,7 +35,6 @@ func TestTimeWithTrailingZeroMsec(t *testing.T) {
 	}
 
 	for _, tt := range timeTests {
-		tt := tt
 		t.Run(tt.in, func(t *testing.T) {
 			var timeMsec TimeWrapper
 			err := json.Unmarshal([]byte(quote(tt.in)), &timeMsec)

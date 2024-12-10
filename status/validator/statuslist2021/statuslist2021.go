@@ -9,6 +9,7 @@ SPDX-License-Identifier: Apache-2.0
 package statuslist2021
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 
@@ -43,7 +44,7 @@ type Validator struct{}
 // ValidateStatus validates that a Verifiable Credential's Status field matches the VC Status List 2021 specification.
 func (v *Validator) ValidateStatus(vcStatus *verifiable.TypedID) error {
 	if vcStatus == nil {
-		return fmt.Errorf("vc status does not exist")
+		return errors.New("vc status does not exist")
 	}
 
 	if vcStatus.Type != StatusList2021Type {
@@ -71,7 +72,7 @@ func isMissingField(vcStatus *verifiable.TypedID, field string) error {
 func (v *Validator) GetStatusVCURI(vcStatus *verifiable.TypedID) (string, error) {
 	statusListVC, ok := vcStatus.CustomFields[StatusListCredential].(string)
 	if !ok {
-		return "", fmt.Errorf("failed to cast URI of statusListCredential")
+		return "", errors.New("failed to cast URI of statusListCredential")
 	}
 
 	return statusListVC, nil
@@ -79,7 +80,12 @@ func (v *Validator) GetStatusVCURI(vcStatus *verifiable.TypedID) (string, error)
 
 // GetStatusListIndex returns the bit position of the status value of the VC.
 func (v *Validator) GetStatusListIndex(vcStatus *verifiable.TypedID) (int, error) {
-	idx, err := strconv.Atoi(vcStatus.CustomFields[StatusListIndex].(string))
+	statusListIndex, ok := vcStatus.CustomFields[StatusListIndex].(string)
+	if !ok {
+		return -1, fmt.Errorf("%s must be a string", StatusListIndex)
+	}
+
+	idx, err := strconv.Atoi(statusListIndex)
 	if err != nil {
 		return -1, fmt.Errorf("unable to get statusListIndex: %w", err)
 	}

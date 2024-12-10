@@ -39,7 +39,7 @@ func rangeInt(start, end int) []int {
 	}
 
 	out := make([]int, end-start)
-	for i := 0; i < end-start; i++ {
+	for i := range end - start {
 		out[i] = start + i
 	}
 
@@ -56,7 +56,7 @@ func complement(sortedSet []int, universeLen int) []int {
 		j   int
 	)
 
-	for i := 0; i < universeLen; i++ {
+	for i := range universeLen {
 		if j >= len(sortedSet) || i != sortedSet[j] {
 			out = append(out, i)
 		} else {
@@ -72,7 +72,7 @@ func matchCombination(c1, c2 []int) bool {
 		return false
 	}
 
-	for i := 0; i < len(c1); i++ {
+	for i := range c1 {
 		if c1[i] != c2[i] {
 			return false
 		}
@@ -96,7 +96,7 @@ func nChooseM(n, m int) int {
 
 	runningProduct := 1
 
-	for i := 0; i < m; i++ {
+	for i := range m {
 		runningProduct *= n - i
 		if runningProduct < 0 {
 			return -1
@@ -184,7 +184,7 @@ func getMCombinationsOfN(m, n int) [][]int { // nolint:gocyclo
 			// once swappedIndex is nonzero again, do the Shift to Start step
 			start := comb[0]
 
-			for i := 0; i < swappedIndex; i++ {
+			for i := range swappedIndex {
 				comb[i] -= start
 			}
 

@@ -277,7 +277,7 @@ func (b *BitsetSolutionIterator) incrementUntilValid() []string {
 func (b *BitsetSolutionIterator) current() []string {
 	var out []string
 
-	for i := 0; i < len(b.descs); i++ {
+	for i := range b.descs {
 		if b.state.Bit(i) == 1 {
 			out = append(out, b.descs[i])
 		}

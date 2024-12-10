@@ -189,7 +189,7 @@ func buildVerificationData(blsProof map[string]interface{}, docVerData *docVerif
 	numberOfProofStatements := len(proofStatements)
 	revealIndexes := make([]int, numberOfProofStatements+len(docVerData.revealIndexes))
 
-	for i := 0; i < numberOfProofStatements; i++ {
+	for i := range numberOfProofStatements {
 		revealIndexes[i] = i
 	}
 

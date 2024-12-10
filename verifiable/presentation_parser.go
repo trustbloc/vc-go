@@ -35,6 +35,7 @@ type PresentationParser interface {
 type PresentationJSONParser struct {
 }
 
+//nolint:funlen,gocyclo // Old function
 func (p *PresentationJSONParser) parse(vpData []byte, vpOpts *presentationOpts) (*parsePresentationResponse, error) {
 	vpStr := string(unQuote(vpData))
 
@@ -117,9 +118,7 @@ type PresentationCWTParser struct {
 }
 
 func (p *PresentationCWTParser) parse(vpData []byte, _ *presentationOpts) (*parsePresentationResponse, error) {
-	var rawErr error
-	var hexRawErr error
-	var hexErr error
+	var rawErr, hexRawErr, hexErr error
 
 	// todo proof checker !!
 	message, rawErr := p.parsePres(vpData)
@@ -148,7 +147,11 @@ func (p *PresentationCWTParser) parse(vpData []byte, _ *presentationOpts) (*pars
 	}
 
 	convertedMap := convertToStringMap(vpMap)
-	vpContent, _ := convertedMap["vp"].(map[string]interface{})
+
+	vpContent, ok := convertedMap["vp"].(map[string]interface{})
+	if !ok {
+		// do nothing
+	}
 
 	return &parsePresentationResponse{
 		VPDataDecoded: vpData,
@@ -176,7 +179,8 @@ func (p *PresentationCWTParser) parsePres(data []byte) (*cose.Sign1Message, erro
 type presentationEnvelopedParser struct {
 }
 
-func (p *presentationEnvelopedParser) parse(vpData []byte, vpOpts *presentationOpts) (*parsePresentationResponse, error) {
+func (p *presentationEnvelopedParser) parse(vpData []byte, vpOpts *presentationOpts,
+) (*parsePresentationResponse, error) {
 	vpEnveloped := &Envelope{}
 	if err := json.Unmarshal(vpData, vpEnveloped); err != nil {
 		return nil, fmt.Errorf("unmarshal envelopedCredential: %w", err)

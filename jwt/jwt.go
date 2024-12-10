@@ -361,7 +361,12 @@ func checkTypHeader(typ interface{}) error {
 // PayloadToMap transforms interface to map.
 func PayloadToMap(i interface{}) (map[string]interface{}, error) {
 	if reflect.ValueOf(i).Kind() == reflect.Map {
-		return i.(map[string]interface{}), nil
+		m, ok := i.(map[string]interface{})
+		if !ok {
+			return nil, errors.New("unsupported map value type")
+		}
+
+		return m, nil
 	}
 
 	var (

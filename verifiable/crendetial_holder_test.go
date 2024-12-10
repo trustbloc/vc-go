@@ -44,6 +44,7 @@ func TestMustIncludeHolderProperty(t *testing.T) {
 	}), ecdsa2019.NewVerifierInitializer(&ecdsa2019.VerifierInitializerOptions{
 		LDDocumentLoader: loader,
 	}))
+	require.NoError(t, err)
 
 	proofChecker := defaults.NewDefaultProofChecker(vermethod.NewVDRResolver(vdr))
 
@@ -74,6 +75,7 @@ func TestHolderMustBeEqualToIssuer(t *testing.T) {
 	}), ecdsa2019.NewVerifierInitializer(&ecdsa2019.VerifierInitializerOptions{
 		LDDocumentLoader: loader,
 	}))
+	require.NoError(t, err)
 
 	proofChecker := defaults.NewDefaultProofChecker(vermethod.NewVDRResolver(vdr))
 
