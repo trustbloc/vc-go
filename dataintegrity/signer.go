@@ -239,7 +239,7 @@ func getDIDDocFromVerificationMethod(verificationMethod string, didResolver didR
 func getDIDFromVerificationMethod(creator string) (string, error) {
 	idSplit := strings.Split(creator, "#")
 	if len(idSplit) != creatorParts {
-		return "", fmt.Errorf(fmt.Sprintf(invalidFormatErrMsgFmt, creator))
+		return "", fmt.Errorf(invalidFormatErrMsgFmt, creator)
 	}
 
 	return idSplit[0], nil

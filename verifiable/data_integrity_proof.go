@@ -8,6 +8,7 @@ package verifiable
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -123,7 +124,7 @@ type verifyDataIntegrityOpts struct {
 // TODO: refactor to directly use map[string]inteface{} instead []byte.
 func checkDataIntegrityProof(ldBytes []byte, opts *verifyDataIntegrityOpts) error {
 	if opts == nil || opts.Verifier == nil {
-		return fmt.Errorf("data integrity proof needs data integrity verifier")
+		return errors.New("data integrity proof needs data integrity verifier")
 	}
 
 	if opts.Purpose == "" {

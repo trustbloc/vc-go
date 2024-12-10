@@ -8,6 +8,7 @@ package bbs
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -54,7 +55,7 @@ func (sv *G2SignatureVerifier) Verify(signature, msg []byte, pubKeyValue *pubkey
 	}
 
 	if bytesKey == nil {
-		return fmt.Errorf("incorrect pub key, should contain key bytes or jwk")
+		return errors.New("incorrect pub key, should contain key bytes or jwk")
 	}
 
 	return bbs.Verify(splitMessageIntoLines(string(msg), false), signature, bytesKey.Bytes)
@@ -89,7 +90,7 @@ func (v *G2SignatureProofVerifier) Verify(signature, msg []byte, pubKeyValue *pu
 	}
 
 	if bytesKey == nil {
-		return fmt.Errorf("incorrect pub key, should contain key bytes or jwk")
+		return errors.New("incorrect pub key, should contain key bytes or jwk")
 	}
 
 	return bbs.VerifyProof(splitMessageIntoLines(string(msg), true),

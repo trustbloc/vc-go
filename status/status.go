@@ -8,6 +8,7 @@ SPDX-License-Identifier: Apache-2.0
 package status
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/trustbloc/vc-go/verifiable"
@@ -33,7 +34,7 @@ type Client struct {
 func (c *Client) VerifyStatus(credential *verifiable.Credential) error { //nolint:gocyclo
 	contents := credential.Contents()
 	if contents.Status == nil {
-		return fmt.Errorf("vc missing status list field")
+		return errors.New("vc missing status list field")
 	}
 
 	validator, err := c.ValidatorGetter(contents.Status.Type)
@@ -63,12 +64,17 @@ func (c *Client) VerifyStatus(credential *verifiable.Credential) error { //nolin
 
 	statusListVCC := statusListVC.Contents()
 	if statusListVCC.Issuer == nil || contents.Issuer == nil || statusListVCC.Issuer.ID != contents.Issuer.ID {
-		return fmt.Errorf("issuer of the credential does not match status list vc issuer")
+		return errors.New("issuer of the credential does not match status list vc issuer")
 	}
 
 	credSubject := statusListVCC.Subject
 
-	bitString, err := bitstring.Decode(credSubject[0].CustomFields["encodedList"].(string))
+	encodedList, ok := credSubject[0].CustomFields["encodedList"].(string)
+	if !ok {
+		return errors.New("encodedList must be a string")
+	}
+
+	bitString, err := bitstring.Decode(encodedList)
 	if err != nil {
 		return fmt.Errorf("failed to decode bits: %w", err)
 	}
@@ -79,7 +85,7 @@ func (c *Client) VerifyStatus(credential *verifiable.Credential) error { //nolin
 	}
 
 	if bitSet {
-		return fmt.Errorf(RevokedMessage)
+		return errors.New(RevokedMessage)
 	}
 
 	return nil

@@ -59,7 +59,7 @@ func TestBitsetIterator(t *testing.T) {
 
 		validateSolutionSet(t, req, actual, expected)
 
-		for i := 0; i < 3; i++ {
+		for range 3 {
 			next := bsi.Next(nil)
 			require.Nil(t, next)
 		}

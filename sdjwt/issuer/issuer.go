@@ -424,12 +424,12 @@ func NewFromVC(vc map[string]interface{}, headers jose.Headers,
 
 	csObj, ok := common.GetKeyFromVC(credentialSubjectKey, vc)
 	if !ok {
-		return nil, fmt.Errorf("credential subject not found")
+		return nil, errors.New("credential subject not found")
 	}
 
 	cs, ok := csObj.(map[string]interface{})
 	if !ok {
-		return nil, fmt.Errorf("credential subject must be an object")
+		return nil, errors.New("credential subject must be an object")
 	}
 
 	token, err := New("", cs, nil, &unsecuredJWTSigner{}, opts...)
@@ -531,7 +531,7 @@ func createDecoyDisclosures(opts *newOpts) ([]*DisclosureEntity, error) {
 
 	var decoyDisclosures []*DisclosureEntity
 
-	for i := 0; i < n; i++ {
+	for range n {
 		salt, err := opts.getSalt()
 		if err != nil {
 			return nil, err

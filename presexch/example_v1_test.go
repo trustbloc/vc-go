@@ -1738,7 +1738,7 @@ func ExamplePresentationDefinition_Match() {
 	// verifier received the 'https://example.context.jsonld/address' credential for the input descriptor id 'residence'
 }
 
-func ExamplePresentationDefinition_Match_jwt_vp_path_workaround() {
+func ExamplePresentationDefinition_Match_jwt_vp_path_workaround() { //nolint:gocyclo // Test function
 	// verifier sends their presentation definitions to the holder
 	verifierDefinitions := &PresentationDefinition{
 		InputDescriptors: []*InputDescriptor{

@@ -35,7 +35,7 @@ const (
 	// spec:https://www.w3.org/TR/vc-di-ecdsa/#ecdsa-2019
 	SuiteType = "ecdsa-2019"
 
-	// SuiteTypeNew "ecdsa-rdfc-2019" is the data integrity Type identifier for the suite
+	// SuiteTypeNew "ecdsa-rdfc-2019" is the data integrity Type identifier for the suite.
 	SuiteTypeNew = "ecdsa-rdfc-2019"
 )
 
@@ -236,6 +236,7 @@ func (s *Suite) unmarshalECKey(ecCRV elliptic.Curve, pubKey []byte) ([]byte, err
 	return pubKey, nil
 }
 
+//nolint:funlen,gocyclo // Old function
 func (s *Suite) transformAndHash(doc []byte, opts *models.ProofOptions) ([]byte, *pubkey.PublicKey, Verifier, error) {
 	if opts.SuiteType == "" {
 		opts.SuiteType = SuiteType
@@ -367,7 +368,8 @@ func (s *Suite) RequiresCreated() bool {
 	return false
 }
 
-func canonicalize(data map[string]interface{}, loader ld.DocumentLoader, mda ld.MessageDigestAlgorithm) ([]byte, error) {
+func canonicalize(data map[string]interface{}, loader ld.DocumentLoader, mda ld.MessageDigestAlgorithm,
+) ([]byte, error) {
 	out, err := processor.Default().GetCanonicalDocument(
 		data,
 		processor.WithDocumentLoader(loader),
@@ -407,6 +409,7 @@ func proofConfig(docCtx interface{}, opts *models.ProofOptions) map[string]inter
 	if opts.Challenge != "" {
 		proof["challenge"] = opts.Challenge
 	}
+
 	if opts.Domain != "" {
 		proof["domain"] = opts.Domain
 	}

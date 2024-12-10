@@ -47,7 +47,7 @@ func NewProvider() *Provider {
 // If the store has never been opened before, then it is created.
 func (p *Provider) OpenStore(name string) (spi.Store, error) {
 	if name == "" {
-		return nil, fmt.Errorf("store name cannot be empty")
+		return nil, errors.New("store name cannot be empty")
 	}
 
 	storeName := strings.ToLower(name)

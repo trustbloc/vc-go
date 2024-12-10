@@ -307,12 +307,12 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 				vp, err := pd.CreateVP(candidateVCs, lddl)
 
 				if tc.format == FormatJWTVP {
-					claims, err := vp.JWTClaims([]string{""}, false)
-					require.NoError(t, err)
+					claims, jwtErr := vp.JWTClaims([]string{""}, false)
+					require.NoError(t, jwtErr)
 					require.NotNil(t, claims)
 
-					unsecuredJWT, err := claims.MarshalUnsecuredJWT()
-					require.NoError(t, err)
+					unsecuredJWT, marshalErr := claims.MarshalUnsecuredJWT()
+					require.NoError(t, marshalErr)
 					require.NotEmpty(t, unsecuredJWT)
 
 					vp.JWT = unsecuredJWT
@@ -3003,12 +3003,12 @@ func TestPresentationDefinition_CreateVP_V2Credential(t *testing.T) {
 				vp, err := pd.CreateVP(candidateVCs, lddl)
 
 				if tc.format == FormatJWTVP {
-					claims, err := vp.JWTClaims([]string{""}, false)
-					require.NoError(t, err)
+					claims, jwtErr := vp.JWTClaims([]string{""}, false)
+					require.NoError(t, jwtErr)
 					require.NotNil(t, claims)
 
-					unsecuredJWT, err := claims.MarshalUnsecuredJWT()
-					require.NoError(t, err)
+					unsecuredJWT, marshalErr := claims.MarshalUnsecuredJWT()
+					require.NoError(t, marshalErr)
 					require.NotEmpty(t, unsecuredJWT)
 
 					vp.JWT = unsecuredJWT
@@ -3107,12 +3107,12 @@ func TestPresentationDefinition_CreateVPArray(t *testing.T) {
 		)
 
 		for _, vp := range vpList {
-			claims, err := vp.JWTClaims([]string{""}, false)
-			require.NoError(t, err)
+			claims, jwtErr := vp.JWTClaims([]string{""}, false)
+			require.NoError(t, jwtErr)
 			require.NotNil(t, claims)
 
-			unsecuredJWT, err := claims.MarshalUnsecuredJWT()
-			require.NoError(t, err)
+			unsecuredJWT, marshalErr := claims.MarshalUnsecuredJWT()
+			require.NoError(t, marshalErr)
 			require.NotEmpty(t, unsecuredJWT)
 
 			vp.JWT = unsecuredJWT
@@ -3458,8 +3458,8 @@ func checkVPEx(
 		require.Contains(t, doc["type"].([]interface{}), expectedType)
 
 		if expectedType == verifiable.VPEnvelopedType && expectedMediaType != "" {
-			mediaType, _, data, err := verifiable.ParseDataURL(doc["id"].(string))
-			require.NoError(t, err)
+			mediaType, _, data, parseErr := verifiable.ParseDataURL(doc["id"].(string))
+			require.NoError(t, parseErr)
 			require.Equal(t, expectedMediaType, mediaType)
 			require.NotEmpty(t, data)
 		}

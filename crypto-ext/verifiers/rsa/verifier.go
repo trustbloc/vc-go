@@ -47,7 +47,7 @@ func (sv *PS256Verifier) Verify(signature, msg []byte, key *pubkey.PublicKey) er
 		pubKeyRsa, ok = key.JWK.Public().Key.(*rsa.PublicKey)
 
 		if !ok {
-			return fmt.Errorf("jwk public key not rsa.PublicKey")
+			return errors.New("jwk public key not rsa.PublicKey")
 		}
 	}
 
@@ -110,7 +110,7 @@ func (sv *RS256Verifier) Verify(signature, msg []byte, key *pubkey.PublicKey) er
 		pubKeyRsa, ok = key.JWK.Public().Key.(*rsa.PublicKey)
 
 		if !ok {
-			return fmt.Errorf("jwk public key not rsa.PublicKey")
+			return errors.New("jwk public key not rsa.PublicKey")
 		}
 	}
 
