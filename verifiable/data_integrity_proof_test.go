@@ -38,7 +38,7 @@ func Test_DataIntegrity_SignVerify(t *testing.T) {
   "@context": [
     "https://www.w3.org/2018/credentials/v1",
     "https://www.w3.org/2018/credentials/examples/v1",
-	"https://w3id.org/security/data-integrity/v1"
+	"https://w3id.org/security/data-integrity/v2"
   ],
   "id": "https://example.com/credentials/1872",
   "type": [
