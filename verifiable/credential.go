@@ -1651,7 +1651,14 @@ func validateJSONLD(vcJSON JSONObject, vcc *CredentialContents, vcOpts *credenti
 		)
 	}
 
-	return docjsonld.ValidateJSONLDMap(jsonutil.ShallowCopyObj(vcJSON),
+	err = docjsonld.ValidateJSONLDMap(jsonutil.ShallowCopyObj(vcJSON),
+		validateOpts...,
+	)
+	if err != nil {
+		return fmt.Errorf("validate jsonld: %w", err)
+	}
+
+	return docjsonld.ValidateJSONLDTypes(jsonutil.ShallowCopyObj(vcJSON),
 		validateOpts...,
 	)
 }
