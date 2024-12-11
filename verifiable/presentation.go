@@ -740,6 +740,10 @@ func validateHolder(
 		return nil
 	}
 
+	if holder == "" {
+		return nil
+	}
+
 	existingMethods := make(map[string]struct{})
 
 	for _, proof := range proofs {
