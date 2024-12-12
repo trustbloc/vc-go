@@ -132,6 +132,8 @@ github.com/trustbloc/bbs-signature-go v1.0.2 h1:gepEsbLiZHv/vva9FKG5gF38mGtOIyGe
 github.com/trustbloc/bbs-signature-go v1.0.2/go.mod h1:xYotcXHAbcE0TO+SteW0J6XI3geQaXq4wdnXR2k+XCU=
 github.com/trustbloc/did-go v1.3.2-0.20241210152236-b8ce698e17ed h1:QhmN9IUePEGCXcKsC/CdglpZMEfnEEqpcJFnLMMD0/I=
 github.com/trustbloc/did-go v1.3.2-0.20241210152236-b8ce698e17ed/go.mod h1:GdmgtrHKWuBIw77t0FBqHO9rUjbG3zrKU/RZWbhUL9g=
+github.com/trustbloc/did-go v1.3.2-0.20241212142633-71a7976010bf h1:fES7dd86c1bCZuI/R9iOMxQfSQFaKWJHdf7ukGJm6+I=
+github.com/trustbloc/did-go v1.3.2-0.20241212142633-71a7976010bf/go.mod h1:GdmgtrHKWuBIw77t0FBqHO9rUjbG3zrKU/RZWbhUL9g=
 github.com/trustbloc/json-gold v0.5.2-0.20241206130328-d2135d9f36a8 h1:DomzdQu7D3CDBsMijT0E9uQl91iFcsIfYq1UKXmI/XQ=
 github.com/trustbloc/json-gold v0.5.2-0.20241206130328-d2135d9f36a8/go.mod h1:RVhE35veDX19r5gfUAR+IYHkAUuPwJO8Ie/qVeFaIzw=
 github.com/trustbloc/kms-go v1.2.0 h1:kM2mkK4vBT7MN18rE6cTEXtrnEo3Uc83F68UKakqeR4=
