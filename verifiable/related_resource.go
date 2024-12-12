@@ -184,11 +184,17 @@ func (r *RelatedResourceValidator) validateSingleResource(
 		return fmt.Errorf("unsupported hash algorithm: %s", hashAlgo)
 	}
 
-	if enc == multibase.Base64url { // skip header
+	hasHeader := enc == multibase.Base64url && decodedDigest[0] == 0x12 && decodedDigest[1] == 0x20
+	if hasHeader { // skip header
 		decodedDigest = decodedDigest[2:]
 	}
 
 	if !bytes.Equal(rawHash, decodedDigest) {
+		if hasHeader {
+			rawHash = append([]byte{0x12, 0x20}, rawHash...)
+		}
+		encoded, _ := multibase.Encode(enc, rawHash)
+		fmt.Println(encoded)
 		return fmt.Errorf("hash mismatch: %s", res.Id)
 	}
 

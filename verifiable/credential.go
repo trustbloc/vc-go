@@ -1121,7 +1121,7 @@ type credentialOpts struct {
 
 	jsonldCredentialOpts
 	disableRelatedResourceCheck bool
-	disableJsonLDTypesCheck     bool
+	enableJsonLDTypesCheck      bool
 }
 
 // CredentialOpt is the Verifiable Credential decoding option.
@@ -1134,9 +1134,9 @@ func WithDisabledProofCheck() CredentialOpt {
 	}
 }
 
-func WithDisabledJsonLDTypesCheck() CredentialOpt {
+func WithEnabledJsonLDTypesCheck() CredentialOpt {
 	return func(opts *credentialOpts) {
-		opts.disableJsonLDTypesCheck = true
+		opts.enableJsonLDTypesCheck = true
 	}
 }
 
@@ -1688,7 +1688,7 @@ func validateJSONLD(vcJSON JSONObject, vcc *CredentialContents, vcOpts *credenti
 		return err
 	}
 
-	if !vcOpts.disableJsonLDTypesCheck {
+	if vcOpts.enableJsonLDTypesCheck {
 		if err = docjsonld.ValidateJSONLDTypes(jsonutil.ShallowCopyObj(vcJSON),
 			validateOpts...,
 		); err != nil {
