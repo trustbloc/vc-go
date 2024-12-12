@@ -1677,7 +1677,7 @@ func validateJSONLD(vcJSON JSONObject, vcc *CredentialContents, vcOpts *credenti
 		validateOpts...,
 	)
 	if err != nil {
-		return fmt.Errorf("validate jsonld: %w", err)
+		return err
 	}
 
 	return docjsonld.ValidateJSONLDTypes(jsonutil.ShallowCopyObj(vcJSON),
