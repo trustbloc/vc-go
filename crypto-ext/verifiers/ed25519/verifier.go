@@ -46,7 +46,7 @@ func (sv *Verifier) Verify(signature, msg []byte, pubKey *pubkey.PublicKey) erro
 		value, ok = pubKey.JWK.Public().Key.(ed25519.PublicKey)
 
 		if !ok {
-			return fmt.Errorf("public key not ed25519.VerificationMethod")
+			return errors.New("public key not ed25519.VerificationMethod")
 		}
 	}
 	// ed25519 panics if key size is wrong

@@ -8,6 +8,7 @@ package checker
 
 import (
 	"encoding/hex"
+	"errors"
 	"fmt"
 
 	"github.com/tidwall/gjson"
@@ -202,12 +203,12 @@ func (c *ProofCheckerBase) GetLDPDigest(proof *proof.Proof, doc []byte) ([]byte,
 func (c *ProofChecker) CheckJWTProof(headers jose.Headers, expectedProofIssuer string, msg, signature []byte) error {
 	keyID, ok := headers.KeyID()
 	if !ok {
-		return fmt.Errorf("missed kid in jwt header")
+		return errors.New("missed kid in jwt header")
 	}
 
 	alg, ok := headers.Algorithm()
 	if !ok {
-		return fmt.Errorf("missed alg in jwt header")
+		return errors.New("missed alg in jwt header")
 	}
 
 	vm, err := c.verificationMethodResolver.ResolveVerificationMethod(keyID, expectedProofIssuer)
@@ -269,7 +270,7 @@ func (c *ProofChecker) checkCWTProofByCOSEKey(
 	signature []byte,
 ) error {
 	if expectedProofIssuer != "" {
-		return fmt.Errorf("checking expected issuer is not supported by CWT for COSE_KEY")
+		return errors.New("checking expected issuer is not supported by CWT for COSE_KEY")
 	}
 
 	keyMaterialBytes, err := hex.DecodeString(checkCWTRequest.KeyMaterial)
@@ -328,11 +329,11 @@ func (c *ProofChecker) CheckCWTProof(
 	signature []byte,
 ) error {
 	if checkCWTRequest.KeyID == "" && checkCWTRequest.KeyMaterial == "" {
-		return fmt.Errorf("missed kid and COSE_Key in cwt header")
+		return errors.New("missed kid and COSE_Key in cwt header")
 	}
 
 	if checkCWTRequest.Algo == 0 {
-		return fmt.Errorf("missed alg in cwt header")
+		return errors.New("missed alg in cwt header")
 	}
 
 	if checkCWTRequest.KeyID != "" {
@@ -455,7 +456,7 @@ type EmbeddedVMProofChecker struct {
 func (c *EmbeddedVMProofChecker) CheckJWTProof(headers jose.Headers, _ string, msg, signature []byte) error {
 	alg, ok := headers.Algorithm()
 	if !ok {
-		return fmt.Errorf("missed alg in jwt header")
+		return errors.New("missed alg in jwt header")
 	}
 
 	supportedProof, err := c.getSupportedProofByAlg(alg)

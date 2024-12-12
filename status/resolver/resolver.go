@@ -13,6 +13,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -171,7 +172,7 @@ func (r *Resolver) sendHTTPRequest(req *http.Request, status int, token string) 
 func getQueries(didRelativeURL string) ([]map[string]interface{}, error) {
 	chunks := strings.Split(didRelativeURL, "?")
 	if len(chunks) <= 1 {
-		return nil, fmt.Errorf("missing query")
+		return nil, errors.New("missing query")
 	}
 
 	queryValues, err := url.ParseQuery(chunks[1])
@@ -181,7 +182,7 @@ func getQueries(didRelativeURL string) ([]map[string]interface{}, error) {
 
 	queries := queryValues.Get("queries")
 	if queries == "" {
-		return nil, fmt.Errorf("missing 'queries' parameter")
+		return nil, errors.New("missing 'queries' parameter")
 	}
 
 	queriesVal, err := base64.StdEncoding.DecodeString(queries)

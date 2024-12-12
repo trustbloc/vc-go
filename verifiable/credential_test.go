@@ -92,6 +92,7 @@ var vccProto = CredentialContents{
 	Schemas: []TypedID{},
 }
 
+//nolint:gochecknoglobals
 var subjectProtoV2 = Subject{
 	ID: "did:example:123",
 	CustomFields: map[string]interface{}{
@@ -102,6 +103,7 @@ var subjectProtoV2 = Subject{
 	},
 }
 
+//nolint:gochecknoglobals
 var vccProtoV2 = CredentialContents{
 	Context: []string{
 		"https://www.w3.org/ns/credentials/v2",

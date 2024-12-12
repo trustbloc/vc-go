@@ -7,6 +7,7 @@ package lddocument
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -79,7 +80,7 @@ func (dv *DocumentVerifier) VerifyObject(jsonLdObject map[string]interface{},
 			// if expectedProofIssuerPtr not set, we get issuer DID from first part of key id.
 			pubKeyID, err2 := p.PublicKeyID()
 			if err2 != nil {
-				return fmt.Errorf("public key is missed in proof")
+				return errors.New("public key is missed in proof")
 			}
 
 			expectedProofIssuer = strings.Split(pubKeyID, "#")[0]

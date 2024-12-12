@@ -116,12 +116,18 @@ func (s *SDJWTBuilderV5) createDisclosuresAndDigestsInternal(
 
 		switch kind {
 		case reflect.Map:
-			if valOption.IsIgnored { // nolint:nestif
+			switch {
+			case valOption.IsIgnored:
 				digestsMap[key] = value
-			} else if valOption.IsRecursive {
+			case valOption.IsRecursive:
+				claims, ok := value.(map[string]interface{})
+				if !ok {
+					return nil, nil, errors.New("unsupported map value type")
+				}
+
 				nestedDisclosures, nestedDigestsMap, mapErr := s.createDisclosuresAndDigestsInternal(
 					curPath,
-					value.(map[string]interface{}),
+					claims,
 					opts,
 					false,
 				)
@@ -144,10 +150,15 @@ func (s *SDJWTBuilderV5) createDisclosuresAndDigestsInternal(
 				}
 
 				allDisclosures = append(allDisclosures, nestedDisclosures...)
-			} else if valOption.IsAlwaysInclude || valOption.IsStructured {
+			case valOption.IsAlwaysInclude || valOption.IsStructured:
+				claims, ok := value.(map[string]interface{})
+				if !ok {
+					return nil, nil, errors.New("unsupported map value type")
+				}
+
 				nestedDisclosures, nestedDigestsMap, mapErr := s.createDisclosuresAndDigestsInternal(
 					curPath,
-					value.(map[string]interface{}),
+					claims,
 					opts,
 					false,
 				)
@@ -158,10 +169,15 @@ func (s *SDJWTBuilderV5) createDisclosuresAndDigestsInternal(
 				digestsMap[key] = nestedDigestsMap
 
 				allDisclosures = append(allDisclosures, nestedDisclosures...)
-			} else { // plain
+			default:
+				claims, ok := value.(map[string]interface{})
+				if !ok {
+					return nil, nil, errors.New("unsupported map value type")
+				}
+
 				nestedDisclosures, nestedDigestsMap, mapErr := s.createDisclosuresAndDigestsInternal(
 					curPath,
-					value.(map[string]interface{}),
+					claims,
 					opts,
 					true,
 				)
@@ -245,7 +261,7 @@ func (s *SDJWTBuilderV5) processArrayElements(
 
 	var elementsDisclosures []*DisclosureEntity
 
-	for i := 0; i < valSl.Len(); i++ {
+	for i := range valSl.Len() {
 		elementPath := fmt.Sprintf("%v[%v]", path, i)
 		elementOptions := s.extractValueOptions(elementPath, opts)
 		elementValue := valSl.Index(i).Interface()
