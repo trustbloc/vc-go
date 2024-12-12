@@ -1119,7 +1119,8 @@ type credentialOpts struct {
 	verifyDataIntegrity  *verifyDataIntegrityOpts
 
 	jsonldCredentialOpts
-	disableRealatedResourceCheck bool
+	disableRelatedResourceCheck bool
+	disableJsonLDTypesCheck     bool
 }
 
 // CredentialOpt is the Verifiable Credential decoding option.
@@ -1132,10 +1133,16 @@ func WithDisabledProofCheck() CredentialOpt {
 	}
 }
 
+func WithDisabledJsonLDTypesCheck() CredentialOpt {
+	return func(opts *credentialOpts) {
+		opts.disableJsonLDTypesCheck = true
+	}
+}
+
 // WithDisabledRelatedResourceCheck option for disabling check of related resources.
 func WithDisabledRelatedResourceCheck() CredentialOpt {
 	return func(opts *credentialOpts) {
-		opts.disableRealatedResourceCheck = true
+		opts.disableRelatedResourceCheck = true
 	}
 }
 
@@ -1540,7 +1547,7 @@ func parseCredential(vcData []byte, parser CredentialParser, opts *credentialOpt
 		}
 	}
 
-	if !opts.disableRealatedResourceCheck {
+	if !opts.disableRelatedResourceCheck {
 		if err = DefaultRelatedResourceValidator.Validate([]*Credential{vc}); err != nil {
 			return nil, err
 		}
@@ -1680,9 +1687,15 @@ func validateJSONLD(vcJSON JSONObject, vcc *CredentialContents, vcOpts *credenti
 		return err
 	}
 
-	return docjsonld.ValidateJSONLDTypes(jsonutil.ShallowCopyObj(vcJSON),
-		validateOpts...,
-	)
+	if !vcOpts.disableJsonLDTypesCheck {
+		if err = docjsonld.ValidateJSONLDTypes(jsonutil.ShallowCopyObj(vcJSON),
+			validateOpts...,
+		); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // nolint: funlen,gocyclo

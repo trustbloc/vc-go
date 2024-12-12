@@ -316,6 +316,7 @@ func TestParseV1CredentialFromLinkedDataProof_JSONLD_Validation(t *testing.T) {
 
 		vc, err := parseTestCredential(t, []byte(vcJSON),
 			WithDisabledProofCheck(),
+			WithDisabledJsonLDTypesCheck(),
 			WithStrictValidation(),
 			WithJSONLDDocumentLoader(docLoader),
 		)
@@ -430,6 +431,7 @@ func TestExtraContextWithLDP(t *testing.T) {
 
 	vcWithLdp, err := parseTestCredential(t, vcBytes,
 		WithProofChecker(proofChecker),
+		WithDisabledJsonLDTypesCheck(),
 		WithStrictValidation())
 	r.NoError(err)
 	r.Equal(vc.ToRawJSON(), vcWithLdp.ToRawJSON())
@@ -446,6 +448,7 @@ func TestExtraContextWithLDP(t *testing.T) {
 
 	vcWithLdp, err = parseTestCredential(t, vcBytes,
 		WithProofChecker(proofChecker),
+		WithDisabledJsonLDTypesCheck(),
 		WithStrictValidation())
 	r.Error(err)
 	r.EqualError(err, "check embedded proof: check linked data proof: invalid JSON-LD context")
@@ -454,6 +457,7 @@ func TestExtraContextWithLDP(t *testing.T) {
 	// Use extra context.
 	vcWithLdp, err = parseTestCredential(t, vcBytes,
 		WithProofChecker(proofChecker),
+		WithDisabledJsonLDTypesCheck(),
 		WithExternalJSONLDContext("https://trustbloc.github.io/context/vc/examples-v1.jsonld"),
 		WithStrictValidation())
 	r.NoError(err)
@@ -462,6 +466,7 @@ func TestExtraContextWithLDP(t *testing.T) {
 	// Use extra context.
 	vcWithLdp, err = parseTestCredential(t, vcBytes,
 		WithProofChecker(proofChecker),
+		WithDisabledJsonLDTypesCheck(),
 		WithExternalJSONLDContext("https://trustbloc.github.io/context/vc/examples-v1.jsonld"),
 		WithStrictValidation())
 	r.NoError(err)
@@ -967,6 +972,7 @@ func TestParseCredential_JSONLiteralsNotSupported(t *testing.T) {
 				"did:example:123456#key1", pubJWK, "Ed25519VerificationKey2018",
 				"did:elem:ropsten:EiBJJPdo-ONF0jxqt8mZYEj9Z7FbdC87m2xvN0_HAbcoEg"))),
 		WithJSONLDOnlyValidRDF(),
+		WithDisabledJsonLDTypesCheck(),
 		WithStrictValidation(),
 		WithJSONLDDocumentLoader(docLoader))
 

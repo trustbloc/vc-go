@@ -134,6 +134,12 @@ github.com/trustbloc/did-go v1.3.2-0.20241210152236-b8ce698e17ed h1:QhmN9IUePEGC
 github.com/trustbloc/did-go v1.3.2-0.20241210152236-b8ce698e17ed/go.mod h1:GdmgtrHKWuBIw77t0FBqHO9rUjbG3zrKU/RZWbhUL9g=
 github.com/trustbloc/did-go v1.3.2-0.20241212142633-71a7976010bf h1:fES7dd86c1bCZuI/R9iOMxQfSQFaKWJHdf7ukGJm6+I=
 github.com/trustbloc/did-go v1.3.2-0.20241212142633-71a7976010bf/go.mod h1:GdmgtrHKWuBIw77t0FBqHO9rUjbG3zrKU/RZWbhUL9g=
+github.com/trustbloc/did-go v1.3.2-0.20241212143438-9e0e9ad7f4d7 h1:dyw3e9jgwje4yXeaW5oUCjKkSKicw+akagQtcSFcPIg=
+github.com/trustbloc/did-go v1.3.2-0.20241212143438-9e0e9ad7f4d7/go.mod h1:GdmgtrHKWuBIw77t0FBqHO9rUjbG3zrKU/RZWbhUL9g=
+github.com/trustbloc/did-go v1.3.2-0.20241212143903-183f9aca86d1 h1:wDJxuMO+6+Bznp/Xx2aZcMIYXtITrbpszwfiSQmX96k=
+github.com/trustbloc/did-go v1.3.2-0.20241212143903-183f9aca86d1/go.mod h1:GdmgtrHKWuBIw77t0FBqHO9rUjbG3zrKU/RZWbhUL9g=
+github.com/trustbloc/did-go v1.3.2-0.20241212145009-fd71069d9b40 h1:WI+RD31dqiBHv2cKEgzyR1WLoov5mi2pHtITksuZ8Lg=
+github.com/trustbloc/did-go v1.3.2-0.20241212145009-fd71069d9b40/go.mod h1:GdmgtrHKWuBIw77t0FBqHO9rUjbG3zrKU/RZWbhUL9g=
 github.com/trustbloc/json-gold v0.5.2-0.20241206130328-d2135d9f36a8 h1:DomzdQu7D3CDBsMijT0E9uQl91iFcsIfYq1UKXmI/XQ=
 github.com/trustbloc/json-gold v0.5.2-0.20241206130328-d2135d9f36a8/go.mod h1:RVhE35veDX19r5gfUAR+IYHkAUuPwJO8Ie/qVeFaIzw=
 github.com/trustbloc/kms-go v1.2.0 h1:kM2mkK4vBT7MN18rE6cTEXtrnEo3Uc83F68UKakqeR4=
