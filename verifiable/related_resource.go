@@ -190,11 +190,6 @@ func (r *RelatedResourceValidator) validateSingleResource(
 	}
 
 	if !bytes.Equal(rawHash, decodedDigest) {
-		if hasHeader {
-			rawHash = append([]byte{0x12, 0x20}, rawHash...)
-		}
-		encoded, _ := multibase.Encode(enc, rawHash)
-		fmt.Println(encoded)
 		return fmt.Errorf("hash mismatch: %s", res.Id)
 	}
 
