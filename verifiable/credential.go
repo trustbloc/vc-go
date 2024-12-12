@@ -842,20 +842,27 @@ func SubjectFromJSON(subjectObj JSONObject) (Subject, error) {
 
 // CredentialContents store credential contents as typed structure.
 type CredentialContents struct {
-	Context        []string
-	CustomContext  []interface{}
-	ID             string
-	Types          []string
-	Subject        []Subject
-	Issuer         *Issuer
-	Issued         *util.TimeWrapper
-	Expired        *util.TimeWrapper
-	Status         *TypedID
-	Schemas        []TypedID
-	Evidence       Evidence
-	TermsOfUse     []TypedID
-	RefreshService *TypedID
-	SDJWTHashAlg   *crypto.Hash
+	Context          []string
+	CustomContext    []interface{}
+	ID               string
+	Types            []string
+	Subject          []Subject
+	Issuer           *Issuer
+	Issued           *util.TimeWrapper
+	Expired          *util.TimeWrapper
+	Status           *TypedID
+	Schemas          []TypedID
+	Evidence         Evidence
+	TermsOfUse       []TypedID
+	RefreshService   *TypedID
+	SDJWTHashAlg     *crypto.Hash
+	RelatedResources []RelatedResource
+}
+
+type RelatedResource struct {
+	Id              string `json:"id,omitempty"`
+	DigestSRI       string `json:"digestSRI,omitempty"`
+	DigestMultiBase string `json:"digestMultibase,omitempty"`
 }
 
 // JSONObject used to store json object.
@@ -1053,22 +1060,23 @@ func (vc *Credential) CustomField(name string) interface{} {
 }
 
 const (
-	jsonFldContext        = "@context"
-	jsonFldID             = "id"
-	jsonFldType           = "type"
-	jsonFldSubject        = "credentialSubject"
-	jsonFldIssued         = "issuanceDate"
-	jsonFldExpired        = "expirationDate"
-	jsonFldLDProof        = "proof"
-	jsonFldStatus         = "credentialStatus"
-	jsonFldIssuer         = "issuer"
-	jsonFldSchema         = "credentialSchema"
-	jsonFldEvidence       = "evidence"
-	jsonFldTermsOfUse     = "termsOfUse"
-	jsonFldRefreshService = "refreshService"
-	jsonFldSDJWTHashAlg   = "_sd_alg"
-	jsonFldValidFrom      = "validFrom"
-	jsonFldValidUntil     = "validUntil"
+	jsonFldContext         = "@context"
+	jsonFldID              = "id"
+	jsonFldType            = "type"
+	jsonFldSubject         = "credentialSubject"
+	jsonFldIssued          = "issuanceDate"
+	jsonFldExpired         = "expirationDate"
+	jsonFldLDProof         = "proof"
+	jsonFldStatus          = "credentialStatus"
+	jsonFldIssuer          = "issuer"
+	jsonFldSchema          = "credentialSchema"
+	jsonFldEvidence        = "evidence"
+	jsonFldTermsOfUse      = "termsOfUse"
+	jsonFldRefreshService  = "refreshService"
+	jsonFldSDJWTHashAlg    = "_sd_alg"
+	jsonFldValidFrom       = "validFrom"
+	jsonFldValidUntil      = "validUntil"
+	jsonFldRelatedResource = "relatedResource"
 )
 
 // CombinedProofChecker universal proof checker for both LD and JWT proofs.
@@ -1111,6 +1119,7 @@ type credentialOpts struct {
 	verifyDataIntegrity  *verifyDataIntegrityOpts
 
 	jsonldCredentialOpts
+	disableRealatedResourceCheck bool
 }
 
 // CredentialOpt is the Verifiable Credential decoding option.
@@ -1120,6 +1129,13 @@ type CredentialOpt func(opts *credentialOpts)
 func WithDisabledProofCheck() CredentialOpt {
 	return func(opts *credentialOpts) {
 		opts.disabledProofCheck = true
+	}
+}
+
+// WithDisabledRelatedResourceCheck option for disabling check of related resources.
+func WithDisabledRelatedResourceCheck() CredentialOpt {
+	return func(opts *credentialOpts) {
+		opts.disableRealatedResourceCheck = true
 	}
 }
 
@@ -1524,6 +1540,12 @@ func parseCredential(vcData []byte, parser CredentialParser, opts *credentialOpt
 		}
 	}
 
+	if !opts.disableRealatedResourceCheck {
+		if err = DefaultRelatedResourceValidator.Validate([]*Credential{vc}); err != nil {
+			return nil, err
+		}
+	}
+
 	return vc, nil
 }
 
@@ -1704,6 +1726,11 @@ func parseCredentialContents(raw JSONObject, isSDJWT bool) (*CredentialContents,
 		return nil, fmt.Errorf("fill credential refresh service from raw: %w", err)
 	}
 
+	relatedResource, err := parseRelatedResources(raw[jsonFldRelatedResource])
+	if err != nil {
+		return nil, fmt.Errorf("fill credential relatedResource from raw: %w", err)
+	}
+
 	subjects, err := parseSubject(raw[jsonFldSubject])
 	if err != nil {
 		return nil, fmt.Errorf("fill credential subject from raw: %w", err)
@@ -1749,20 +1776,21 @@ func parseCredentialContents(raw JSONObject, isSDJWT bool) (*CredentialContents,
 	}
 
 	return &CredentialContents{
-		Context:        context,
-		CustomContext:  customContext,
-		ID:             id,
-		Types:          types,
-		Subject:        subjects,
-		Issuer:         issuer,
-		Issued:         issued,
-		Expired:        expired,
-		Status:         status,
-		Schemas:        schemas,
-		Evidence:       raw[jsonFldEvidence],
-		TermsOfUse:     termsOfUse,
-		RefreshService: refreshService,
-		SDJWTHashAlg:   sdJWTHashAlgCode,
+		Context:          context,
+		CustomContext:    customContext,
+		ID:               id,
+		Types:            types,
+		Subject:          subjects,
+		Issuer:           issuer,
+		Issued:           issued,
+		Expired:          expired,
+		Status:           status,
+		Schemas:          schemas,
+		Evidence:         raw[jsonFldEvidence],
+		TermsOfUse:       termsOfUse,
+		RefreshService:   refreshService,
+		RelatedResources: relatedResource,
+		SDJWTHashAlg:     sdJWTHashAlgCode,
 	}, nil
 }
 
@@ -1777,6 +1805,10 @@ func parseRefreshService(typeIDRaw interface{}) (*TypedID, error) {
 	}
 
 	return &typed[0], nil
+}
+
+func parseRelatedResources(typeIDRaw interface{}) ([]RelatedResource, error) {
+	return nil, nil
 }
 
 func parseTypedID(typeIDRaw interface{}) ([]TypedID, error) {
@@ -2408,6 +2440,10 @@ func serializeCredentialContents(vcc *CredentialContents, proofs []Proof) (JSONO
 
 	if vcc.RefreshService != nil {
 		vcJSON[jsonFldRefreshService] = serializeTypedIDObj(*vcc.RefreshService)
+	}
+
+	if len(vcc.RelatedResources) > 0 {
+		vcJSON[jsonFldRelatedResource] = vcc.RelatedResources
 	}
 
 	if len(vcc.TermsOfUse) > 0 {

@@ -577,7 +577,8 @@ type presentationOpts struct {
 	verifyDataIntegrity *verifyDataIntegrityOpts
 
 	jsonldCredentialOpts
-	checkHolder bool
+	checkHolder          bool
+	checkRelatedResource bool
 }
 
 // PresentationOpt is the Verifiable Presentation decoding option.
@@ -619,6 +620,12 @@ func WithPresJSONLDDocumentLoader(documentLoader jsonld.DocumentLoader) Presenta
 func WithPresHolderCheck(checkHolder bool) PresentationOpt {
 	return func(opts *presentationOpts) {
 		opts.checkHolder = checkHolder
+	}
+}
+
+func WithPresRelatedResourceCheck(checkRelatedResource bool) PresentationOpt {
+	return func(opts *presentationOpts) {
+		opts.checkRelatedResource = checkRelatedResource
 	}
 }
 
@@ -833,6 +840,12 @@ func newPresentation(vpRaw rawPresentation, vpOpts *presentationOpts) (*Presenta
 
 	if vpOpts.checkHolder {
 		if err = validateHolder(proofs, creds, holder); err != nil {
+			return nil, err
+		}
+	}
+
+	if vpOpts.checkRelatedResource {
+		if err = DefaultRelatedResourceValidator.Validate(creds); err != nil {
 			return nil, err
 		}
 	}

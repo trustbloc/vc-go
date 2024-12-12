@@ -16,6 +16,7 @@ require (
 	github.com/go-jose/go-jose/v3 v3.0.1
 	github.com/golang/mock v1.4.4
 	github.com/google/uuid v1.3.0
+	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/kawamuray/jsonpath v0.0.0-20201211160320-7483bafabd7e
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/multiformats/go-multibase v0.1.1
