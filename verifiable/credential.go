@@ -1839,14 +1839,22 @@ func parseRelatedResources(typeRaw interface{}) ([]RelatedResource, error) {
 		}
 
 		resources = append(resources, RelatedResource{
-			Id:              fmt.Sprint(mapVal["id"]),
-			DigestSRI:       fmt.Sprint(mapVal["digestSRI"]),
-			MediaType:       fmt.Sprint(mapVal["mediaType"]),
-			DigestMultiBase: fmt.Sprint(mapVal["digestMultibase"]),
+			Id:              stringify(mapVal["id"]),
+			DigestSRI:       stringify(mapVal["digestSRI"]),
+			MediaType:       stringify(mapVal["mediaType"]),
+			DigestMultiBase: stringify(mapVal["digestMultibase"]),
 		})
 	}
 
 	return resources, nil
+}
+
+func stringify(val any) string {
+	if val == nil {
+		return ""
+	}
+
+	return fmt.Sprint(val)
 }
 
 func parseTypedID(typeIDRaw interface{}) ([]TypedID, error) {
