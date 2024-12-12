@@ -16,6 +16,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/hashicorp/golang-lru/v2/expirable"
+	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/trustbloc/vc-go/verifiable"
@@ -26,6 +27,42 @@ var relatedResources1 []byte
 
 //go:embed testdata/related_resources_2.json
 var relatedResources2 []byte
+
+//go:embed testdata/credential_with_resource.json
+var credentialWithResource []byte
+
+func TestParseCredentialWithResource(t *testing.T) {
+	resp, err := verifiable.ParseCredential(
+		credentialWithResource,
+		verifiable.WithJSONLDDocumentLoader(ld.NewDefaultDocumentLoader(http.DefaultClient)),
+		verifiable.WithDisabledProofCheck(),
+		verifiable.WithDisabledRelatedResourceCheck(),
+	)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+
+	content := resp.Contents()
+	assert.Len(t, content.RelatedResources, 1)
+
+	assert.Equal(t, "https://w3c.github.io/vc-data-model/related-resource.json",
+		content.RelatedResources[0].Id)
+
+	data, err := resp.MarshalJSON()
+	assert.NoError(t, err)
+	assert.NotEmpty(t, data)
+
+	resp, err = verifiable.ParseCredential(data,
+		verifiable.WithJSONLDDocumentLoader(ld.NewDefaultDocumentLoader(http.DefaultClient)),
+		verifiable.WithDisabledProofCheck(),
+		verifiable.WithDisabledRelatedResourceCheck(),
+	)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	content = resp.Contents()
+	assert.Len(t, content.RelatedResources, 1)
+}
 
 func TestValidateRelatedResources(t *testing.T) {
 	contentFn := func(request *http.Request) (*http.Response, error) {

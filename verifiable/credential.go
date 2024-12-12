@@ -863,6 +863,7 @@ type RelatedResource struct {
 	Id              string `json:"id,omitempty"`
 	DigestSRI       string `json:"digestSRI,omitempty"`
 	DigestMultiBase string `json:"digestMultibase,omitempty"`
+	MediaType       string `json:"mediaType,omitempty"`
 }
 
 // JSONObject used to store json object.
@@ -1820,8 +1821,32 @@ func parseRefreshService(typeIDRaw interface{}) (*TypedID, error) {
 	return &typed[0], nil
 }
 
-func parseRelatedResources(typeIDRaw interface{}) ([]RelatedResource, error) {
-	return nil, nil
+func parseRelatedResources(typeRaw interface{}) ([]RelatedResource, error) {
+	if typeRaw == nil {
+		return nil, nil
+	}
+
+	relatedResources, ok := typeRaw.([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("related resources of unsupported format, %v", typeRaw)
+	}
+
+	var resources []RelatedResource
+	for _, rawResource := range relatedResources {
+		mapVal, mapOk := rawResource.(map[string]interface{})
+		if !mapOk {
+			return nil, fmt.Errorf("related resource of unsupported format, %v", rawResource)
+		}
+
+		resources = append(resources, RelatedResource{
+			Id:              fmt.Sprint(mapVal["id"]),
+			DigestSRI:       fmt.Sprint(mapVal["digestSRI"]),
+			MediaType:       fmt.Sprint(mapVal["mediaType"]),
+			DigestMultiBase: fmt.Sprint(mapVal["digestMultibase"]),
+		})
+	}
+
+	return resources, nil
 }
 
 func parseTypedID(typeIDRaw interface{}) ([]TypedID, error) {
