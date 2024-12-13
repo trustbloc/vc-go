@@ -153,6 +153,7 @@ func (r *RelatedResourceValidator) validateSingleResource(
 	cachedResource *CachedResource,
 ) error {
 	var hashAlgo string
+
 	var hash string
 
 	if res.DigestSRI != "" {
@@ -169,6 +170,15 @@ func (r *RelatedResourceValidator) validateSingleResource(
 		hash = res.DigestMultiBase
 	}
 
+	return r.validateHash(hash, hashAlgo, res, cachedResource)
+}
+
+func (r *RelatedResourceValidator) validateHash(
+	hash string,
+	hashAlgo string,
+	res *RelatedResource,
+	cachedResource *CachedResource,
+) error {
 	enc, decodedDigest, err := multibase.Decode(hash)
 	if err != nil {
 		return errors.Join(err, fmt.Errorf("decode digest: %s", hash))

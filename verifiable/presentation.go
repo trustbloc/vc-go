@@ -803,6 +803,27 @@ func validateHolder(
 	return nil
 }
 
+func executeChecks(
+	vpOpts *presentationOpts,
+	proofs []Proof,
+	creds []*Credential,
+	holder string,
+) error {
+	if vpOpts.checkHolder {
+		if err := validateHolder(proofs, creds, holder); err != nil {
+			return err
+		}
+	}
+
+	if vpOpts.checkRelatedResource {
+		if err := DefaultRelatedResourceValidator.Validate(creds); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func newPresentation(vpRaw rawPresentation, vpOpts *presentationOpts) (*Presentation, error) {
 	types, err := decodeType(vpRaw[vpFldType])
 	if err != nil {
@@ -834,16 +855,8 @@ func newPresentation(vpRaw rawPresentation, vpOpts *presentationOpts) (*Presenta
 		return nil, fmt.Errorf("fill presentation holder from raw: %w", err)
 	}
 
-	if vpOpts.checkHolder {
-		if err = validateHolder(proofs, creds, holder); err != nil {
-			return nil, err
-		}
-	}
-
-	if vpOpts.checkRelatedResource {
-		if err = DefaultRelatedResourceValidator.Validate(creds); err != nil {
-			return nil, err
-		}
+	if err = executeChecks(vpOpts, proofs, creds, holder); err != nil {
+		return nil, err
 	}
 
 	return &Presentation{
