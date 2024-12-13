@@ -747,10 +747,6 @@ func validateHolder(
 		return nil
 	}
 
-	//if holder == "" {
-	//	return nil
-	//}
-
 	existingMethods := make(map[string]struct{})
 
 	for _, proof := range proofs {
@@ -764,14 +760,14 @@ func validateHolder(
 	}
 
 	subjects := make(map[string]struct{})
+
 	for _, cred := range creds {
 		for _, sub := range cred.Contents().Subject {
 			subjects[sub.ID] = struct{}{}
 		}
 	}
 
-	if len(subjects) == 0 ||
-		len(subjects) > 1 { // skip holder check if there are multiple subjects in credentials
+	if len(subjects) == 0 || len(subjects) > 1 { // skip holder check if there are multiple subjects in credentials
 		return nil
 	}
 

@@ -20,6 +20,7 @@ import (
 	"github.com/multiformats/go-multibase"
 )
 
+// nolint:gochecknoglobals
 var DefaultRelatedResourceValidator = NewRelatedResourceValidator()
 
 type RelatedResourceValidator struct {
@@ -90,8 +91,9 @@ func (r *RelatedResourceValidator) Fetch(targetURL string) (*CachedResource, err
 	}
 
 	var data []byte
+
 	defer func() {
-		_ = resp.Body.Close()
+		_ = resp.Body.Close() // nolint:errcheck
 	}()
 
 	data, err = io.ReadAll(resp.Body)
@@ -173,7 +175,8 @@ func (r *RelatedResourceValidator) validateSingleResource(
 	}
 
 	var rawHash []byte
-	switch hashAlgo {
+
+	switch strings.ToLower(hashAlgo) {
 	case "sha256":
 		rawHash = cachedResource.Sha256Hash
 	case "sha384":

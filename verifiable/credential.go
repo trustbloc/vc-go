@@ -1832,6 +1832,7 @@ func parseRelatedResources(typeRaw interface{}) ([]RelatedResource, error) {
 	}
 
 	var resources []RelatedResource
+
 	for _, rawResource := range relatedResources {
 		mapVal, mapOk := rawResource.(map[string]interface{})
 		if !mapOk {
