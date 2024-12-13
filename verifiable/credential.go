@@ -1136,7 +1136,8 @@ func WithDisabledProofCheck() CredentialOpt {
 	}
 }
 
-func WithEnabledJsonLDTypesCheck() CredentialOpt {
+// WithEnabledJSONLDTypesCheck option for enabling check of JSON-LD types.
+func WithEnabledJSONLDTypesCheck() CredentialOpt {
 	return func(opts *credentialOpts) {
 		opts.enableJsonLDTypesCheck = true
 	}
