@@ -38,6 +38,7 @@ func NewDefaultProofChecker(verificationMethodResolver verificationMethodResolve
 	jwtCheckers := []proofdesc.JWTProofDescriptor{
 		eddsa.New(), es256.New(), es256k.New(), es384.New(), es521.New(), rs256.New(), ps256.New(),
 	}
+
 	return checker.New(verificationMethodResolver,
 		checker.WithSignatureVerifiers(ed25519.New(), bbs.NewBBSG2SignatureVerifier(),
 			rsa.NewPS256(), rsa.NewRS256(),

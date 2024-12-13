@@ -100,6 +100,7 @@ func (r *VMResolver) ResolveVerificationMethod(
 		return nil, fmt.Errorf("invalid issuer. expected %q got %q",
 			r.expectedIssuer, expectedKeyController)
 	}
+
 	for _, mocked := range r.mockedVerificationMethods {
 		if mocked.lookupID == AnyPubKeyID {
 			return mocked.verificationMethodValue, nil
@@ -389,7 +390,8 @@ func bbsPairDesc(publicKeyID *SigningKey) (*creator.ProofCreator, mockedVerifica
 	return proofCreator, vm, nil
 }
 
-func ecdsaSecp256k1PairDesc(publicKeyID *SigningKey, jwkVM bool) (*creator.ProofCreator, mockedVerificationMethod, error) {
+func ecdsaSecp256k1PairDesc(publicKeyID *SigningKey, jwkVM bool,
+) (*creator.ProofCreator, mockedVerificationMethod, error) {
 	privKey, err := ecdsa.GenerateKey(btcec.S256(), rand.Reader)
 	if err != nil {
 		return nil, mockedVerificationMethod{}, err

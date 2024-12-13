@@ -78,7 +78,7 @@ func TestNew(t *testing.T) {
 		combinedFormatForIssuance, err := token.Serialize(false)
 		require.NoError(t, err)
 
-		fmt.Printf(combinedFormatForIssuance)
+		fmt.Print(combinedFormatForIssuance)
 
 		cfi := common.ParseCombinedFormatForIssuance(combinedFormatForIssuance)
 		require.Equal(t, 1, len(cfi.Disclosures))
@@ -174,7 +174,7 @@ func TestNew(t *testing.T) {
 		combinedFormatForIssuance, err := token.Serialize(false)
 		require.NoError(t, err)
 
-		fmt.Printf(combinedFormatForIssuance)
+		fmt.Print(combinedFormatForIssuance)
 
 		cfi := common.ParseCombinedFormatForIssuance(combinedFormatForIssuance)
 		require.Equal(t, 7, len(cfi.Disclosures))
@@ -224,7 +224,7 @@ func TestNew(t *testing.T) {
 		combinedFormatForIssuance, err := token.Serialize(false)
 		require.NoError(t, err)
 
-		fmt.Printf(combinedFormatForIssuance)
+		fmt.Print(combinedFormatForIssuance)
 
 		cfi := common.ParseCombinedFormatForIssuance(combinedFormatForIssuance)
 		// expected 6 simple + 4 address object disclosures
@@ -282,7 +282,7 @@ func TestNew(t *testing.T) {
 		combinedFormatForIssuance, err := token.Serialize(false)
 		require.NoError(t, err)
 
-		fmt.Printf(combinedFormatForIssuance)
+		fmt.Print(combinedFormatForIssuance)
 
 		cfi := common.ParseCombinedFormatForIssuance(combinedFormatForIssuance)
 		require.Equal(t, 4, len(cfi.Disclosures))
@@ -339,7 +339,7 @@ func TestNew(t *testing.T) {
 		combinedFormatForIssuance, err := token.Serialize(false)
 		require.NoError(t, err)
 
-		fmt.Printf(combinedFormatForIssuance)
+		fmt.Print(combinedFormatForIssuance)
 
 		cfi := common.ParseCombinedFormatForIssuance(combinedFormatForIssuance)
 		require.Equal(t, 3, len(cfi.Disclosures))

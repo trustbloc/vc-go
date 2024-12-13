@@ -172,6 +172,7 @@ const v1BasePresentationSchema = `
 }
 `
 
+// nolint: lll
 const v2BasePresentationSchema = `{
   "$id": "https://www.w3.org/2022/credentials/v2/verifiable-presentation-schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -668,9 +669,10 @@ func ParsePresentation(vpData []byte, opts ...PresentationOpt) (*Presentation, e
 		&PresentationCWTParser{},
 	}
 
-	var parsed *parsePresentationResponse
-	var finalErr error
-	var err error
+	var (
+		parsed        *parsePresentationResponse
+		finalErr, err error
+	)
 
 	for _, parser := range parsers {
 		parsed, err = parser.parse(vpData, vpOpts)
@@ -681,7 +683,6 @@ func ParsePresentation(vpData []byte, opts ...PresentationOpt) (*Presentation, e
 
 		if parsed != nil {
 			finalErr = nil
-			err = nil
 
 			break
 		}
@@ -706,7 +707,7 @@ func ParsePresentation(vpData []byte, opts ...PresentationOpt) (*Presentation, e
 	}
 
 	if vpOpts.requireVC && len(p.credentials) == 0 {
-		return nil, fmt.Errorf("verifiableCredential is required")
+		return nil, errors.New("verifiableCredential is required")
 	}
 
 	p.JWT = parsed.VPJwt
@@ -772,9 +773,9 @@ func validateHolder(
 	}
 
 	for _, cred := range creds {
-		content := cred.Contents().Issuer
 		var issuerID string
 
+		content := cred.Contents().Issuer
 		if content != nil {
 			issuerID = content.ID
 		}

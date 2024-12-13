@@ -47,15 +47,13 @@ const (
 	schemaPropertyCredentialSubject = "credentialSubject"
 	schemaPropertyIssuer            = "issuer"
 	schemaPropertyIssuanceDate      = "issuanceDate"
-
-	jsonLDStructureErrStr = "JSON-LD doc has different structure after compaction"
 )
 
 // SchemaTemplateV1 describes credentials v1 schema.
 const SchemaTemplateV1 = `{
   "required": [
     "@context"
-    %s    
+    %s
   ],
   "properties": {
     "@context": {
@@ -244,6 +242,8 @@ const SchemaTemplateV1 = `{
 `
 
 // SchemaTemplateV2 describes credential V2 schema.
+//
+// nolint: lll
 const SchemaTemplateV2 = `{
   "$id": "https://www.w3.org/2022/credentials/v2/verifiable-credential-schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -568,7 +568,7 @@ const SchemaTemplateV2 = `{
   },
   "required": [
     "@context"
-    %s    
+    %s
   ],
   "additionalProperties": true
 }
@@ -913,6 +913,7 @@ func (ec *Envelope) ToRawJSON() (JSONObject, error) {
 	}
 
 	var obj JSONObject
+
 	err = json.Unmarshal(ecBytes, &obj)
 	if err != nil {
 		return nil, fmt.Errorf("unmarshal enveloped credential: %w", err)
@@ -991,7 +992,8 @@ func (vc *Credential) ToUniversalForm() (interface{}, error) {
 	}
 }
 
-func (vc *Credential) toEnvelopedForm(mediaType MediaType, marshal func(vc *Credential) (string, error)) (interface{}, error) {
+func (vc *Credential) toEnvelopedForm(mediaType MediaType, marshal func(vc *Credential) (string, error),
+) (interface{}, error) {
 	result, err := marshal(vc)
 	if err != nil {
 		return nil, err
@@ -1047,7 +1049,7 @@ func (vc *Credential) SDJWTDisclosures() []*common.DisclosureClaim {
 // SetSDJWTDisclosures sets sd disclosures for sdjwt.
 func (vc *Credential) SetSDJWTDisclosures(disclosures []*common.DisclosureClaim) error {
 	if vc.JWTEnvelope == nil {
-		return fmt.Errorf("non jws credentials not support sd jwt disclosure")
+		return errors.New("non jws credentials not support sd jwt disclosure")
 	}
 
 	vc.JWTEnvelope.SDJWTDisclosures = disclosures
@@ -1373,7 +1375,7 @@ func parseSubject(subjectRaw interface{}) ([]Subject, error) {
 		for _, raw := range subject {
 			sub, ok := raw.(map[string]interface{})
 			if !ok {
-				return nil, fmt.Errorf("verifiable credential subject of unsupported format")
+				return nil, errors.New("verifiable credential subject of unsupported format")
 			}
 
 			parsed, err := SubjectFromJSON(sub)
@@ -1387,7 +1389,7 @@ func parseSubject(subjectRaw interface{}) ([]Subject, error) {
 		return subjects, nil
 	}
 
-	return nil, fmt.Errorf("verifiable credential subject of unsupported format")
+	return nil, errors.New("verifiable credential subject of unsupported format")
 }
 
 // decodeCredentialSchemas decodes credential schema(s).
@@ -1444,9 +1446,9 @@ func ParseCredentialJSON(vcJSON JSONObject, opts ...CredentialOpt) (*Credential,
 			return nil, errors.New("id is required for enveloped credential")
 		}
 
-		vc, err := parseCredentialDataURL(id, vcOpts)
-		if err != nil {
-			return nil, fmt.Errorf("parse credential data URL: %w", err)
+		vc, parseErr := parseCredentialDataURL(id, vcOpts)
+		if parseErr != nil {
+			return nil, fmt.Errorf("parse credential data URL: %w", parseErr)
 		}
 
 		return vc, nil
@@ -1570,7 +1572,12 @@ func validateDisclosures(vcBytes []byte, disclosures []string) error {
 	}
 
 	if _, hasSDAlg := vcPayload.Payload["_sd_alg"]; !hasSDAlg {
-		subjSDAlg, hasSubjSDAlg := vcPayload.Payload["credentialSubject"].(map[string]interface{})["_sd_alg"]
+		credentialSubject, ok := vcPayload.Payload["credentialSubject"].(map[string]interface{})
+		if !ok {
+			return errors.New("unsupported type of credentialSubject")
+		}
+
+		subjSDAlg, hasSubjSDAlg := credentialSubject["_sd_alg"]
 		if hasSubjSDAlg {
 			vcPayload.Payload["_sd_alg"] = subjSDAlg
 		}
@@ -1928,7 +1935,7 @@ func parseDisclosures(disclosures []string, hash *crypto.Hash) ([]*common.Disclo
 	}
 
 	if hash == nil {
-		return nil, fmt.Errorf("inconsistent state, if selective disclosures are present, sd alg should be set")
+		return nil, errors.New("inconsistent state, if selective disclosures are present, sd alg should be set")
 	}
 
 	disc, err := common.GetDisclosureClaims(disclosures, *hash)
@@ -2032,7 +2039,7 @@ func (vc *Credential) CheckProof(opts ...CredentialOpt) error {
 
 func (vc *Credential) checkProof(vcOpts *credentialOpts) error {
 	if vc.credentialContents.Issuer == nil {
-		return fmt.Errorf("proof check failuer: issuer is missed")
+		return errors.New("proof check failuer: issuer is missed")
 	}
 
 	issuerID := vc.credentialContents.Issuer.ID
@@ -2157,7 +2164,8 @@ func SerializeSubject(subject []Subject) interface{} {
 	return mapSlice(subject, SubjectToJSON)
 }
 
-// validateCredentialUsingJSONSchema validates that the Verifiable Credential conforms to the serialization of the Verifiable Credential data model
+// validateCredentialUsingJSONSchema validates that the Verifiable Credential
+// conforms to the serialization of the Verifiable Credential data model
 // (https://w3c.github.io/vc-data-model/#example-1-a-simple-example-of-a-verifiable-credential)
 func validateCredentialUsingJSONSchema(vcJSON JSONObject, vcc *CredentialContents, opts *credentialOpts) error {
 	schemaLoader, err := getSchemaLoader(vcc, opts)

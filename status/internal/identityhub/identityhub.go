@@ -10,6 +10,7 @@ package identityhub
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -100,7 +101,7 @@ func (i Response) GetMessageData(objectID string) ([]byte, error) {
 		}
 	}
 
-	return nil, fmt.Errorf("unable to get message by object ID from Response")
+	return nil, errors.New("unable to get message by object ID from Response")
 }
 
 // GetObjectID returns the objectId of the Message.
@@ -171,7 +172,7 @@ func ServiceEndpoint(doc *did.Doc) (string, error) {
 	}
 
 	if svc == nil {
-		return "", fmt.Errorf("no identity hub service supplied")
+		return "", errors.New("no identity hub service supplied")
 	}
 
 	switch svc.ServiceEndpoint.Type() { //nolint:exhaustive
@@ -212,5 +213,5 @@ func getDIDCoreServiceEndpoint(svc *did.Service) (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("unable to extract DIDCore service endpoint")
+	return "", errors.New("unable to extract DIDCore service endpoint")
 }

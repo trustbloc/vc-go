@@ -9,6 +9,7 @@ package holder
 
 import (
 	"crypto"
+	"errors"
 	"fmt"
 	"time"
 
@@ -173,7 +174,7 @@ func applySDJWTV5Validation(signedJWT *afgjwt.JSONWebToken, disclosures []string
 	}
 
 	if afgjwt.IsJWS(possibleKeyBinding) || afgjwt.IsJWTUnsecured(possibleKeyBinding) {
-		return fmt.Errorf("unexpected key binding JWT supplied")
+		return errors.New("unexpected key binding JWT supplied")
 	}
 
 	if pOpts.expectedTypHeader != "" {
@@ -260,7 +261,7 @@ func CreatePresentation(combinedFormatForIssuance string, claimsToDisclose []str
 	cfi := common.ParseCombinedFormatForIssuance(combinedFormatForIssuance)
 
 	if len(cfi.Disclosures) == 0 {
-		return "", fmt.Errorf("no disclosures found in SD-JWT")
+		return "", errors.New("no disclosures found in SD-JWT")
 	}
 
 	disclosuresMap := common.SliceToMap(cfi.Disclosures)

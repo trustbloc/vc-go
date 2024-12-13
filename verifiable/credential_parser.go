@@ -29,7 +29,7 @@ type CredentialJSONParser struct {
 }
 
 // Parse parses a JSON credential.
-func (p *CredentialJSONParser) Parse(
+func (p *CredentialJSONParser) Parse( //nolint:funlen,gocyclo // Old function
 	vcData []byte,
 	vcOpts *credentialOpts,
 ) (*Credential, error) {
@@ -135,11 +135,11 @@ func convertElement(element interface{}) interface{} {
 		for i, v := range elem {
 			elem[i] = convertElement(v)
 		}
+
 		return elem
 	default:
 		return elem
 	}
-
 }
 
 func (p *CredentialCBORParser) parseCred(data []byte) (*cose.Sign1Message, error) {
@@ -153,13 +153,11 @@ func (p *CredentialCBORParser) parseCred(data []byte) (*cose.Sign1Message, error
 }
 
 // Parse parses a CBOR credential.
-func (p *CredentialCBORParser) Parse(
+func (p *CredentialCBORParser) Parse( //nolint:funlen,gocyclo // Old function
 	vcData []byte,
 	vcOpts *credentialOpts,
 ) (*Credential, error) {
-	var rawErr error
-	var hexRawErr error
-	var hexErr error
+	var rawErr, hexRawErr, hexErr error
 
 	message, rawErr := p.parseCred(vcData)
 
@@ -189,10 +187,11 @@ func (p *CredentialCBORParser) Parse(
 
 	vcDataMap, ok := vcJSON["vc"].(map[interface{}]interface{})
 	if !ok {
-		return nil, fmt.Errorf("vc field not found in cbor credential")
+		return nil, errors.New("vc field not found in cbor credential")
 	}
 
 	convertedMap := convertToStringMap(vcDataMap)
+
 	contents, err := parseCredentialContents(convertedMap, false)
 	if err != nil {
 		return nil, err

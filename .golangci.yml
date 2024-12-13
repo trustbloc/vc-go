@@ -6,15 +6,14 @@
 
 run:
   concurrency: 4
-  deadline: 3m
+  timeout: 3m
   issues-exit-code: 1
   tests: true
   build-tags: [""]
-  skip-dirs:
-    - pkg/crypto/primitive/bbs12381g2pub/internal/kilic/bls12-381
 
 output:
-  format: colored-line-number
+  formats:
+    - format: colored-line-number
   print-issued-lines: true
   print-linter-name: true
 
@@ -22,17 +21,18 @@ linters-settings:
   errcheck:
     check-type-assertions: true
     check-blank: true
-    ignore: fmt:.*,io/ioutil:^Read.*
+    exclude-functions:
+      - fmt:.*
+      - io/ioutil:^Read.*
   govet:
-    check-shadowing: true
-  golint:
-    min-confidence: 0.6
+    enable:
+      - shadow
+  revive:
+    confidence: 0.6
   gofmt:
     simplify: true
   gocyclo:
     min-complexity: 10
-  maligned:
-    suggest-new: true
   dupl:
     threshold: 500
   goconst:
@@ -46,7 +46,7 @@ linters-settings:
     line-length: 120
     tab-width: 1
   unused:
-    check-exported: false
+    exported-fields-are-used: false
   unparam:
     check-exported: false
   nakedret:
@@ -67,10 +67,12 @@ linters-settings:
     strict-append: true
     allow-assign-and-call: true
     allow-multiline-assign: true
-    allow-case-traling-whitespace: true
+    force-case-trailing-whitespace: 0
     allow-cuddle-declarations: false
   godot:
     check-all: false
+  predeclared:
+    ignore: "min,max,clear"
 
 linters:
   enable-all: true
@@ -81,32 +83,26 @@ linters:
     - tenv
     - tagliatelle
     - testpackage
-    - maligned
     - prealloc
     - exhaustive #TODO enable
     - goerr113 # TODO enable
     - nlreturn # TODO enable
     - noctx # TODO enable
-    - interfacer # deprecated by the author https://github.com/mvdan/interfacer#interfacer
-    - scopelint # deprecated by the author https://github.com/kyoh86/scopelint#obsoleted
-    - exhaustivestruct
     - paralleltest
     - tparallel
     - cyclop # TODO consider replacing gocyclo with cyclop
-    - ifshort # TODO enable
     - makezero # TODO enable
     - wrapcheck # TODO enable
     - thelper # TODO enable
     - usestdlibvars
     - testableexamples
     - stylecheck
-    - nosnakecase
     - gci
     - staticcheck
     - nonamedreturns
     - nilnil
     - ireturn
-    - gomnd
+    - mnd
     - gosimple
     - errchkjson
     - errname
@@ -117,7 +113,6 @@ linters:
     - contextcheck
     - containedctx
     - bodyclose
-    - revive
     - gosec
     - gofumpt
     - gofmt
@@ -133,7 +128,8 @@ linters:
     - mirror
     - errorlint
     - nakedret
-
+    - recvcheck
+    - testifylint
 issues:
   exclude-use-default: false
   exclude-rules:
@@ -141,20 +137,24 @@ issues:
       linters:
         - dupl
         - funlen
-        - gomnd
+        - mnd
         - maintidx
-        - gomnd
         - usestdlibvars
         - testableexamples
         - stylecheck
         - typecheck
         - maintidx
         - mirror
+        - lll
+        - goconst
+        - wsl
+        - errcheck
+        - perfsprint
     - path: example_[^\/]*_test\.go
       linters:
         - dupl
         - funlen
-        - gomnd
+        - mnd
         - goconst
         - lll
     - source: "swagger:route"

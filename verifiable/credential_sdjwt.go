@@ -9,6 +9,7 @@ package verifiable
 import (
 	"crypto"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/trustbloc/kms-go/doc/jose"
@@ -112,7 +113,7 @@ func (vc *Credential) MarshalWithDisclosure(opts ...MarshalDisclosureOption) (st
 	}
 
 	if options.includeAllDisclosures && (len(options.discloseIfAvailable) > 0 || len(options.discloseRequired) > 0) {
-		return "", fmt.Errorf("incompatible options provided")
+		return "", errors.New("incompatible options provided")
 	}
 
 	if jwsEnvelope != nil && vc.credentialContents.SDJWTHashAlg != nil {
@@ -121,7 +122,7 @@ func (vc *Credential) MarshalWithDisclosure(opts ...MarshalDisclosureOption) (st
 	}
 
 	if options.signer == nil {
-		return "", fmt.Errorf("credential needs signer to create SD-JWT")
+		return "", errors.New("credential needs signer to create SD-JWT")
 	}
 
 	// If VC in not SD JWT.
@@ -131,7 +132,7 @@ func (vc *Credential) MarshalWithDisclosure(opts ...MarshalDisclosureOption) (st
 func filterSDJWTVC(vc *Credential, options *marshalDisclosureOpts) (string, error) {
 	jwsEnvelope := vc.JWTEnvelope
 	if jwsEnvelope == nil {
-		return "", fmt.Errorf("non jws credentials not supporting sdjwt filtering")
+		return "", errors.New("non jws credentials not supporting sdjwt filtering")
 	}
 
 	disclosureCodes, err := filteredDisclosureCodes(jwsEnvelope.SDJWTDisclosures, options)
@@ -256,7 +257,7 @@ func filterDisclosures(
 
 	for _, claim := range reqMap {
 		if claim == nil {
-			return nil, fmt.Errorf("disclosure list missing required claim")
+			return nil, errors.New("disclosure list missing required claim")
 		}
 
 		out = append(out, claim)
@@ -476,7 +477,7 @@ func (vc *Credential) CreateDisplayCredential( // nolint:funlen,gocyclo
 	}
 
 	if options.displayAll && len(options.displayGiven) > 0 {
-		return nil, fmt.Errorf("incompatible options provided")
+		return nil, errors.New("incompatible options provided")
 	}
 
 	if vc.credentialContents.SDJWTHashAlg == nil || vc.JWTEnvelope == nil {
@@ -538,7 +539,7 @@ func (vc *Credential) CreateDisplayCredentialMap( // nolint:funlen,gocyclo
 	}
 
 	if options.displayAll && len(options.displayGiven) > 0 {
-		return nil, fmt.Errorf("incompatible options provided")
+		return nil, errors.New("incompatible options provided")
 	}
 
 	if vc.credentialContents.SDJWTHashAlg == nil || vc.JWTEnvelope == nil {

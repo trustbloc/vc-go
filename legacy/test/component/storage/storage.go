@@ -102,6 +102,7 @@ func TestAll(t *testing.T, provider spi.Provider, opts ...TestOption) {
 		})
 		t.Run("Query", func(t *testing.T) {
 			TestStoreQuery(t, provider, opts...)
+
 			if !options.skipSortTests {
 				TestStoreQueryWithSortingAndInitialPageOptions(t, provider, opts...)
 			}
@@ -269,7 +270,6 @@ func TestProviderOpenStoreSetGetConfig(t *testing.T, provider spi.Provider) { //
 	t.Run("Demonstrate that store names are not case-sensitive", func(t *testing.T) {
 		// Per the interface, store names are not supposed to be case-sensitive in order to ensure consistency across
 		// storage implementations - some of which don't support case sensitivity in their database names.
-
 		storeWithCapitalLetter, err := provider.OpenStore("Some-store-name")
 		require.NoError(t, err)
 
@@ -1106,6 +1106,7 @@ func TestStoreBatch(t *testing.T, provider spi.Provider) { // nolint:funlen // T
 		value, err := store.Get("key1")
 		require.NoError(t, err)
 		require.Equal(t, "value1_new", string(value))
+
 		retrievedTags, err := store.GetTags("key1")
 		require.True(t, equalTags(key1UpdatedTagsToStore, retrievedTags), "Got unexpected tags")
 		require.NoError(t, err)
@@ -1113,6 +1114,7 @@ func TestStoreBatch(t *testing.T, provider spi.Provider) { // nolint:funlen // T
 		value, err = store.Get("key2")
 		require.NoError(t, err)
 		require.Equal(t, "value2_new", string(value))
+
 		retrievedTags, err = store.GetTags("key2")
 		require.True(t, equalTags(key2UpdatedTagsToStore, retrievedTags), "Got unexpected tags")
 		require.NoError(t, err)
@@ -1120,6 +1122,7 @@ func TestStoreBatch(t *testing.T, provider spi.Provider) { // nolint:funlen // T
 		value, err = store.Get("key3")
 		require.NoError(t, err)
 		require.Equal(t, "value3_new", string(value))
+
 		retrievedTags, err = store.GetTags("key3")
 		require.True(t, equalTags(key3UpdatedTagsToStore, retrievedTags), "Got unexpected tags")
 		require.NoError(t, err)
@@ -1162,6 +1165,7 @@ func TestStoreBatch(t *testing.T, provider spi.Provider) { // nolint:funlen // T
 		value, err := store.Get("key1")
 		require.True(t, errors.Is(err, spi.ErrDataNotFound), "got unexpected error or no error")
 		require.Nil(t, value)
+
 		tags, err := store.GetTags("key1")
 		require.True(t, errors.Is(err, spi.ErrDataNotFound), "got unexpected error or no error")
 		require.Nil(t, tags)
@@ -1169,6 +1173,7 @@ func TestStoreBatch(t *testing.T, provider spi.Provider) { // nolint:funlen // T
 		value, err = store.Get("key2")
 		require.True(t, errors.Is(err, spi.ErrDataNotFound), "got unexpected error or no error")
 		require.Nil(t, value)
+
 		tags, err = store.GetTags("key2")
 		require.True(t, errors.Is(err, spi.ErrDataNotFound), "got unexpected error or no error")
 		require.Nil(t, tags)
@@ -1176,6 +1181,7 @@ func TestStoreBatch(t *testing.T, provider spi.Provider) { // nolint:funlen // T
 		value, err = store.Get("key3")
 		require.True(t, errors.Is(err, spi.ErrDataNotFound), "got unexpected error or no error")
 		require.Nil(t, value)
+
 		tags, err = store.GetTags("key3")
 		require.True(t, errors.Is(err, spi.ErrDataNotFound), "got unexpected error or no error")
 		require.Nil(t, tags)
@@ -1220,6 +1226,7 @@ func TestStoreBatch(t *testing.T, provider spi.Provider) { // nolint:funlen // T
 		value, err := store.Get("key1")
 		require.True(t, errors.Is(err, spi.ErrDataNotFound), "got unexpected error or no error")
 		require.Nil(t, value)
+
 		tags, err := store.GetTags("key1")
 		require.True(t, errors.Is(err, spi.ErrDataNotFound), "got unexpected error or no error")
 		require.Nil(t, tags)
@@ -1227,6 +1234,7 @@ func TestStoreBatch(t *testing.T, provider spi.Provider) { // nolint:funlen // T
 		value, err = store.Get("key3")
 		require.True(t, errors.Is(err, spi.ErrDataNotFound), "got unexpected error or no error")
 		require.Nil(t, value)
+
 		tags, err = store.GetTags("key3")
 		require.True(t, errors.Is(err, spi.ErrDataNotFound), "got unexpected error or no error")
 		require.Nil(t, tags)
@@ -1259,6 +1267,7 @@ func TestStoreBatch(t *testing.T, provider spi.Provider) { // nolint:funlen // T
 		value, err := store.Get("key1")
 		require.True(t, errors.Is(err, spi.ErrDataNotFound), "got unexpected error or no error")
 		require.Nil(t, value)
+
 		tags, err := store.GetTags("key1")
 		require.True(t, errors.Is(err, spi.ErrDataNotFound), "got unexpected error or no error")
 		require.Nil(t, tags)
@@ -1294,6 +1303,7 @@ func TestStoreBatch(t *testing.T, provider spi.Provider) { // nolint:funlen // T
 		value, err := store.Get("key1")
 		require.NoError(t, err)
 		require.Equal(t, "value2", string(value))
+
 		retrievedTags, err := store.GetTags("key1")
 		require.True(t, equalTags(updatedTagsToStore, retrievedTags), "Got unexpected tags")
 		require.NoError(t, err)
@@ -1334,6 +1344,7 @@ func TestStoreBatch(t *testing.T, provider spi.Provider) { // nolint:funlen // T
 		value, err := store.Get("key1")
 		require.True(t, errors.Is(err, spi.ErrDataNotFound), "got unexpected error or no error")
 		require.Nil(t, value)
+
 		tags, err := store.GetTags("key1")
 		require.True(t, errors.Is(err, spi.ErrDataNotFound), "got unexpected error or no error")
 		require.Nil(t, tags)
@@ -1379,6 +1390,7 @@ func TestStoreBatch(t *testing.T, provider spi.Provider) { // nolint:funlen // T
 		value, err := store.Get("key1")
 		require.NoError(t, err)
 		require.Equal(t, "value1_new2", string(value))
+
 		retrievedTags, err := store.GetTags("key1")
 		require.True(t, equalTags(key1SecondUpdatedTagsToStore, retrievedTags), "Got unexpected tags")
 		require.NoError(t, err)
@@ -1435,6 +1447,7 @@ func TestStoreBatch(t *testing.T, provider spi.Provider) { // nolint:funlen // T
 		value, err := store.Get("key1")
 		require.NoError(t, err)
 		require.Equal(t, "value1_new", string(value))
+
 		retrievedTags, err := store.GetTags("key1")
 		require.True(t, equalTags(key1FinalTagsToStore, retrievedTags), "Got unexpected tags")
 		require.NoError(t, err)
@@ -1442,6 +1455,7 @@ func TestStoreBatch(t *testing.T, provider spi.Provider) { // nolint:funlen // T
 		value, err = store.Get("key2")
 		require.NoError(t, err)
 		require.Equal(t, "value2_new", string(value))
+
 		retrievedTags, err = store.GetTags("key2")
 		require.True(t, equalTags(key2FinalTagsToStore, retrievedTags), "Got unexpected tags")
 		require.NoError(t, err)
@@ -1449,6 +1463,7 @@ func TestStoreBatch(t *testing.T, provider spi.Provider) { // nolint:funlen // T
 		value, err = store.Get("key3")
 		require.NoError(t, err)
 		require.Equal(t, "value3_new", string(value))
+
 		retrievedTags, err = store.GetTags("key3")
 		require.True(t, equalTags(key3FinalTagsToStore, retrievedTags), "Got unexpected tags")
 		require.NoError(t, err)
@@ -3761,7 +3776,7 @@ func randomStoreName() string {
 }
 
 func putData(t *testing.T, store spi.Store, keys []string, values [][]byte, tags [][]spi.Tag) {
-	for i := 0; i < len(keys); i++ {
+	for i := range keys {
 		err := store.Put(keys[i], values[i], tags[i]...)
 		require.NoError(t, err)
 	}
@@ -3831,7 +3846,7 @@ func verifyIteratorAnyOrder(t *testing.T, actualResultsItr spi.Iterator, //nolin
 		receivedTags, itrErr := actualResultsItr.Tags()
 		require.NoError(t, itrErr)
 
-		for i := 0; i < len(dataChecklist.keys); i++ {
+		for i := range dataChecklist.keys {
 			if receivedKey == dataChecklist.keys[i] {
 				if string(receivedValue) == string(dataChecklist.values[i]) {
 					if equalTags(receivedTags, dataChecklist.tags[i]) {
