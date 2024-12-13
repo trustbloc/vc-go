@@ -578,7 +578,8 @@ type presentationOpts struct {
 	verifyDataIntegrity *verifyDataIntegrityOpts
 
 	jsonldCredentialOpts
-	checkHolder bool
+	checkHolder          bool
+	checkRelatedResource bool
 }
 
 // PresentationOpt is the Verifiable Presentation decoding option.
@@ -620,6 +621,12 @@ func WithPresJSONLDDocumentLoader(documentLoader jsonld.DocumentLoader) Presenta
 func WithPresHolderCheck(checkHolder bool) PresentationOpt {
 	return func(opts *presentationOpts) {
 		opts.checkHolder = checkHolder
+	}
+}
+
+func WithPresRelatedResourceCheck(checkRelatedResource bool) PresentationOpt {
+	return func(opts *presentationOpts) {
+		opts.checkRelatedResource = checkRelatedResource
 	}
 }
 
@@ -732,6 +739,7 @@ func decodeHolder(holder any) (string, error) {
 	}
 }
 
+// nolint:funlen,gocyclo
 func validateHolder(
 	proofs []Proof,
 	creds []*Credential,
@@ -751,6 +759,18 @@ func validateHolder(
 		}
 
 		existingMethods[strings.Split(verMethod, "#")[0]] = struct{}{}
+	}
+
+	subjects := make(map[string]struct{})
+
+	for _, cred := range creds {
+		for _, sub := range cred.Contents().Subject {
+			subjects[sub.ID] = struct{}{}
+		}
+	}
+
+	if len(subjects) == 0 || len(subjects) > 1 { // skip holder check if there are multiple subjects in credentials
+		return nil
 	}
 
 	for _, cred := range creds {
@@ -779,6 +799,27 @@ func validateHolder(
 						"verifiable presentation")
 				}
 			}
+		}
+	}
+
+	return nil
+}
+
+func executeChecks(
+	vpOpts *presentationOpts,
+	proofs []Proof,
+	creds []*Credential,
+	holder string,
+) error {
+	if vpOpts.checkHolder {
+		if err := validateHolder(proofs, creds, holder); err != nil {
+			return err
+		}
+	}
+
+	if vpOpts.checkRelatedResource {
+		if err := DefaultRelatedResourceValidator.Validate(creds); err != nil {
+			return err
 		}
 	}
 
@@ -816,10 +857,8 @@ func newPresentation(vpRaw rawPresentation, vpOpts *presentationOpts) (*Presenta
 		return nil, fmt.Errorf("fill presentation holder from raw: %w", err)
 	}
 
-	if vpOpts.checkHolder {
-		if err = validateHolder(proofs, creds, holder); err != nil {
-			return nil, err
-		}
+	if err = executeChecks(vpOpts, proofs, creds, holder); err != nil {
+		return nil, err
 	}
 
 	return &Presentation{

@@ -454,6 +454,7 @@ func TestExtraContextWithLDP(t *testing.T) {
 	// Use extra context.
 	vcWithLdp, err = parseTestCredential(t, vcBytes,
 		WithProofChecker(proofChecker),
+		WithEnabledJSONLDTypesCheck(),
 		WithExternalJSONLDContext("https://trustbloc.github.io/context/vc/examples-v1.jsonld"),
 		WithStrictValidation())
 	r.NoError(err)
@@ -462,6 +463,7 @@ func TestExtraContextWithLDP(t *testing.T) {
 	// Use extra context.
 	vcWithLdp, err = parseTestCredential(t, vcBytes,
 		WithProofChecker(proofChecker),
+		WithEnabledJSONLDTypesCheck(),
 		WithExternalJSONLDContext("https://trustbloc.github.io/context/vc/examples-v1.jsonld"),
 		WithStrictValidation())
 	r.NoError(err)
