@@ -739,6 +739,7 @@ func decodeHolder(holder any) (string, error) {
 	}
 }
 
+// nolint:funlen,gocyclo
 func validateHolder(
 	proofs []Proof,
 	creds []*Credential,
