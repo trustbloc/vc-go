@@ -137,7 +137,7 @@ func TestValidateRelatedResources(t *testing.T) {
 		assert.NoError(t, err)
 
 		cl := NewMockhttpClient(gomock.NewController(t))
-		cl.EXPECT().Do(gomock.Any()).DoAndReturn(contentFn).Times(2)
+		cl.EXPECT().Do(gomock.Any()).DoAndReturn(contentFn).Times(1)
 
 		validator := verifiable.NewRelatedResourceValidator(
 			verifiable.WithHTTPClient(cl),
@@ -158,7 +158,7 @@ func TestValidateRelatedResources(t *testing.T) {
 		assert.NoError(t, err)
 
 		cl := NewMockhttpClient(gomock.NewController(t))
-		cl.EXPECT().Do(gomock.Any()).DoAndReturn(contentFn).Times(2)
+		cl.EXPECT().Do(gomock.Any()).DoAndReturn(contentFn).Times(1)
 
 		validator := verifiable.NewRelatedResourceValidator(
 			verifiable.WithHTTPClient(cl),
@@ -179,7 +179,7 @@ func TestValidateRelatedResources(t *testing.T) {
 		assert.NoError(t, err)
 
 		cl := NewMockhttpClient(gomock.NewController(t))
-		cl.EXPECT().Do(gomock.Any()).DoAndReturn(contentFn).Times(2)
+		cl.EXPECT().Do(gomock.Any()).DoAndReturn(contentFn).Times(1)
 
 		validator := verifiable.NewRelatedResourceValidator(
 			verifiable.WithHTTPClient(cl),
