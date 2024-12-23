@@ -88,16 +88,34 @@ var (
 // VerifyProof verifies the data integrity proof on the given JSON document,
 // returning an error if proof verification fails, and nil if verification
 // succeeds.
-func (v *Verifier) VerifyProof(doc []byte, opts *models.ProofOptions) error { // nolint:funlen,gocyclo
+func (v *Verifier) VerifyProof(doc []byte, opts *models.ProofOptions) error {
 	proofRaw := gjson.GetBytes(doc, proofPath)
 
 	if !proofRaw.Exists() {
 		return ErrMissingProof
 	}
 
+	unsecuredDoc, err := sjson.DeleteBytes(doc, proofPath)
+	if err != nil {
+		return ErrMalformedProof
+	}
+
+	for _, proof := range proofRaw.Array() {
+		if err = v.verifyProof([]byte(proof.Raw), unsecuredDoc, opts); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (v *Verifier) verifyProof( // nolint:funlen,gocyclo
+	proofRaw, unsecuredDoc []byte,
+	opts *models.ProofOptions,
+) error {
 	proof := &models.Proof{}
 
-	err := json.Unmarshal([]byte(proofRaw.Raw), proof)
+	err := json.Unmarshal(proofRaw, proof)
 	if err != nil {
 		return ErrMalformedProof
 	}
@@ -136,11 +154,6 @@ func (v *Verifier) VerifyProof(doc []byte, opts *models.ProofOptions) error { //
 
 	if proof.ProofPurpose != opts.Purpose {
 		return ErrMismatchedPurpose
-	}
-
-	unsecuredDoc, err := sjson.DeleteBytes(doc, proofPath)
-	if err != nil {
-		return ErrMalformedProof
 	}
 
 	err = resolveVM(opts, v.resolver, proof.VerificationMethod)

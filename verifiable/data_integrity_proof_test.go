@@ -25,6 +25,7 @@ import (
 	kmsapi "github.com/trustbloc/kms-go/spi/kms"
 
 	"github.com/trustbloc/vc-go/dataintegrity"
+	"github.com/trustbloc/vc-go/dataintegrity/models"
 	"github.com/trustbloc/vc-go/dataintegrity/suite/ecdsa2019"
 	"github.com/trustbloc/vc-go/dataintegrity/suite/eddsa2022"
 	"github.com/trustbloc/vc-go/internal/testutil/kmscryptoutil"
@@ -146,6 +147,26 @@ func Test_DataIntegrity_SignVerify(t *testing.T) {
 			require.Error(t, e)
 			require.Contains(t, e.Error(), "needs data integrity verifier")
 		})
+	})
+
+	t.Run("did document", func(t *testing.T) {
+		didDoc, e := did.ParseDocument(validDoc)
+		require.NoError(t, e)
+
+		signedDoc, e := AddDIDDataIntegrityProof(didDoc, signContext, signer)
+		require.NoError(t, e)
+
+		require.Len(t, signedDoc.Proof, 1)
+		require.Equal(t, models.DataIntegrityProof, signedDoc.Proof[0].Type)
+		require.Equal(t, ecdsa2019.SuiteType, signedDoc.Proof[0].CryptoSuite)
+		require.Empty(t, signedDoc.Proof[0].JWS)
+		require.NotEmpty(t, signedDoc.Proof[0].ProofValue)
+
+		e = VerifyDIDProof(signedDoc,
+			WithDIDDataIntegrityVerifier(verifier),
+			WithDIDExpectedDataIntegrityFields(assertionMethod, "mock-domain", "mock-challenge"),
+		)
+		require.NoError(t, e)
 	})
 
 	t.Run("failure", func(t *testing.T) {
