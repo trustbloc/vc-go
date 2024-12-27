@@ -58,6 +58,7 @@ func TestSigner_AddProof(t *testing.T) {
 
 	t.Run("success", func(t *testing.T) {
 		createdTime := time.Now().Format(models.DateTimeFormat)
+		expiresTime := time.Now().Add(time.Minute).Format(models.DateTimeFormat)
 
 		s, err := NewSigner(
 			&Options{
@@ -77,6 +78,7 @@ func TestSigner_AddProof(t *testing.T) {
 						Domain:             "mock-domain",
 						Challenge:          "mock-challenge",
 						Created:            createdTime,
+						Expires:            expiresTime,
 					},
 				},
 				typeStr: mockSuiteType,
@@ -89,7 +91,6 @@ func TestSigner_AddProof(t *testing.T) {
 			VerificationMethodID: "did:foo:bar#key-1",
 			Domain:               "mock-domain",
 			Challenge:            "mock-challenge",
-			MaxAge:               1000,
 			Purpose:              Authentication,
 		})
 		require.NoError(t, err)
@@ -100,9 +101,10 @@ func TestSigner_AddProof(t *testing.T) {
 			"verificationMethod":"mock-vm",
 			"proofValue":"",
 			"created": "%s",
+			"expires": "%s",
 			"domain": "mock-domain",
 			"challenge":"mock-challenge"
-		}`, Authentication, createdTime))
+		}`, Authentication, createdTime, expiresTime))
 
 		proofBytes, unsignedDoc := extractProof(t, signedDoc)
 
@@ -157,7 +159,6 @@ func TestSigner_AddProof(t *testing.T) {
 				SuiteType: mockSuiteType,
 				Domain:    "mock-domain",
 				Challenge: "mock-challenge",
-				MaxAge:    1000,
 			})
 			require.ErrorIs(t, err, ErrNoResolver)
 		})
@@ -193,7 +194,6 @@ func TestSigner_AddProof(t *testing.T) {
 				Purpose:              CapabilityDelegation,
 				Domain:               "mock-domain",
 				Challenge:            "mock-challenge",
-				MaxAge:               1000,
 			})
 			require.ErrorIs(t, err, errExpected)
 			require.ErrorIs(t, err, ErrVMResolution)

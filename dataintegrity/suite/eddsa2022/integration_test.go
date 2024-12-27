@@ -65,7 +65,7 @@ func TestIntegration(t *testing.T) {
 				Purpose:              "assertionMethod",
 				ProofType:            models.DataIntegrityProof,
 				Created:              time.Now(),
-				MaxAge:               100,
+				Expires:              time.Now().Add(time.Minute),
 			}
 
 			proof, err := signer.CreateProof(validCredential, proofOpts)
@@ -85,6 +85,7 @@ func TestIntegration(t *testing.T) {
 				Purpose:              "assertionMethod",
 				ProofType:            models.DataIntegrityProof,
 				Created:              time.Now(),
+				Expires:              time.Now().Add(time.Minute),
 			}
 
 			verifyOpts := &models.ProofOptions{
@@ -93,7 +94,6 @@ func TestIntegration(t *testing.T) {
 				SuiteType:            SuiteType,
 				Purpose:              "assertionMethod",
 				ProofType:            models.DataIntegrityProof,
-				MaxAge:               100,
 			}
 
 			proof, err := signer.CreateProof(validCredential, signOpts)

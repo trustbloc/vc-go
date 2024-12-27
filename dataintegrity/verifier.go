@@ -152,6 +152,21 @@ func (v *Verifier) verifyProof( // nolint:funlen,gocyclo
 		opts.Created = parsedCreatedTime
 	}
 
+	if proof.Expires != "" {
+		var parsedExpiresTime time.Time
+
+		parsedExpiresTime, err = time.Parse(models.DateTimeFormat, proof.Expires)
+		if err != nil {
+			return ErrMalformedProof
+		}
+
+		if time.Now().After(parsedExpiresTime) {
+			return ErrOutOfDate
+		}
+
+		opts.Expires = parsedExpiresTime
+	}
+
 	if proof.ProofPurpose != opts.Purpose {
 		return ErrMismatchedPurpose
 	}
@@ -162,23 +177,6 @@ func (v *Verifier) verifyProof( // nolint:funlen,gocyclo
 	}
 
 	verifyResult := verifierSuite.VerifyProof(unsecuredDoc, proof, opts)
-
-	if proof.Created != "" {
-		createdTime, err := time.Parse(models.DateTimeFormat, proof.Created)
-		if err != nil {
-			return ErrMalformedProof
-		}
-
-		if opts.MaxAge > 0 {
-			now := time.Now()
-
-			diff := now.Sub(createdTime)
-
-			if diff > time.Second*time.Duration(opts.MaxAge) {
-				return ErrOutOfDate
-			}
-		}
-	}
 
 	if opts.Domain != "" && opts.Domain != proof.Domain {
 		return ErrInvalidDomain

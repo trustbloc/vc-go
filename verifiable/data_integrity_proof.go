@@ -22,6 +22,7 @@ type DataIntegrityProofContext struct {
 	ProofPurpose string     // assertionMethod
 	CryptoSuite  string     // ecdsa-2019
 	Created      *time.Time //
+	Expires      *time.Time //
 	Domain       string     //
 	Challenge    string     //
 }
@@ -74,11 +75,15 @@ func addDataIntegrityProof(
 	ldBytes []byte,
 	signer *dataintegrity.Signer,
 ) ([]Proof, error) {
-	var createdTime time.Time
+	var createdTime, expiresTime time.Time
 	if context.Created == nil {
 		createdTime = time.Now()
 	} else {
 		createdTime = *context.Created
+	}
+
+	if context.Expires != nil {
+		expiresTime = *context.Expires
 	}
 
 	if context.ProofPurpose == "" {
@@ -93,6 +98,7 @@ func addDataIntegrityProof(
 		Domain:               context.Domain,
 		Challenge:            context.Challenge,
 		Created:              createdTime,
+		Expires:              expiresTime,
 	})
 	if err != nil {
 		return nil, err
