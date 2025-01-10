@@ -40,6 +40,7 @@ type Proof struct {
 	ProofPurpose       string `json:"proofPurpose"`
 	VerificationMethod string `json:"verificationMethod"`
 	Created            string `json:"created,omitempty"`
+	Expires            string `json:"expires,omitempty"`
 	Domain             string `json:"domain,omitempty"`
 	Challenge          string `json:"challenge,omitempty"`
 	ProofValue         string `json:"proofValue"`
@@ -56,7 +57,7 @@ type ProofOptions struct {
 	Domain               string
 	Challenge            string
 	Created              time.Time
-	MaxAge               int64
+	Expires              time.Time // During verification process the value must be taken from Proof.Expires.
 	CustomFields         map[string]interface{}
 }
 

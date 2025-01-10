@@ -91,7 +91,7 @@ func TestIntegration(t *testing.T) {
 				Purpose:              AssertionMethod,
 				ProofType:            models.DataIntegrityProof,
 				Created:              time.Now(),
-				MaxAge:               100,
+				Expires:              time.Now().Add(time.Hour),
 			}
 
 			signedCred, err := signer.AddProof(validCredential, signOpts)
@@ -103,7 +103,6 @@ func TestIntegration(t *testing.T) {
 				Purpose:              AssertionMethod,
 				ProofType:            models.DataIntegrityProof,
 				Created:              time.Now(),
-				MaxAge:               100,
 			}
 
 			err = verifier.VerifyProof(signedCred, verifyOpts)
@@ -118,7 +117,6 @@ func TestIntegration(t *testing.T) {
 				Purpose:              AssertionMethod,
 				ProofType:            models.DataIntegrityProof,
 				Created:              time.Now(),
-				MaxAge:               100,
 			}
 
 			signedCred, err := signer.AddProof(validCredential, signOpts)
@@ -130,7 +128,6 @@ func TestIntegration(t *testing.T) {
 				Purpose:              AssertionMethod,
 				ProofType:            models.DataIntegrityProof,
 				Created:              time.Now(),
-				MaxAge:               100,
 			}
 
 			err = verifier.VerifyProof(signedCred, verifyOpts)
@@ -155,7 +152,6 @@ func TestIntegration(t *testing.T) {
 				SuiteType:            ecdsa2019.SuiteType,
 				Purpose:              AssertionMethod,
 				ProofType:            models.DataIntegrityProof,
-				MaxAge:               100,
 			}
 
 			signedCred, err := signer.AddProof(validCredential, signOpts)
@@ -181,7 +177,6 @@ func TestIntegration(t *testing.T) {
 				SuiteType:            ecdsa2019.SuiteType,
 				Purpose:              "assertionMethod",
 				ProofType:            models.DataIntegrityProof,
-				MaxAge:               100,
 				Created:              time.Time{},
 			}
 

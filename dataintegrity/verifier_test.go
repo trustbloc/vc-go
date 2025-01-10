@@ -63,6 +63,7 @@ func TestVerifier_VerifyProof(t *testing.T) {
 
 	t.Run("success", func(t *testing.T) {
 		createdTime := time.Now().Format(models.DateTimeFormat)
+		expiresTime := time.Now().Add(time.Minute).Format(models.DateTimeFormat)
 
 		v, err := NewVerifier(
 			&Options{
@@ -88,6 +89,7 @@ func TestVerifier_VerifyProof(t *testing.T) {
 			VerificationMethod: mockKID,
 			ProofPurpose:       AssertionMethod,
 			Created:            createdTime,
+			Expires:            expiresTime,
 			Domain:             "mock-domain",
 			Challenge:          "mock-challenge",
 		}
@@ -97,7 +99,6 @@ func TestVerifier_VerifyProof(t *testing.T) {
 
 		err = v.VerifyProof(signedDoc, &models.ProofOptions{
 			Purpose:   AssertionMethod,
-			MaxAge:    1000,
 			Domain:    "mock-domain",
 			Challenge: "mock-challenge",
 		})
@@ -140,7 +141,6 @@ func TestVerifier_VerifyProof(t *testing.T) {
 
 		err = v.VerifyProof(signedDoc, &models.ProofOptions{
 			Purpose:   AssertionMethod,
-			MaxAge:    1000,
 			Domain:    "mock-domain",
 			Challenge: "mock-challenge",
 		})
@@ -373,7 +373,6 @@ func TestVerifier_VerifyProof(t *testing.T) {
 
 			err = v.VerifyProof(signedDoc, &models.ProofOptions{
 				Purpose:   "mock-purpose",
-				MaxAge:    1000,
 				Domain:    "mock-domain",
 				Challenge: "mock-challenge",
 			})
@@ -404,7 +403,6 @@ func TestVerifier_VerifyProof(t *testing.T) {
 
 			err = v.VerifyProof(signedDoc, &models.ProofOptions{
 				Purpose: "mock-purpose",
-				MaxAge:  1000,
 			})
 			require.Error(t, err)
 			require.ErrorIs(t, err, ErrNoResolver)
@@ -437,7 +435,6 @@ func TestVerifier_VerifyProof(t *testing.T) {
 
 			err = v.VerifyProof(signedDoc, &models.ProofOptions{
 				Purpose: "mock-purpose",
-				MaxAge:  1000,
 			})
 			require.Error(t, err)
 			require.ErrorIs(t, err, errExpected)
@@ -514,7 +511,7 @@ func TestVerifier_VerifyProof(t *testing.T) {
 			require.ErrorIs(t, err, ErrMalformedProof)
 		})
 
-		t.Run("out of date", func(t *testing.T) {
+		t.Run("expires time in wrong format", func(t *testing.T) {
 			v, err := NewVerifier(
 				&Options{
 					DIDResolver: &mockResolver{
@@ -529,7 +526,40 @@ func TestVerifier_VerifyProof(t *testing.T) {
 					typeStr:   mockSuiteType,
 				})
 
-			createdTime := time.Now().Add(time.Duration(-50) * time.Second).Format(models.DateTimeFormat)
+			require.NoError(t, err)
+
+			mockProof := &models.Proof{
+				Type:               models.DataIntegrityProof,
+				CryptoSuite:        mockSuiteType,
+				VerificationMethod: mockKID,
+				ProofPurpose:       AssertionMethod,
+				Expires:            "Id. Mar. DCCX AUC",
+			}
+
+			signedDoc, err := mockAddProof(mockDoc, mockProof)
+			require.NoError(t, err)
+
+			err = v.VerifyProof(signedDoc, &models.ProofOptions{
+				Purpose: AssertionMethod,
+			})
+			require.ErrorIs(t, err, ErrMalformedProof)
+		})
+
+		t.Run("expired credential", func(t *testing.T) {
+			expiresTime := time.Now().Add(-time.Minute).Format(models.DateTimeFormat)
+			v, err := NewVerifier(
+				&Options{
+					DIDResolver: &mockResolver{
+						vm: &did.VerificationMethod{
+							ID: mockVMID,
+						},
+						vr: did.AssertionMethod,
+					},
+				},
+				&mockSuiteInitializer{
+					mockSuite: &mockSuite{},
+					typeStr:   mockSuiteType,
+				})
 
 			require.NoError(t, err)
 
@@ -538,7 +568,7 @@ func TestVerifier_VerifyProof(t *testing.T) {
 				CryptoSuite:        mockSuiteType,
 				VerificationMethod: mockKID,
 				ProofPurpose:       AssertionMethod,
-				Created:            createdTime,
+				Expires:            expiresTime,
 			}
 
 			signedDoc, err := mockAddProof(mockDoc, mockProof)
@@ -546,7 +576,6 @@ func TestVerifier_VerifyProof(t *testing.T) {
 
 			err = v.VerifyProof(signedDoc, &models.ProofOptions{
 				Purpose: AssertionMethod,
-				MaxAge:  5,
 			})
 			require.ErrorIs(t, err, ErrOutOfDate)
 		})

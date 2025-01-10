@@ -206,6 +206,11 @@ func (s *Suite) CreateProof(doc []byte, opts *models.ProofOptions) (*models.Proo
 		return nil, err
 	}
 
+	var expires string
+	if !opts.Expires.IsZero() {
+		expires = opts.Expires.Format(models.DateTimeFormat)
+	}
+
 	p := &models.Proof{
 		Type:               models.DataIntegrityProof,
 		CryptoSuite:        opts.SuiteType,
@@ -215,6 +220,7 @@ func (s *Suite) CreateProof(doc []byte, opts *models.ProofOptions) (*models.Proo
 		VerificationMethod: opts.VerificationMethod.ID,
 		ProofValue:         sigStr,
 		Created:            opts.Created.Format(models.DateTimeFormat),
+		Expires:            expires,
 	}
 
 	return p, nil
@@ -322,7 +328,7 @@ func (s *Suite) transformAndHash(doc []byte, opts *models.ProofOptions) ([]byte,
 
 	confData := proofConfig(docData[ldCtxKey], opts)
 
-	if opts.ProofType != "DataIntegrityProof" || (opts.SuiteType != SuiteType && opts.SuiteType != SuiteTypeNew) {
+	if opts.ProofType != models.DataIntegrityProof || (opts.SuiteType != SuiteType && opts.SuiteType != SuiteTypeNew) {
 		return nil, nil, nil, suite.ErrProofTransformation
 	}
 
@@ -404,6 +410,10 @@ func proofConfig(docCtx interface{}, opts *models.ProofOptions) map[string]inter
 
 	if !opts.Created.IsZero() {
 		proof["created"] = opts.Created.Format(models.DateTimeFormat)
+	}
+
+	if !opts.Expires.IsZero() {
+		proof["expires"] = opts.Expires.Format(models.DateTimeFormat)
 	}
 
 	if opts.Challenge != "" {

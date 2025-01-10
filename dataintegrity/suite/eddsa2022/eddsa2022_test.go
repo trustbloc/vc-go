@@ -88,6 +88,7 @@ func successCase(t *testing.T) *testCase {
 	signer := &mockwrapper.MockKMSCrypto{}
 
 	proofCreated := time.Now()
+	proofExpires := proofCreated.Add(time.Hour)
 
 	proofOpts := &models.ProofOptions{
 		VerificationMethod:   mockVM,
@@ -96,7 +97,7 @@ func successCase(t *testing.T) *testCase {
 		Purpose:              "assertionMethod",
 		ProofType:            models.DataIntegrityProof,
 		Created:              proofCreated,
-		MaxAge:               100,
+		Expires:              proofExpires,
 	}
 
 	mockSig, err := multibase.Encode(multibase.Base58BTC, []byte("mock signature"))
@@ -108,6 +109,7 @@ func successCase(t *testing.T) *testCase {
 		ProofPurpose:       "assertionMethod",
 		VerificationMethod: mockVM.ID,
 		Created:            proofCreated.Format(models.DateTimeFormat),
+		Expires:            proofExpires.Format(models.DateTimeFormat),
 		ProofValue:         mockSig,
 	}
 

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/piprate/json-gold/ld"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/did-go/doc/did"
@@ -91,7 +92,8 @@ func Test_DataIntegrity_SignVerify(t *testing.T) {
 		SigningKeyID: signingDID + vmID,
 		ProofPurpose: "",
 		CryptoSuite:  ecdsa2019.SuiteType,
-		Created:      nil,
+		Created:      lo.ToPtr(time.Now()),
+		Expires:      lo.ToPtr(time.Now().Add(time.Hour)),
 		Domain:       "mock-domain",
 		Challenge:    "mock-challenge",
 	}
