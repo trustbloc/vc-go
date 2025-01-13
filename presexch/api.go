@@ -118,8 +118,6 @@ func (pd *PresentationDefinition) Match(
 	contextLoader ld.DocumentLoader,
 	options ...MatchOption,
 ) ([]*MatchValue, error) {
-	pd.adjustFields()
-
 	opts := &MatchOptions{}
 
 	for i := range options {

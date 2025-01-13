@@ -476,37 +476,12 @@ func makeRequirement(requirements []*SubmissionRequirement, descriptors []*Input
 	return req, nil
 }
 
-func (pd *PresentationDefinition) adjustFields() {
-	return
-	//if pd == nil || pd.InputDescriptors == nil {
-	//	return
-	//}
-	//
-	//for _, descriptor := range pd.InputDescriptors {
-	//	if descriptor.Constraints == nil {
-	//		continue
-	//	}
-	//
-	//	for _, f := range descriptor.Constraints.Fields {
-	//		var updatedPath []string
-	//
-	//		for _, path := range f.Path {
-	//			updatedPath = append(updatedPath, strings.ReplaceAll(path, "'", "\""))
-	//		}
-	//
-	//		f.Path = updatedPath
-	//	}
-	//}
-}
-
 // CreateVP creates verifiable presentation.
 func (pd *PresentationDefinition) CreateVP(
 	credentials []*verifiable.Credential,
 	documentLoader ld.DocumentLoader,
 	opts ...MatchRequirementsOpt,
 ) (*verifiable.Presentation, error) {
-	pd.adjustFields()
-
 	matchOpts := &matchRequirementsOpts{defaultVPFormat: FormatLDPVP}
 	for _, opt := range opts {
 		opt(matchOpts)
@@ -872,8 +847,6 @@ func (pd *PresentationDefinition) filterCredentialsThatMatchDescriptor(
 	if descriptor.Format.notNil() {
 		format = descriptor.Format
 	}
-
-	pd.adjustFields()
 
 	vpFormat := ""
 	filtered := creds
@@ -1503,68 +1476,72 @@ func filterField(f *Field, credential map[string]interface{}, isJWTCredential bo
 	var lastErr error
 
 	for _, path := range f.Path {
-		if isJWTCredential {
-			if strings.Contains(path, "$.vc.") {
-				path = strings.Replace(path, "$.vc.", "$.", 1)
-			}
-
-			if strings.EqualFold(path, "$.issuer") {
-				switch issuerFld := credential["issuer"].(type) {
-				case map[string]interface{}:
-					if _, ok := issuerFld["id"]; ok {
-						path = "$.issuer.id"
-					}
-				}
-			}
-		}
-
-		if !strings.HasPrefix(path, "$") && !strings.HasPrefix("@", path) {
-			return errors.New("expected $ or @ at start of path")
-		}
-
-		pathParsed, err := pathv2.Parse(path)
-		if err != nil {
-			return err
-		}
-
-		selected := pathParsed.Select(credential)
-		if len(selected) == 0 {
-			if f.Optional {
-				continue
-			}
-
-			lastErr = errors.Join(errPathNotApplicable, fmt.Errorf("no value found for path %s", path))
-			continue
-		}
-
-		if err == nil {
-			var raw any
-
-			if len(selected) == 1 {
-				raw = selected[0]
-			} else {
-				var arr []any
-				for _, s := range selected {
-					arr = append(arr, s)
-				}
-
-				raw = arr
-			}
-
-			err = validatePath(schema, raw, f, isJWTCredential)
-			if err == nil {
-				return nil
-			}
-
-			lastErr = errors.Join(lastErr, err)
-		} else if f.Optional {
+		err := checkPathValue(isJWTCredential, path, credential, f, schema)
+		if err == nil { // if at least 1 path is valid, we are good
 			return nil
-		} else {
-			lastErr = errors.Join(lastErr, errPathNotApplicable)
 		}
+
+		lastErr = errors.Join(lastErr, checkPathValue(isJWTCredential, path, credential, f, schema))
 	}
 
 	return lastErr
+}
+
+//nolint:gocyclo
+func checkPathValue(
+	isJWTCredential bool,
+	path string,
+	credential map[string]any,
+	field *Field,
+	schema gojsonschema.JSONLoader,
+) error {
+	if isJWTCredential { // compatibility
+		if strings.Contains(path, "$.vc.") {
+			path = strings.Replace(path, "$.vc.", "$.", 1)
+		}
+
+		if strings.EqualFold(path, "$.issuer") {
+			switch issuerFld := credential["issuer"].(type) {
+			case map[string]interface{}:
+				if _, ok := issuerFld["id"]; ok {
+					path = "$.issuer.id"
+				}
+			}
+		}
+	}
+
+	if !strings.HasPrefix(path, "$") && !strings.HasPrefix("@", path) {
+		return errors.New("expected $ or @ at start of path")
+	}
+
+	pathParsed, err := pathv2.Parse(path)
+	if err != nil {
+		return err
+	}
+
+	selected := pathParsed.Select(credential)
+	if len(selected) == 0 {
+		if field.Optional { // we are good
+			return nil
+		}
+
+		return errors.Join(errPathNotApplicable, fmt.Errorf("no value found for path %s", path))
+	}
+
+	var raw any
+
+	if len(selected) == 1 {
+		raw = selected[0]
+	} else {
+		var arr []any
+		for _, s := range selected {
+			arr = append(arr, s)
+		}
+
+		raw = arr
+	}
+
+	return validatePath(schema, raw, field, isJWTCredential)
 }
 
 //nolint:gocyclo
