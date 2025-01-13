@@ -4,11 +4,13 @@
 
 module github.com/trustbloc/vc-go
 
-go 1.22
+go 1.23
+
+toolchain go1.23.4
 
 require (
 	github.com/PaesslerAG/gval v1.2.2
-	github.com/PaesslerAG/jsonpath v0.1.1
+	github.com/PaesslerAG/jsonpath v0.1.2-0.20240726212847-3a740cf7976f
 	github.com/VictoriaMetrics/fastcache v1.5.7
 	github.com/btcsuite/btcd/btcec/v2 v2.3.4
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
@@ -23,6 +25,7 @@ require (
 	github.com/piprate/json-gold v0.5.1-0.20230111113000-6ddbe6e6f19f
 	github.com/samber/lo v1.47.0
 	github.com/stretchr/testify v1.10.0
+	github.com/theory/jsonpath v0.3.0
 	github.com/tidwall/gjson v1.14.3
 	github.com/tidwall/sjson v1.1.4
 	github.com/trustbloc/bbs-signature-go v1.0.2
