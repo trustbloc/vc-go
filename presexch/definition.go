@@ -1529,7 +1529,12 @@ func filterField(f *Field, credential map[string]interface{}, isJWTCredential bo
 
 		selected := pathParsed.Select(credential)
 		if len(selected) == 0 {
-			err = fmt.Errorf("no value found for path %s", path)
+			if f.Optional {
+				continue
+			}
+
+			lastErr = errors.Join(errPathNotApplicable, fmt.Errorf("no value found for path %s", path))
+			continue
 		}
 
 		if err == nil {
