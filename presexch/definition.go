@@ -16,7 +16,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/PaesslerAG/jsonpath"
 	"github.com/google/uuid"
 	jsonpathkeys "github.com/kawamuray/jsonpath"
 	"github.com/piprate/json-gold/ld"
@@ -30,6 +29,8 @@ import (
 
 	"github.com/trustbloc/vc-go/sdjwt/common"
 	"github.com/trustbloc/vc-go/verifiable"
+
+	pathv2 "github.com/theory/jsonpath"
 )
 
 const (
@@ -476,25 +477,26 @@ func makeRequirement(requirements []*SubmissionRequirement, descriptors []*Input
 }
 
 func (pd *PresentationDefinition) adjustFields() {
-	if pd == nil || pd.InputDescriptors == nil {
-		return
-	}
-
-	for _, descriptor := range pd.InputDescriptors {
-		if descriptor.Constraints == nil {
-			continue
-		}
-
-		for _, f := range descriptor.Constraints.Fields {
-			var updatedPath []string
-
-			for _, path := range f.Path {
-				updatedPath = append(updatedPath, strings.ReplaceAll(path, "'", "\""))
-			}
-
-			f.Path = updatedPath
-		}
-	}
+	return
+	//if pd == nil || pd.InputDescriptors == nil {
+	//	return
+	//}
+	//
+	//for _, descriptor := range pd.InputDescriptors {
+	//	if descriptor.Constraints == nil {
+	//		continue
+	//	}
+	//
+	//	for _, f := range descriptor.Constraints.Fields {
+	//		var updatedPath []string
+	//
+	//		for _, path := range f.Path {
+	//			updatedPath = append(updatedPath, strings.ReplaceAll(path, "'", "\""))
+	//		}
+	//
+	//		f.Path = updatedPath
+	//	}
+	//}
 }
 
 // CreateVP creates verifiable presentation.
@@ -1516,20 +1518,44 @@ func filterField(f *Field, credential map[string]interface{}, isJWTCredential bo
 			}
 		}
 
-		patch, err := jsonpath.Get(path, credential)
+		if !strings.HasPrefix(path, "$") && !strings.HasPrefix("@", path) {
+			return errors.New("expected $ or @ at start of path")
+		}
+
+		pathParsed, err := pathv2.Parse(path)
+		if err != nil {
+			return err
+		}
+
+		selected := pathParsed.Select(credential)
+		if len(selected) == 0 {
+			err = fmt.Errorf("no value found for path %s", path)
+		}
+
 		if err == nil {
-			// TODO: refactor this + selective disclosure so that the accepted path for a constraint field
-			//  is the only path revealed, instead of revealing all paths for the field.
-			err = validatePatch(schema, patch, f, isJWTCredential)
+			var raw any
+
+			if len(selected) == 1 {
+				raw = selected[0]
+			} else {
+				var arr []any
+				for _, s := range selected {
+					arr = append(arr, s)
+				}
+
+				raw = arr
+			}
+
+			err = validatePath(schema, raw, f, isJWTCredential)
 			if err == nil {
 				return nil
 			}
 
-			lastErr = err
+			lastErr = errors.Join(lastErr, err)
 		} else if f.Optional {
 			return nil
 		} else {
-			lastErr = errPathNotApplicable
+			lastErr = errors.Join(lastErr, errPathNotApplicable)
 		}
 	}
 
@@ -1537,7 +1563,7 @@ func filterField(f *Field, credential map[string]interface{}, isJWTCredential bo
 }
 
 //nolint:gocyclo
-func validatePatch(schema gojsonschema.JSONLoader, patch interface{}, field *Field, isJWTCredential bool) error {
+func validatePath(schema gojsonschema.JSONLoader, patch interface{}, field *Field, isJWTCredential bool) error {
 	if schema == nil {
 		return nil
 	}

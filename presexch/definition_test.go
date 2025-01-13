@@ -1305,7 +1305,7 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 
 		require.Error(t, err)
 		require.Nil(t, vp)
-		require.Contains(t, err.Error(), "Expected $ or @ at start of path instead of  U+0031")
+		require.Contains(t, err.Error(), "expected $ or @ at start of path")
 	})
 
 	t.Run("SD-JWT: Limit Disclosure (credentials don't meet requirement)", func(t *testing.T) {
