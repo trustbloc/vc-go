@@ -1499,6 +1499,9 @@ func checkPathValue(
 		if strings.Contains(path, "$.vc.") {
 			path = strings.Replace(path, "$.vc.", "$.", 1)
 		}
+		if strings.Contains(path, "$.vc[") {
+			path = strings.Replace(path, "$.vc[", "$[", 1)
+		}
 
 		if strings.EqualFold(path, "$.issuer") {
 			switch issuerFld := credential["issuer"].(type) {
