@@ -1487,6 +1487,24 @@ func filterField(f *Field, credential map[string]interface{}, isJWTCredential bo
 	return lastErr
 }
 
+func convertToRFC9535Format(path string) string {
+	var builder strings.Builder
+	segments := strings.Split(path, ".")
+	for i, segment := range segments {
+		if strings.Contains(segment, "-") && !strings.Contains(segment, "['") {
+			builder.WriteString(fmt.Sprintf("['%s']", segment))
+			continue
+		}
+
+		if i != 0 {
+			builder.WriteString(".")
+		}
+		builder.WriteString(segment)
+	}
+
+	return builder.String()
+}
+
 //nolint:gocyclo
 func checkPathValue(
 	isJWTCredential bool,
@@ -1503,6 +1521,10 @@ func checkPathValue(
 			path = strings.Replace(path, "$.vc[", "$[", 1)
 		}
 
+		if strings.Contains(path, "$['vc']") {
+			path = strings.Replace(path, "$['vc']", "$", 1)
+		}
+
 		if strings.EqualFold(path, "$.issuer") {
 			switch issuerFld := credential["issuer"].(type) {
 			case map[string]interface{}:
@@ -1515,6 +1537,10 @@ func checkPathValue(
 
 	if !strings.HasPrefix(path, "$") && !strings.HasPrefix("@", path) {
 		return errors.New("expected $ or @ at start of path")
+	}
+
+	if strings.Contains(path, "-") { // convert to RFC 9535 format. deprecated. remove in 6months and rewrite presentations to use RFC 9535 format //nolint:lll
+		path = convertToRFC9535Format(path)
 	}
 
 	pathParsed, err := pathv2.Parse(path)

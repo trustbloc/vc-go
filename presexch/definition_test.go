@@ -2669,46 +2669,68 @@ func TestPresentationDefinition_CreateVP_V1Credential(t *testing.T) {
 	})
 
 	t.Run("Match credential in jwt_vc format with escaping", func(t *testing.T) {
-		pd := &PresentationDefinition{
-			ID: uuid.New().String(),
-			InputDescriptors: []*InputDescriptor{{
-				ID: uuid.New().String(),
-				Constraints: &Constraints{
-					Fields: []*Field{
-						{
-							Path: []string{"$.vc.last_name"},
-						},
-						{
-							Path: []string{"$.vc['hash-algo']"},
-						},
-					},
-				},
-			}},
+		cases := []string{
+			"$['vc']['some_object']['hash-algo']",
+			"$.vc['some_object']['hash-algo']",
+			"$.vc.some_object['hash-algo']",
+			"$.vc.some_object.hash-algo",
+
+			"$['vc']['some_object']['hash-key']['hash-value']",
+			"$.vc['some_object']['hash-key']['hash-value']",
+			"$.vc.some_object['hash-key']['hash-value']",
+			"$.vc.some_object.hash-key.hash-value",
 		}
 
-		issuerDID := "did:example:76e12ec712ebc6f1c221ebfeb1f"
+		for _, c := range cases {
+			t.Run(c, func(t *testing.T) {
+				pd := &PresentationDefinition{
+					ID: uuid.New().String(),
+					InputDescriptors: []*InputDescriptor{{
+						ID: uuid.New().String(),
+						Constraints: &Constraints{
+							Fields: []*Field{
+								{
+									Path: []string{"$.vc.last_name"},
+								},
+								{
+									Path: []string{c},
+								},
+							},
+						},
+					}},
+				}
 
-		vc := createTestCredential(t, credentialProto{
-			Issued:  utiltime.NewTime(time.Now()),
-			Context: []string{verifiable.V1ContextURI},
-			Types:   []string{verifiable.VCType},
-			ID:      uuid.New().String(),
-			Subject: []verifiable.Subject{{ID: issuerDID}},
-			Issuer:  &verifiable.Issuer{ID: issuerDID},
-			CustomFields: map[string]interface{}{
-				"first_name": "Jesse",
-				"last_name":  "Travis",
-				"hash-algo":  "xx",
-				"age":        17,
-			},
-		})
+				issuerDID := "did:example:76e12ec712ebc6f1c221ebfeb1f"
 
-		jwtVC, err := vc.CreateUnsecuredJWTVC(false)
-		require.NoError(t, err)
+				vc := createTestCredential(t, credentialProto{
+					Issued:  utiltime.NewTime(time.Now()),
+					Context: []string{verifiable.V1ContextURI},
+					Types:   []string{verifiable.VCType},
+					ID:      uuid.New().String(),
+					Subject: []verifiable.Subject{{ID: issuerDID}},
+					Issuer:  &verifiable.Issuer{ID: issuerDID},
+					CustomFields: map[string]interface{}{
+						"first_name": "Jesse",
+						"last_name":  "Travis",
+						"some_object": map[string]interface{}{
+							"hash-algo": "xx",
+							"hash-key": map[string]interface{}{
+								"hash-value": "yy",
+							},
+						},
+						"hash-algo": "xx",
+						"age":       17,
+					},
+				})
 
-		vp, err := pd.CreateVP([]*verifiable.Credential{jwtVC}, lddl)
-		require.NoError(t, err)
-		require.Len(t, vp.Credentials(), 1)
+				jwtVC, err := vc.CreateUnsecuredJWTVC(false)
+				require.NoError(t, err)
+
+				vp, err := pd.CreateVP([]*verifiable.Credential{jwtVC}, lddl)
+				require.NoError(t, err)
+				require.Len(t, vp.Credentials(), 1)
+			})
+		}
 	})
 
 	t.Run("Match credential in jwt_vc format with filter containing $.vc path", func(t *testing.T) {
