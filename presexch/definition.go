@@ -1489,7 +1489,9 @@ func filterField(f *Field, credential map[string]interface{}, isJWTCredential bo
 
 func convertToRFC9535Format(path string) string {
 	var builder strings.Builder
+
 	segments := strings.Split(path, ".")
+
 	for i, segment := range segments {
 		if strings.Contains(segment, "-") && !strings.Contains(segment, "['") {
 			builder.WriteString(fmt.Sprintf("['%s']", segment))
@@ -1499,6 +1501,7 @@ func convertToRFC9535Format(path string) string {
 		if i != 0 {
 			builder.WriteString(".")
 		}
+
 		builder.WriteString(segment)
 	}
 
@@ -1514,15 +1517,14 @@ func checkPathValue(
 	schema gojsonschema.JSONLoader,
 ) error {
 	if isJWTCredential { // compatibility
-		if strings.Contains(path, "$.vc.") {
-			path = strings.Replace(path, "$.vc.", "$.", 1)
-		}
-		if strings.Contains(path, "$.vc[") {
-			path = strings.Replace(path, "$.vc[", "$[", 1)
+		replacements := map[string]string{
+			"$.vc.":   "$.",
+			"$.vc[":   "$[",
+			"$['vc']": "$",
 		}
 
-		if strings.Contains(path, "$['vc']") {
-			path = strings.Replace(path, "$['vc']", "$", 1)
+		for old, newVal := range replacements {
+			path = strings.Replace(path, old, newVal, 1)
 		}
 
 		if strings.EqualFold(path, "$.issuer") {
