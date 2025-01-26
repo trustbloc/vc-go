@@ -1487,6 +1487,7 @@ func filterField(f *Field, credential map[string]interface{}, isJWTCredential bo
 	return lastErr
 }
 
+// deprecated: convertToRFC9535Format converts path to RFC 9535 format.
 func convertToRFC9535Format(path string) string {
 	var builder strings.Builder
 
@@ -1541,14 +1542,29 @@ func checkPathValue(
 		return errors.New("expected $ or @ at start of path")
 	}
 
-	//nolint:lll
-	if strings.Contains(path, "-") { // convert to RFC 9535 format. deprecated. remove in 6months and update profiles presentations to use RFC 9535 format
-		path = convertToRFC9535Format(path)
+	var pathParsed *pathv2.Path
+
+	var pathErr error
+
+	for _, p := range []string{
+		path,
+		// nolint:lll
+		convertToRFC9535Format(path), // Remove in 6months and update profiles presentations to use RFC 9535 format
+	} {
+		parsed, parseErr := pathv2.Parse(p)
+
+		pathParsed = parsed
+
+		if parseErr == nil {
+			pathErr = nil
+			break
+		}
+
+		pathErr = errors.Join(pathErr, fmt.Errorf("path %s: %w", p, parseErr))
 	}
 
-	pathParsed, err := pathv2.Parse(path)
-	if err != nil {
-		return err
+	if pathErr != nil {
+		return pathErr
 	}
 
 	selected := pathParsed.Select(credential)
