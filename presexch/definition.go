@@ -1508,7 +1508,7 @@ func convertToRFC9535Format(path string) string {
 	return builder.String()
 }
 
-//nolint:gocyclo
+//nolint:gocyclo,funlen
 func checkPathValue(
 	isJWTCredential bool,
 	path string,
@@ -1541,7 +1541,8 @@ func checkPathValue(
 		return errors.New("expected $ or @ at start of path")
 	}
 
-	if strings.Contains(path, "-") { // convert to RFC 9535 format. deprecated. remove in 6months and update profiles presentations to use RFC 9535 format //nolint:lll
+	//nolint:lll
+	if strings.Contains(path, "-") { // convert to RFC 9535 format. deprecated. remove in 6months and update profiles presentations to use RFC 9535 format
 		path = convertToRFC9535Format(path)
 	}
 
