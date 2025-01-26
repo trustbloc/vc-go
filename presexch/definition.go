@@ -1541,7 +1541,7 @@ func checkPathValue(
 		return errors.New("expected $ or @ at start of path")
 	}
 
-	if strings.Contains(path, "-") { // convert to RFC 9535 format. deprecated. remove in 6months and rewrite presentations to use RFC 9535 format //nolint:lll
+	if strings.Contains(path, "-") { // convert to RFC 9535 format. deprecated. remove in 6months and update profiles presentations to use RFC 9535 format //nolint:lll
 		path = convertToRFC9535Format(path)
 	}
 
