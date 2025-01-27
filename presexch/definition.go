@@ -1487,7 +1487,29 @@ func filterField(f *Field, credential map[string]interface{}, isJWTCredential bo
 	return lastErr
 }
 
-//nolint:gocyclo
+// deprecated: convertToRFC9535Format converts path to RFC 9535 format.
+func convertToRFC9535Format(path string) string {
+	var builder strings.Builder
+
+	segments := strings.Split(path, ".")
+
+	for i, segment := range segments {
+		if strings.Contains(segment, "-") && !strings.Contains(segment, "['") {
+			builder.WriteString(fmt.Sprintf("['%s']", segment))
+			continue
+		}
+
+		if i != 0 {
+			builder.WriteString(".")
+		}
+
+		builder.WriteString(segment)
+	}
+
+	return builder.String()
+}
+
+//nolint:gocyclo,funlen
 func checkPathValue(
 	isJWTCredential bool,
 	path string,
@@ -1496,8 +1518,14 @@ func checkPathValue(
 	schema gojsonschema.JSONLoader,
 ) error {
 	if isJWTCredential { // compatibility
-		if strings.Contains(path, "$.vc.") {
-			path = strings.Replace(path, "$.vc.", "$.", 1)
+		replacements := map[string]string{
+			"$.vc.":   "$.",
+			"$.vc[":   "$[",
+			"$['vc']": "$",
+		}
+
+		for old, newVal := range replacements {
+			path = strings.Replace(path, old, newVal, 1)
 		}
 
 		if strings.EqualFold(path, "$.issuer") {
@@ -1514,9 +1542,29 @@ func checkPathValue(
 		return errors.New("expected $ or @ at start of path")
 	}
 
-	pathParsed, err := pathv2.Parse(path)
-	if err != nil {
-		return err
+	var pathParsed *pathv2.Path
+
+	var pathErr error
+
+	for _, p := range []string{
+		path,
+		// nolint:lll
+		convertToRFC9535Format(path), // Remove in 6months and update profiles presentations to use RFC 9535 format
+	} {
+		parsed, parseErr := pathv2.Parse(p)
+
+		pathParsed = parsed
+
+		if parseErr == nil {
+			pathErr = nil
+			break
+		}
+
+		pathErr = errors.Join(pathErr, fmt.Errorf("path %s: %w", p, parseErr))
+	}
+
+	if pathErr != nil {
+		return pathErr
 	}
 
 	selected := pathParsed.Select(credential)
