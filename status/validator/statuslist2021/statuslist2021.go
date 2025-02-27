@@ -92,3 +92,13 @@ func (v *Validator) GetStatusListIndex(vcStatus *verifiable.TypedID) (int, error
 
 	return idx, nil
 }
+
+// GetStatusPurpose returns the purpose of the status list. For example, "revocation", "suspension".
+func (v *Validator) GetStatusPurpose(vcStatus *verifiable.TypedID) (string, error) {
+	statusPurpose, ok := vcStatus.CustomFields[StatusPurpose].(string)
+	if !ok {
+		return "", fmt.Errorf("%s must be a string", StatusPurpose)
+	}
+
+	return statusPurpose, nil
+}

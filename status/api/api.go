@@ -16,6 +16,7 @@ type Validator interface {
 	ValidateStatus(vcStatus *verifiable.TypedID) error
 	GetStatusVCURI(vcStatus *verifiable.TypedID) (string, error)
 	GetStatusListIndex(vcStatus *verifiable.TypedID) (int, error)
+	GetStatusPurpose(vcStatus *verifiable.TypedID) (string, error)
 }
 
 // ValidatorGetter provides the matching Validator for a given credential status type.

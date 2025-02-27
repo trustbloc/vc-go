@@ -165,8 +165,9 @@ func TestParseCredential(t *testing.T) {
 
 		// check credential status
 		require.NotNil(t, vcc.Status)
-		require.Equal(t, "https://example.edu/status/24", vcc.Status.ID)
-		require.Equal(t, "CredentialStatusList2017", vcc.Status.Type)
+		require.Len(t, vcc.Status, 1)
+		require.Equal(t, "https://example.edu/status/24", vcc.Status[0].ID)
+		require.Equal(t, "CredentialStatusList2017", vcc.Status[0].Type)
 
 		// check refresh service
 		require.NotNil(t, vcc.RefreshService)
@@ -688,6 +689,37 @@ func TestValidateVerCredStatus(t *testing.T) {
 		err := validateCredentialUsingJSONSchema(raw, &CredentialContents{Context: []string{"https://www.w3.org/2018/credentials/v1"}}, &credentialOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "credentialStatus.id: Does not match format 'uri'")
+	})
+
+	t.Run("test verifiable credential with single credential status", func(t *testing.T) {
+		var raw JSONObject
+
+		require.NoError(t, json.Unmarshal([]byte(v1ValidCredential), &raw))
+
+		err := validateCredentialUsingJSONSchema(raw, &CredentialContents{Context: []string{"https://www.w3.org/2018/credentials/v1"}}, &credentialOpts{})
+		require.NoError(t, err)
+
+		cred, err := ParseCredential([]byte(v1ValidCredential), WithJSONLDDocumentLoader(createTestDocumentLoader(t)), WithDisabledProofCheck())
+		require.NoError(t, err)
+		require.Len(t, cred.Contents().Status, 1)
+		require.Equal(t, "CredentialStatusList2017", cred.Contents().Status[0].Type)
+	})
+
+	t.Run("test v2 verifiable credential with multiple credential statuses", func(t *testing.T) {
+		var raw JSONObject
+		require.NoError(t, json.Unmarshal([]byte(v2ValidCredentialMultiStatus), &raw))
+
+		err := validateCredentialUsingJSONSchema(raw, &CredentialContents{Context: []string{"https://www.w3.org/ns/credentials/v2"}}, &credentialOpts{})
+		require.NoError(t, err)
+
+		cred, err := ParseCredential([]byte(v2ValidCredentialMultiStatus), WithJSONLDDocumentLoader(createTestDocumentLoader(t)), WithDisabledProofCheck())
+		require.NoError(t, err)
+
+		require.Len(t, cred.Contents().Status, 2)
+		require.Equal(t, "BitstringStatusListEntry", cred.Contents().Status[0].Type)
+		require.Equal(t, "revocation", cred.Contents().Status[0].CustomFields["statusPurpose"])
+		require.Equal(t, "BitstringStatusListEntry", cred.Contents().Status[1].Type)
+		require.Equal(t, "suspension", cred.Contents().Status[1].CustomFields["statusPurpose"])
 	})
 }
 
@@ -2521,9 +2553,11 @@ func TestCredential_WithModified(t *testing.T) {
 			"VerifiableCredential",
 			"UniversityDegreeCredential",
 		},
-		Status: &TypedID{
-			ID:   "https://example.edu/status/24",
-			Type: "CredentialStatusList2017",
+		Status: []*TypedID{
+			{
+				ID:   "https://example.edu/status/24",
+				Type: "CredentialStatusList2017",
+			},
 		},
 		Subject: []Subject{subjectProto},
 		Issuer: &Issuer{
@@ -2559,8 +2593,9 @@ func TestCredential_WithModified(t *testing.T) {
 	require.Equal(t, "newID", cred.Contents().Subject[0].ID)
 	require.Equal(t, "newID", cred.Contents().Issuer.ID)
 	require.Equal(t, []string{"newContext"}, cred.Contents().Context)
-	require.Equal(t, "newID", cred.Contents().Status.ID)
-	require.Equal(t, "newType", cred.Contents().Status.Type)
+	require.Len(t, cred.Contents().Status, 1)
+	require.Equal(t, "newID", cred.Contents().Status[0].ID)
+	require.Equal(t, "newType", cred.Contents().Status[0].Type)
 	require.EqualValues(t, now, cred.Contents().Issued.Time)
 	require.EqualValues(t, expired, cred.Contents().Expired.Time)
 	require.EqualValues(t, "12345", cred.Contents().RefreshService.ID)
