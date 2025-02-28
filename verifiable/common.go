@@ -175,22 +175,54 @@ func serializeTypedIDObj(typedID TypedID) JSONObject {
 	return json
 }
 
-func newNilableTypedID(v interface{}) (*TypedID, error) {
+func newTypedIDArray(v interface{}) ([]*TypedID, error) {
 	if v == nil {
 		return nil, nil
 	}
 
-	typedIDObj, ok := v.(map[string]interface{})
+	// single object
+	obj, ok := v.(JSONObject)
+	if ok {
+		tid, err := parseTypedIDObj(obj)
+		if err != nil {
+			return nil, err
+		}
+
+		return []*TypedID{&tid}, nil
+	}
+
+	// array of objects
+	arr, ok := v.([]JSONObject)
 	if !ok {
-		return nil, fmt.Errorf("should be json object but got %v", v)
+		rawArray, ok := v.([]interface{})
+		if !ok {
+			return nil, fmt.Errorf("should be array of json objects but got %v", v)
+		}
+
+		arr = make([]JSONObject, len(rawArray))
+
+		for i, raw := range rawArray {
+			obj, ok := raw.(JSONObject)
+			if !ok {
+				return nil, fmt.Errorf("should be json object but got %v", raw)
+			}
+
+			arr[i] = obj
+		}
 	}
 
-	tid, err := parseTypedIDObj(typedIDObj)
-	if err != nil {
-		return nil, err
+	tidArr := make([]*TypedID, len(arr))
+
+	for i, typedIDObj := range arr {
+		tid, err := parseTypedIDObj(typedIDObj)
+		if err != nil {
+			return nil, err
+		}
+
+		tidArr[i] = &tid
 	}
 
-	return &tid, err
+	return tidArr, nil
 }
 
 func describeSchemaValidationError(result *gojsonschema.Result, what string) string {

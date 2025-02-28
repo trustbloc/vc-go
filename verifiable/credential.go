@@ -850,7 +850,7 @@ type CredentialContents struct {
 	Issuer           *Issuer
 	Issued           *util.TimeWrapper
 	Expired          *util.TimeWrapper
-	Status           *TypedID
+	Status           []*TypedID
 	Schemas          []TypedID
 	Evidence         Evidence
 	TermsOfUse       []TypedID
@@ -1792,7 +1792,7 @@ func parseCredentialContents(raw JSONObject, isSDJWT bool) (*CredentialContents,
 		}
 	}
 
-	status, err := newNilableTypedID(raw[jsonFldStatus])
+	statuses, err := newTypedIDArray(raw[jsonFldStatus])
 	if err != nil {
 		return nil, fmt.Errorf("fill credential status from raw: %w", err)
 	}
@@ -1806,7 +1806,7 @@ func parseCredentialContents(raw JSONObject, isSDJWT bool) (*CredentialContents,
 		Issuer:           issuer,
 		Issued:           issued,
 		Expired:          expired,
-		Status:           status,
+		Status:           statuses,
 		Schemas:          schemas,
 		Evidence:         raw[jsonFldEvidence],
 		TermsOfUse:       termsOfUse,
@@ -2478,8 +2478,18 @@ func serializeCredentialContents(vcc *CredentialContents, proofs []Proof) (JSONO
 		vcJSON[jsonFldLDProof] = proofsToRaw(proofs)
 	}
 
-	if vcc.Status != nil {
-		vcJSON[jsonFldStatus] = serializeTypedIDObj(*vcc.Status)
+	if len(vcc.Status) > 0 {
+		if len(vcc.Status) == 1 {
+			vcJSON[jsonFldStatus] = serializeTypedIDObj(*vcc.Status[0])
+		} else {
+			statuses := make([]map[string]interface{}, len(vcc.Status))
+
+			for i, status := range vcc.Status {
+				statuses[i] = serializeTypedIDObj(*status)
+			}
+
+			vcJSON[jsonFldStatus] = statuses
+		}
 	}
 
 	if vcc.Issuer != nil {
@@ -2716,14 +2726,28 @@ func (vc *Credential) WithModifiedContext(context []string) *Credential {
 }
 
 // WithModifiedStatus creates new credential with modified status and without proofs as they become invalid.
-func (vc *Credential) WithModifiedStatus(status *TypedID) *Credential {
+func (vc *Credential) WithModifiedStatus(status ...*TypedID) *Credential {
 	newCredJSON := copyCredentialJSONWithoutProofs(vc.credentialJSON)
 	newContents := vc.Contents()
 
-	newContents.Status = status
+	statuses := lo.Filter(status,
+		func(item *TypedID, _ int) bool {
+			return item != nil
+		},
+	)
 
-	if status != nil {
-		newCredJSON[jsonFldStatus] = serializeTypedIDObj(*status)
+	newContents.Status = statuses
+
+	if len(statuses) == 1 {
+		newCredJSON[jsonFldStatus] = serializeTypedIDObj(*statuses[0])
+	} else if len(statuses) > 1 {
+		statusObjects := make([]JSONObject, len(statuses))
+
+		for i, s := range statuses {
+			statusObjects[i] = serializeTypedIDObj(*s)
+		}
+
+		newCredJSON[jsonFldStatus] = statusObjects
 	} else {
 		delete(newCredJSON, jsonFldStatus)
 	}

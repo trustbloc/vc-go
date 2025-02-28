@@ -28,6 +28,9 @@ var (
 
 	//go:embed testdata/v1_credential_without_issuancedate.jsonld
 	v1CredentialWithoutIssuanceDate string //nolint:gochecknoglobals
+
+	//go:embed testdata/v2_valid_credential_multi_status.jsonld
+	v2ValidCredentialMultiStatus string //nolint:gochecknoglobals
 )
 
 var (

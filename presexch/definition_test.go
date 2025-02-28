@@ -3569,7 +3569,7 @@ type credentialProto struct {
 	Issuer         *verifiable.Issuer
 	Issued         *utiltime.TimeWrapper
 	Expired        *utiltime.TimeWrapper
-	Status         *verifiable.TypedID
+	Status         []*verifiable.TypedID
 	Schemas        []verifiable.TypedID
 	Evidence       verifiable.Evidence
 	TermsOfUse     []verifiable.TypedID
