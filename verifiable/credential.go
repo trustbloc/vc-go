@@ -2741,7 +2741,7 @@ func (vc *Credential) WithModifiedStatus(status ...*TypedID) *Credential {
 	if len(statuses) == 1 {
 		newCredJSON[jsonFldStatus] = serializeTypedIDObj(*statuses[0])
 	} else if len(statuses) > 1 {
-		statusObjects := make([]JSONObject, len(statuses))
+		statusObjects := make([]interface{}, len(statuses))
 
 		for i, s := range statuses {
 			statusObjects[i] = serializeTypedIDObj(*s)
