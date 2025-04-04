@@ -62,7 +62,10 @@ func (v *Validator) ValidateStatus(vcStatus *verifiable.TypedID) error {
 		}
 	}
 
-	// TODO: check statusSize
+	err := checkStatusSize(vcStatus)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -70,6 +73,41 @@ func (v *Validator) ValidateStatus(vcStatus *verifiable.TypedID) error {
 func isMissingField(vcStatus *verifiable.TypedID, field string) error {
 	if vcStatus.CustomFields[field] == nil {
 		return fmt.Errorf("%s field does not exist in vc status", field)
+	}
+
+	return nil
+}
+
+func checkStatusSize(vcStatus *verifiable.TypedID) error {
+	statusSizeRaw := vcStatus.CustomFields[StatusSize]
+	if statusSizeRaw == nil {
+		return nil
+	}
+
+	statusSizeF, ok := statusSizeRaw.(float64)
+	if !ok {
+		return errors.New("statusSize must be an integer")
+	}
+
+	statusSize := int(statusSizeF)
+
+	if statusSize <= 0 {
+		return fmt.Errorf("statusSize must be greater than 0, but got %d", statusSize)
+	}
+
+	if statusSize == 1 {
+		return nil
+	}
+
+	possibleStatusSizes := 1<<statusSize - 1
+
+	statusMessages, ok := vcStatus.CustomFields[StatusMessage].([]any)
+	if !ok {
+		return fmt.Errorf("%s must be an array", StatusMessage)
+	}
+
+	if len(statusMessages) != possibleStatusSizes {
+		return fmt.Errorf("the length of %s must be equal to %d", StatusMessage, possibleStatusSizes)
 	}
 
 	return nil
