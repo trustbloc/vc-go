@@ -36,7 +36,7 @@ const (
 	StatusPurpose = "statusPurpose"
 	// StatusSize indicates the size of the status entry in bits.
 	StatusSize = "statusSize"
-	// StatusMessage -
+	// StatusMessage represents custom descriptive messages about the status of the verifiable credential.
 	StatusMessage = "statusMessage"
 )
 
