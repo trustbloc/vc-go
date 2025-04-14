@@ -13,6 +13,9 @@ import (
 	"compress/gzip"
 	"encoding/base64"
 	"errors"
+	"fmt"
+
+	"github.com/multiformats/go-multibase"
 )
 
 const (
@@ -21,10 +24,29 @@ const (
 )
 
 // Decode decodes a compressed bitstring from a base64URL-encoded string.
-func Decode(src string) ([]byte, error) {
-	decodedBits, err := base64.RawURLEncoding.DecodeString(src)
-	if err != nil {
-		return nil, err
+func Decode(src string, opts ...Opt) ([]byte, error) {
+	options := &options{}
+
+	for _, opt := range opts {
+		opt(options)
+	}
+
+	var decodedBits []byte
+
+	if options.multiBaseEncoding {
+		var err error
+
+		_, decodedBits, err = multibase.Decode(src)
+		if err != nil {
+			return nil, fmt.Errorf("decode: %w", err)
+		}
+	} else {
+		var err error
+
+		decodedBits, err = base64.RawURLEncoding.DecodeString(src)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	b := bytes.NewReader(decodedBits)
@@ -70,4 +92,17 @@ func Encode(bitString []byte) (string, error) {
 	}
 
 	return base64.RawURLEncoding.EncodeToString(buf.Bytes()), nil
+}
+
+type Opt func(*options)
+
+type options struct {
+	multiBaseEncoding bool
+}
+
+// WithMultiBaseEncoding sets support of multiBase encoding.
+func WithMultiBaseEncoding(multiBaseEncoding bool) Opt {
+	return func(options *options) {
+		options.multiBaseEncoding = multiBaseEncoding
+	}
 }

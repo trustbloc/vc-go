@@ -102,3 +102,8 @@ func (v *Validator) GetStatusPurpose(vcStatus *verifiable.TypedID) (string, erro
 
 	return statusPurpose, nil
 }
+
+// MultiBaseEncoding indicates that status uses MultiBase encoding.
+func (v *Validator) MultiBaseEncoding() bool {
+	return false
+}

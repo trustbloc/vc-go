@@ -32,11 +32,11 @@ const (
 
 	// StatusPurpose for BitstringStatusList.
 	//  VC.Status.CustomFields key. Only "revocation" value is supported.
-	// TODO: check if it's really only 'revocation'. Spec allows: refresh, revocation, suspension, message
+	// TODO: check if it's really only 'revocation'. Spec allows: refresh, revocation, suspension, message.
 	StatusPurpose = "statusPurpose"
 	// StatusSize indicates the size of the status entry in bits.
 	StatusSize = "statusSize"
-
+	// StatusMessage -
 	StatusMessage = "statusMessage"
 )
 
@@ -146,4 +146,10 @@ func (v *Validator) GetStatusPurpose(vcStatus *verifiable.TypedID) (string, erro
 	}
 
 	return statusPurpose, nil
+}
+
+// MultiBaseEncoding indicates that status uses MultiBase encoding.
+// See https://www.w3.org/TR/cid-1.0/#multibase-0 for more details.
+func (v *Validator) MultiBaseEncoding() bool {
+	return true
 }
