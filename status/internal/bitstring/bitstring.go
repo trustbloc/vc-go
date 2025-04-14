@@ -33,16 +33,14 @@ func Decode(src string, opts ...Opt) ([]byte, error) {
 
 	var decodedBits []byte
 
-	if options.multiBaseEncoding {
-		var err error
+	var err error
 
+	if options.multiBaseEncoding {
 		_, decodedBits, err = multibase.Decode(src)
 		if err != nil {
 			return nil, fmt.Errorf("decode: %w", err)
 		}
 	} else {
-		var err error
-
 		decodedBits, err = base64.RawURLEncoding.DecodeString(src)
 		if err != nil {
 			return nil, err
