@@ -4,9 +4,9 @@ Copyright Avast Software. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-// Package statuslist2021 handles client-side validation and parsing for
-// Credential Status fields of type StatusList2021Type, as per spec: https://w3c-ccg.github.io/vc-status-list-2021/
-package statuslist2021
+// Package bitstringstatus handles client-side validation and parsing for
+// Credential Status fields of type BitstringStatusList, as per spec: https://www.w3.org/TR/vc-bitstring-status-list/
+package bitstringstatus
 
 import (
 	"errors"
@@ -17,10 +17,10 @@ import (
 )
 
 const (
-	// StatusList2021Type represents the implementation of VC Status List 2021.
+	// BitstringStatusListType represents the implementation of Bitstring Status List.
 	//  VC.Status.Type
-	// 	Doc: https://w3c-ccg.github.io/vc-status-list-2021/
-	StatusList2021Type = "StatusList2021Entry"
+	// 	Doc: https://www.w3.org/TR/vc-bitstring-status-list/#bitstringstatuslistentry
+	BitstringStatusListType = "BitstringStatusListEntry"
 
 	// StatusListCredential stores the link to the status list VC.
 	//  VC.Status.CustomFields key.
@@ -30,24 +30,29 @@ const (
 	//  VC.Status.CustomFields key.
 	StatusListIndex = "statusListIndex"
 
-	// StatusPurpose for StatusList2021.
+	// StatusPurpose for BitstringStatusList.
 	//  VC.Status.CustomFields key. Only "revocation" value is supported.
+	// TODO: check if it's really only 'revocation'. Spec allows: refresh, revocation, suspension, message.
 	StatusPurpose = "statusPurpose"
+	// StatusSize indicates the size of the status entry in bits.
+	StatusSize = "statusSize"
+	// StatusMessage represents custom descriptive messages about the status of the verifiable credential.
+	StatusMessage = "statusMessage"
 )
 
-// Validator validates a Verifiable Credential's Status field against the VC Status List 2021 specification, and
+// Validator validates a Verifiable Credential's Status field against the BitstringStatusList specification, and
 // returns fields for status verification.
 //
-// Implements spec: https://w3c.github.io/vc-status-list-2021/#statuslist2021entry
+// Implements spec: https://www.w3.org/TR/vc-bitstring-status-list/#bitstringstatuslistentry
 type Validator struct{}
 
-// ValidateStatus validates that a Verifiable Credential's Status field matches the VC Status List 2021 specification.
+// ValidateStatus validates that a Verifiable Credential's Status field matches the BitstringStatusList specification.
 func (v *Validator) ValidateStatus(vcStatus *verifiable.TypedID) error {
 	if vcStatus == nil {
 		return errors.New("vc status does not exist")
 	}
 
-	if vcStatus.Type != StatusList2021Type {
+	if vcStatus.Type != BitstringStatusListType {
 		return fmt.Errorf("vc status %s not supported", vcStatus.Type)
 	}
 
@@ -57,12 +62,52 @@ func (v *Validator) ValidateStatus(vcStatus *verifiable.TypedID) error {
 		}
 	}
 
+	err := checkStatusSize(vcStatus)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
 func isMissingField(vcStatus *verifiable.TypedID, field string) error {
 	if vcStatus.CustomFields[field] == nil {
 		return fmt.Errorf("%s field does not exist in vc status", field)
+	}
+
+	return nil
+}
+
+func checkStatusSize(vcStatus *verifiable.TypedID) error {
+	statusSizeRaw := vcStatus.CustomFields[StatusSize]
+	if statusSizeRaw == nil {
+		return nil
+	}
+
+	statusSizeF, ok := statusSizeRaw.(float64)
+	if !ok {
+		return errors.New("statusSize must be an integer")
+	}
+
+	statusSize := int(statusSizeF)
+
+	if statusSize <= 0 {
+		return fmt.Errorf("statusSize must be greater than 0, but got %d", statusSize)
+	}
+
+	if statusSize == 1 {
+		return nil
+	}
+
+	possibleStatusSizes := 1<<statusSize - 1
+
+	statusMessages, ok := vcStatus.CustomFields[StatusMessage].([]any)
+	if !ok {
+		return fmt.Errorf("%s must be an array", StatusMessage)
+	}
+
+	if len(statusMessages) != possibleStatusSizes {
+		return fmt.Errorf("the length of %s must be equal to %d", StatusMessage, possibleStatusSizes)
 	}
 
 	return nil
@@ -104,6 +149,7 @@ func (v *Validator) GetStatusPurpose(vcStatus *verifiable.TypedID) (string, erro
 }
 
 // MultiBaseEncoding indicates that status uses MultiBase encoding.
+// See https://www.w3.org/TR/cid-1.0/#multibase-0 for more details.
 func (v *Validator) MultiBaseEncoding() bool {
-	return false
+	return true
 }

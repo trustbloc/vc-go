@@ -349,6 +349,10 @@ func (m *mockValidator) GetStatusPurpose(vcStatus *verifiable.TypedID) (string, 
 	return m.GetStatusPurposeVal, m.GetStatusPurposeErr
 }
 
+func (v *mockValidator) MultiBaseEncoding() bool {
+	return false
+}
+
 type mockResolver struct {
 	Cred *verifiable.Credential
 	Err  error

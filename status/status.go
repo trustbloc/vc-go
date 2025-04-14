@@ -98,7 +98,7 @@ func (c *Client) verifyStatus( //nolint:gocyclo,funlen
 		return errors.New("encodedList must be a string")
 	}
 
-	bitString, err := bitstring.Decode(encodedList)
+	bitString, err := bitstring.Decode(encodedList, bitstring.WithMultiBaseEncoding(validator.MultiBaseEncoding()))
 	if err != nil {
 		return fmt.Errorf("failed to decode bits: %w", err)
 	}
