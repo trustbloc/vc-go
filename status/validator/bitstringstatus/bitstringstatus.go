@@ -17,10 +17,10 @@ import (
 )
 
 const (
-	// BitstringStatusList2021Type represents the implementation of Bitstring Status List.
+	// BitstringStatusListType represents the implementation of Bitstring Status List.
 	//  VC.Status.Type
 	// 	Doc: https://www.w3.org/TR/vc-bitstring-status-list/#bitstringstatuslistentry
-	BitstringStatusList2021Type = "BitstringStatusListEntry"
+	BitstringStatusListType = "BitstringStatusListEntry"
 
 	// StatusListCredential stores the link to the status list VC.
 	//  VC.Status.CustomFields key.
@@ -52,7 +52,7 @@ func (v *Validator) ValidateStatus(vcStatus *verifiable.TypedID) error {
 		return errors.New("vc status does not exist")
 	}
 
-	if vcStatus.Type != BitstringStatusList2021Type {
+	if vcStatus.Type != BitstringStatusListType {
 		return fmt.Errorf("vc status %s not supported", vcStatus.Type)
 	}
 

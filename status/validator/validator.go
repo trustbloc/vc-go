@@ -21,7 +21,7 @@ func GetValidator(statusType string) (api.Validator, error) { //nolint:ireturn
 	switch statusType {
 	case statuslist2021.StatusList2021Type:
 		return &statuslist2021.Validator{}, nil
-	case bitstringstatus.BitstringStatusList2021Type:
+	case bitstringstatus.BitstringStatusListType:
 		return &bitstringstatus.Validator{}, nil
 	default:
 		return nil, fmt.Errorf("unsupported VCStatusListType %s", statusType)
