@@ -19,7 +19,7 @@ import (
 const (
 	issuerPayloadIndex = 1
 )
-
+// test
 // SignParameters contains parameters of signing for cwt vc.
 type SignParameters struct {
 	KeyID  string
