@@ -70,7 +70,7 @@ func TestParse(t *testing.T) {
 	combinedFormatForIssuance, e := token.Serialize(false)
 	r.NoError(e)
 
-	combinedFormatForPresentation := combinedFormatForIssuance + common.CombinedFormatSeparator
+	combinedFormatForPresentation := combinedFormatForIssuance
 
 	verifier := testsupport.NewEd25519Verifier(pubKey)
 
@@ -118,7 +118,7 @@ func TestParse(t *testing.T) {
 		rsaCombinedFormatForIssuance, err := rsaToken.Serialize(false)
 		require.NoError(t, err)
 
-		cfp := fmt.Sprintf("%s%s", rsaCombinedFormatForIssuance, common.CombinedFormatSeparator)
+		cfp := rsaCombinedFormatForIssuance
 
 		claims, err := Parse(cfp, WithSignatureVerifier(v), WithExpectedTypHeader("JWT"))
 		r.NoError(err)
@@ -141,7 +141,7 @@ func TestParse(t *testing.T) {
 		cfIssuance, e := tokenWithTimes.Serialize(false)
 		r.NoError(e)
 
-		cfPresentation := fmt.Sprintf("%s%s", cfIssuance, common.CombinedFormatSeparator)
+		cfPresentation := cfIssuance
 
 		claims, err := Parse(cfPresentation, WithSignatureVerifier(verifier))
 		r.NoError(err)
@@ -167,7 +167,7 @@ func TestParse(t *testing.T) {
 	})
 
 	t.Run("error - additional disclosure", func(t *testing.T) {
-		claims, err := Parse(fmt.Sprintf("%s~%s~", combinedFormatForIssuance, additionalDisclosure),
+		claims, err := Parse(fmt.Sprintf("%s%s~", combinedFormatForIssuance, additionalDisclosure),
 			WithSignatureVerifier(verifier))
 		r.Error(err)
 		r.Nil(claims)
