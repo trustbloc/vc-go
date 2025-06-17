@@ -82,9 +82,9 @@ type CombinedFormatForIssuance struct {
 
 // Serialize will assemble combined format for issuance.
 func (cf *CombinedFormatForIssuance) Serialize() string {
-	presentation := cf.SDJWT
+	presentation := cf.SDJWT + CombinedFormatSeparator
 	for _, disclosure := range cf.Disclosures {
-		presentation += CombinedFormatSeparator + disclosure
+		presentation += disclosure + CombinedFormatSeparator
 	}
 
 	return presentation
@@ -103,13 +103,9 @@ type CombinedFormatForPresentation struct {
 
 // Serialize will assemble combined format for presentation.
 func (cf *CombinedFormatForPresentation) Serialize() string {
-	presentation := cf.SDJWT
+	presentation := cf.SDJWT + CombinedFormatSeparator
 	for _, disclosure := range cf.Disclosures {
-		presentation += CombinedFormatSeparator + disclosure
-	}
-
-	if len(cf.Disclosures) > 0 || cf.HolderVerification != "" {
-		presentation += CombinedFormatSeparator
+		presentation += disclosure + CombinedFormatSeparator
 	}
 
 	presentation += cf.HolderVerification
@@ -152,8 +148,8 @@ func ParseCombinedFormatForIssuance(combinedFormatForIssuance string) *CombinedF
 	parts := strings.Split(combinedFormatForIssuance, CombinedFormatSeparator)
 
 	var disclosures []string
-	if len(parts) > 1 {
-		disclosures = parts[1:]
+	if len(parts) > 2 {
+		disclosures = parts[1 : len(parts)-1]
 	}
 
 	sdJWT := parts[0]

@@ -15,7 +15,6 @@ import (
 	"github.com/trustbloc/vc-go/crypto-ext/testutil"
 	"github.com/trustbloc/vc-go/proof/checker"
 	"github.com/trustbloc/vc-go/proof/testsupport"
-	"github.com/trustbloc/vc-go/sdjwt/common"
 	"github.com/trustbloc/vc-go/sdjwt/holder"
 	"github.com/trustbloc/vc-go/sdjwt/issuer"
 )
@@ -49,7 +48,7 @@ func ExampleParse() {
 	}
 
 	// The Holder will disclose all claims.
-	combinedFormatForPresentation := combinedFormatForIssuance + common.CombinedFormatSeparator
+	combinedFormatForPresentation := combinedFormatForIssuance
 
 	// Verifier will validate combined format for presentation and create verified claims.
 	verifiedClaims, err := Parse(combinedFormatForPresentation,
