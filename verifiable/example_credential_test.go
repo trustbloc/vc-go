@@ -412,7 +412,7 @@ func ExampleCredential_AddLinkedDataProof() {
 }
 
 //nolint:govet
-func ExampleCredential_AddLinkedDataProofMultiProofs() {
+func ExampleCredential_addLinkedDataProofMultiProofs() {
 	vc, err := verifiable.ParseCredential([]byte(vcJSON),
 		verifiable.WithDisabledProofCheck(),
 		verifiable.WithJSONLDDocumentLoader(getJSONLDDocumentLoader()))

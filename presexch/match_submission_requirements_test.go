@@ -60,7 +60,7 @@ const (
 	driversLicenseVCType = "DriversLicense"
 )
 
-func TestInstance_GetSubmissionRequirements(t *testing.T) {
+func TestInstanceGetSubmissionRequirements(t *testing.T) {
 	docLoader := createTestJSONLDDocumentLoader(t)
 
 	contents := [][]byte{

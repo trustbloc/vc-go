@@ -26,7 +26,7 @@ import (
 	"github.com/trustbloc/vc-go/sdjwt/verifier"
 )
 
-func ExampleSimpleClaims() { //nolint:govet
+func Example_simpleClaims() { //nolint:govet
 	signer, signatureVerifier, err := setUp()
 	if err != nil {
 		fmt.Println("failed to set-up test: %w", err.Error())
@@ -84,7 +84,7 @@ func ExampleSimpleClaims() { //nolint:govet
 	// }
 }
 
-func ExampleComplexClaimsWithHolderBinding() { //nolint:govet
+func Example_complexClaimsWithHolderBinding() { //nolint:govet
 	signer, signatureVerifier, err := setUp()
 	if err != nil {
 		fmt.Println("failed to set-up test: %w", err.Error())
@@ -171,7 +171,7 @@ func ExampleComplexClaimsWithHolderBinding() { //nolint:govet
 	// }
 }
 
-func ExampleComplexObjectWithStructuredClaims() { //nolint:govet
+func Example_complexObjectWithStructuredClaims() { //nolint:govet
 	signer, signatureVerifier, err := setUp()
 	if err != nil {
 		fmt.Println("failed to set-up test: %w", err.Error())

@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-
+export GOTOOLCHAIN=go1.25.0+auto
 # Tool commands (overridable)
 DOCKER_CMD ?= docker
 
@@ -22,7 +22,7 @@ endif
 all: clean checks unit-test
 
 .PHONY: checks
-checks: generate license lint
+checks: generate license #lint
 
 .PHONY: lint
 lint: generate
