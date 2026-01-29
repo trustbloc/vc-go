@@ -26,7 +26,7 @@ require (
 	github.com/theory/jsonpath v0.10.2
 	github.com/tidwall/gjson v1.18.0
 	github.com/tidwall/sjson v1.1.4
-	github.com/trustbloc/bbs-signature-go v1.0.3
+	github.com/trustbloc/bbs-signature-go v1.0.4
 	github.com/trustbloc/did-go v1.3.5
 	github.com/trustbloc/kms-go v1.2.3
 	github.com/veraison/go-cose v1.3.0
@@ -35,8 +35,8 @@ require (
 )
 
 require (
-	github.com/IBM/mathlib v0.0.3-0.20250709075152-a138079496c3 // indirect
-	github.com/bits-and-blooms/bitset v1.24.2 // indirect
+	github.com/IBM/mathlib v0.0.3-0.20260123144934-21c357e3e46f // indirect
+	github.com/bits-and-blooms/bitset v1.24.4 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/consensys/gnark-crypto v0.19.2 // indirect
@@ -60,9 +60,9 @@ require (
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
-	golang.org/x/crypto v0.43.0 // indirect
-	golang.org/x/sys v0.37.0 // indirect
-	golang.org/x/text v0.30.0 // indirect
+	golang.org/x/crypto v0.47.0 // indirect
+	golang.org/x/sys v0.40.0 // indirect
+	golang.org/x/text v0.33.0 // indirect
 	google.golang.org/protobuf v1.36.10 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
